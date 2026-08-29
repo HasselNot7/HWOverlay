@@ -1,4 +1,4 @@
-"""配置写入路径的测试：校验不过就不落盘、原子替换、备份与回滚。
+"""配置写入路径的测试：校验不过就不落盘、原子替换、备份与回滚、v1 迁移。
 
 直接对临时副本调用 config.save/rollback，不依赖服务在跑。
 曾经测出的真 bug：请求体是 JSON 数组时 validate() 先于结构检查执行，
@@ -41,7 +41,25 @@ def fresh():
 
 cfg = json.loads(REAL.read_text(encoding="utf-8"))
 
-print("[结构底线：畸形请求体不能崩]")
+print("[v1 -> v2 迁移]")
+v1 = json.loads(json.dumps(cfg))
+v1.pop("version", None)
+v1["rows"], v1["widgets"] = v1["widgets"], None
+m = config.migrate(v1)
+check("rows 改名为 widgets", m["widgets"] == cfg["widgets"] and "rows" not in m)
+check("版本号补成 2", m["version"] == 2)
+check("v2 原样返回（不深拷贝也行）", config.migrate(cfg) is cfg)
+check("非 dict 不炸", config.migrate([1]) == [1])
+td, p = fresh()
+p.write_text(json.dumps(v1), encoding="utf-8")     # 磁盘上放一份 v1
+r = config.read(p)
+check("read() 读 v1 得到 v2", r["widgets"] == cfg["widgets"] and "rows" not in r)
+saved, rep = config.save(v1, path=p)
+check("v1 入参保存成功且落盘为 v2",
+      saved and json.loads(p.read_text(encoding="utf-8"))["version"] == 2, str(rep["errors"]))
+td.cleanup()
+
+print("\n[结构底线：畸形请求体不能崩]")
 for name, junk in [("数组", [1, 2, 3]), ("null", None), ("字符串", "hello"), ("数字", 42)]:
     try:
         saved, rep = config.save(junk)
@@ -52,20 +70,21 @@ for name, junk in [("数组", [1, 2, 3]), ("null", None), ("字符串", "hello")
 td, p = fresh()
 before = p.read_text(encoding="utf-8")
 bad = json.loads(json.dumps(cfg))
-bad["rows"] = []
+bad["widgets"] = []
 saved, rep = config.save(bad, path=p)
-check("rows 为空被拒", not saved and any("rows" in e for e in rep["errors"]), str(rep["errors"]))
+check("widgets 为空被拒", not saved and any("widgets" in e for e in rep["errors"]),
+      str(rep["errors"]))
 check("被拒时文件一字节未动", p.read_text(encoding="utf-8") == before)
 
 print("\n[校验不过就不落盘]")
 bad2 = json.loads(json.dumps(cfg))
-bad2["rows"][1]["items"].append("gpu.does_not_exist")
+bad2["widgets"][1]["items"].append("gpu.does_not_exist")
 saved, rep = config.save(bad2, path=p)
 check("引用不存在的路径被拒", not saved and any("does_not_exist" in e for e in rep["errors"]))
 check("文件仍未改动", p.read_text(encoding="utf-8") == before)
 
 too_tall = json.loads(json.dumps(cfg))
-too_tall["rows"][0]["cols"] = 3          # 4 张卡塞 3 列 -> 换行 -> 底部被裁
+too_tall["widgets"][0]["cols"] = 3     # 4 张卡塞 3 列 -> 换行 -> 底部被裁
 saved, rep = config.save(too_tall, path=p)
 check("会导致裁切的版式被拒", not saved and any("裁" in e for e in rep["errors"]), str(rep["errors"]))
 check("裁切版式同样没落盘", p.read_text(encoding="utf-8") == before)
@@ -86,6 +105,8 @@ saved, rep = config.rollback(path=p)
 check("回滚成功", saved and json.loads(p.read_text(encoding="utf-8"))["canvas"]["h"] == base_h)
 
 print("\n[幂等与边界]")
+saved, rep = config.save(cfg, path=p)   # 先规范一次排版（回滚恢复的是原始排版，字节不同）
+check("语义相同的保存成功并规范格式", saved, str(rep["errors"]))
 before2 = p.read_text(encoding="utf-8")
 baks = list(p.parent.glob("*.bak"))
 saved, rep = config.save(cfg, path=p)

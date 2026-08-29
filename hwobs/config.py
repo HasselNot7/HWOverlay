@@ -1,6 +1,7 @@
 """版式配置的读写。
 
 规矩：
+- 读入即迁移：v1（rows）读到内存就变成 v2（widgets），上层只见 v2；落盘一律 v2。
 - 写之前先过校验，有 error 就不落盘（用户手滑填个 cols=0 不该让叠加层黑掉）。
 - 覆盖前备份成 .bak，并提供回滚。
 - 用 os.replace 原子替换：半份 JSON 会让 OBS 浏览器源直接白屏。
@@ -15,9 +16,22 @@ from .aida import controller
 
 OVERLAY_FILE = paths.overlay_path("monitor")
 
+SCHEMA_VERSION = 2
+
+
+def migrate(cfg):
+    """v1 -> v2：rows 改名 widgets，补上版本号。v2 原样返回，非 dict 原样返回。"""
+    if not isinstance(cfg, dict) or cfg.get("version") == SCHEMA_VERSION:
+        return cfg
+    out = dict(cfg)
+    out["version"] = SCHEMA_VERSION
+    if "rows" in out:
+        out["widgets"] = out.pop("rows")
+    return out
+
 
 def read(path=OVERLAY_FILE):
-    return json.loads(path.read_text(encoding="utf-8"))
+    return migrate(json.loads(path.read_text(encoding="utf-8")))
 
 
 def _backup(path):
@@ -30,6 +44,7 @@ def _backup(path):
 
 def validate(cfg, path=OVERLAY_FILE):
     """不写盘的预检：版式校验 + 导出预算。结构不合法时只报错误，不往下走。"""
+    cfg = migrate(cfg)
     problem = _sane(cfg)
     if problem:
         return {"errors": [problem], "warnings": [], "est_height": 0,
@@ -48,8 +63,8 @@ def _sane(cfg):
     """结构底线。校验器假设这些存在，缺了会抛异常而不是给出好读的报错。"""
     if not isinstance(cfg, dict):
         return "配置必须是 JSON 对象"
-    if not isinstance(cfg.get("rows"), list) or not cfg["rows"]:
-        return "rows 必须是非空数组"
+    if not isinstance(cfg.get("widgets"), list) or not cfg["widgets"]:
+        return "widgets 必须是非空数组"
     canvas = cfg.get("canvas")
     if not isinstance(canvas, dict):
         return "缺少 canvas 对象"
@@ -61,17 +76,19 @@ def _sane(cfg):
 
 
 def save(cfg, path=OVERLAY_FILE):
-    """校验通过才写。返回 (是否写入, 校验报告)。"""
+    """校验通过才写。返回 (是否写入, 校验报告)。入参可以是 v1，落盘一律 v2。"""
+    cfg = migrate(cfg)
     rep = validate(cfg, path)
     if rep["errors"]:
         return False, rep                    # 有错误就不落盘
 
     text = json.dumps(cfg, ensure_ascii=False, indent=2) + "\n"
-    # 按语义比对，不能比文本：写入会重排版（indent=2 把紧凑数组摊开），
-    # 比文本会让每次保存都算"有变化"，白白重写并把回滚依赖的 .bak 覆盖掉。
+    # 语义比对：内容没变就不动文件。但若磁盘上还是 v1（或排版不同），
+    # 借这次保存把文件升级成 v2 规范形式 —— "落盘一律 v2" 才成立。
     if path.is_file():
         try:
-            if json.loads(path.read_text(encoding="utf-8")) == json.loads(text):
+            raw = path.read_text(encoding="utf-8")
+            if migrate(json.loads(raw)) == cfg and raw == text:
                 rep["unchanged"] = True
                 return True, rep
         except ValueError:

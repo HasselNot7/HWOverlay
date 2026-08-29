@@ -4,22 +4,43 @@
 chips 被顶到 bottom=204 而 body 只有 170，底部整块消失且没有任何提示。
 管理界面允许用户改版式，就必须先有这道校验，否则每个用户都会踩一遍。
 
-高度常量是从 monitor.html 现有 CSS 量出来的，改样式要同步改这里。
+v2 之后校验器的几何全部来自配置本身（部件注册表 widgets.py 的默认值 + 用户的
+覆盖值），渲染器按同一份配置内联应用样式 —— 改字号、改内边距不再需要"同步改这里"。
 """
 
-import math
-
-from . import refs
-
-# 单位 px，对应 monitor.html 的当前样式
-BODY_PADDING = 12 * 2
-PROMPT_H = 33          # 19px 行高 + 10 margin
-CARD_H = 66            # 标题 21 + gap 5 + 进度条 18 + gap 5 + 次要行 17
-CHIPS_H = 28           # 15px 行高 + 10 margin
+from . import refs, widgets
 
 
 def _known_paths(reg):
     return {m["out"] for m in reg["metrics"] if m.get("out")} | {m["id"] for m in reg["metrics"]}
+
+
+def _canvas_check(cfg, errors):
+    """画布与内边距。返回 (内容宽, 内容高, 垂直内边距×2)。"""
+    canvas = cfg.get("canvas", {})
+    width, height = canvas.get("w"), canvas.get("h")
+    if not width or not height:
+        errors.append("canvas.w / canvas.h 必须设置，OBS 源尺寸要用它")
+
+    pad = canvas.get("padding", [12, 24])
+    if (not isinstance(pad, list) or len(pad) != 2
+            or not all(isinstance(v, int) and 0 <= v <= 200 for v in pad)):
+        errors.append(f"canvas.padding 必须是 [垂直, 水平] 两个 0~200 的整数（现在是 {pad!r}）")
+        pad = [12, 24]
+    return width, height, pad[0] * 2
+
+
+def _prompt_check(cfg, errors):
+    """顶部提示行。有 prompt 才占高；字号非法就报错并按默认 19px 算。"""
+    p = cfg.get("prompt")
+    if not p:
+        return 0
+    size = p.get("size", 19)
+    if not isinstance(size, int) or not 8 <= size <= 60:
+        errors.append(f"prompt.size 必须是 8~60 的整数（现在是 {size!r}）")
+        size = 19
+    # 量测口径与部件一致：字号行高 1.2 + margin 10
+    return round(size * 1.2) + 10
 
 
 def check(cfg, reg=None, plan=None):
@@ -29,35 +50,26 @@ def check(cfg, reg=None, plan=None):
         reg = registry.load()
     errors, warnings = [], []
 
-    canvas = cfg.get("canvas", {})
-    height = canvas.get("h")
-    if not canvas.get("w") or not height:
-        errors.append("canvas.w / canvas.h 必须设置，OBS 源尺寸要用它")
-
-    used = BODY_PADDING + (PROMPT_H if cfg.get("prompt") else 0)
+    width, height, used = _canvas_check(cfg, errors)
+    used += _prompt_check(cfg, errors)
     known = _known_paths(reg)
     referenced = []
 
-    for i, row in enumerate(cfg.get("rows", [])):
-        rtype = row.get("type")
-        if rtype == "cards":
-            cols = row.get("cols", 4)
-            items = row.get("items", [])
-            if cols < 1:
-                errors.append(f"第 {i+1} 行 cols 必须 ≥ 1")
-                continue
-            if items and len(items) % cols:
-                warnings.append(f"第 {i+1} 行有 {len(items)} 张卡片但 cols={cols}，"
-                                f"最后一行不满 {cols - len(items) % cols} 张")
-            rows_needed = math.ceil(len(items) / cols) if items else 0
-            used += rows_needed * CARD_H + max(0, rows_needed - 1) * row.get("gap", 32)
-        elif rtype == "chips":
-            used += CHIPS_H
-        else:
-            errors.append(f"第 {i+1} 行 type={rtype!r} 不认识，会被直接跳过")
-        referenced += refs.iter_refs(row)
+    for i, w in enumerate(refs.widget_list(cfg)):
+        entry = widgets.get(w.get("type") if isinstance(w, dict) else None)
+        if entry is None:
+            errors.append(f"第 {i+1} 个部件 type={w.get('type') if isinstance(w, dict) else w!r} "
+                          f"不认识，会被直接跳过")
+            referenced += refs.iter_refs(w)
+            continue
+        w_errors, w_warnings = [], []
+        entry["validate"](w, w_errors, w_warnings)
+        errors += [f"第 {i+1} 个部件（{w.get('type')}）：{e}" for e in w_errors]
+        warnings += [f"第 {i+1} 个部件（{w.get('type')}）：{e}" for e in w_warnings]
+        used += entry["height"](w)
+        referenced += refs.iter_refs(w)
 
-    for node in refs.iter_composites(cfg.get("rows", [])):
+    for node in refs.iter_composites(refs.widget_list(cfg)):
         warnings.append(f"{node} 没有 unit，会显示成裸数字（没有单位）")
 
     unknown = sorted({p for p in referenced if p not in known})
@@ -73,5 +85,5 @@ def check(cfg, reg=None, plan=None):
                         f"超过可用的 {plan['usable']}：从第 {plan['truncated_at']+1} 个起会被 AIDA64 截断")
 
     return {"errors": errors, "warnings": warnings, "est_height": used,
-            "canvas_w": canvas.get("w"), "canvas_h": height,
+            "canvas_w": width, "canvas_h": height,
             "referenced": sorted(set(referenced)), "ok": not errors}
