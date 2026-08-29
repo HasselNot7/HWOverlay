@@ -14,6 +14,7 @@ import json
 import re
 from pathlib import Path
 
+from ..calibrate import read_profile   # 单向依赖：calibrate 不认识 registry，无循环
 from ..metrics import TO_MBS, TO_MBPS, num, pick
 
 REGISTRY_FILE = Path(__file__).resolve().parent / "metrics.json"
@@ -24,7 +25,10 @@ _CACHED = None
 def load(path=REGISTRY_FILE):
     global _CACHED
     if _CACHED is None:
-        _CACHED = json.loads(path.read_text(encoding="utf-8"))
+        reg = json.loads(path.read_text(encoding="utf-8"))
+        # 标定过就用量出来的数，覆盖按单位名猜的换算表（没标定过是 None）
+        reg["_bytes_per_unit"] = read_profile()
+        _CACHED = reg
     return _CACHED
 
 
@@ -34,16 +38,17 @@ def reload_():
     return load()
 
 
-def _convert(m, raw_total, rate_unit):
+def _convert(m, raw_total, rate_unit, bytes_per_unit=None):
     kind = m.get("convert")
     if kind == "rate_to_mbps":
-        return raw_total * TO_MBPS[rate_unit]
+        return raw_total * 8 / bytes_per_unit if bytes_per_unit else raw_total * TO_MBPS[rate_unit]
     if kind == "rate_to_mb_per_s":
-        return raw_total * TO_MBS[rate_unit]
+        return (raw_total * bytes_per_unit / 1024 ** 2 if bytes_per_unit
+                else raw_total * TO_MBS[rate_unit])
     return raw_total
 
 
-def _aggregate(sensors, m, rate_unit):
+def _aggregate(sensors, m, rate_unit, bytes_per_unit=None):
     rx = re.compile(m["regex"])
     vals = [num(raw) for sid, (_label, raw) in sensors.items() if rx.match(sid)]
     vals = [v for v in vals if v is not None]
@@ -53,7 +58,7 @@ def _aggregate(sensors, m, rate_unit):
         return max(vals)
     if m["agg"] == "regex_min":
         return min(vals)
-    return round(_convert(m, sum(vals), rate_unit), 2)
+    return round(_convert(m, sum(vals), rate_unit, bytes_per_unit), 2)
 
 
 def resolve(sensors, reg=None):
@@ -71,7 +76,7 @@ def resolve(sensors, reg=None):
                 missing.append(ids[0])
             values[m["id"]] = val
         elif m.get("agg"):
-            values[m["id"]] = _aggregate(sensors, m, rate_unit)
+            values[m["id"]] = _aggregate(sensors, m, rate_unit, reg.get("_bytes_per_unit"))
 
     # 派生量单独一轮，这样 JSON 里的条目顺序不会静默影响结果
     for m in reg["metrics"]:
