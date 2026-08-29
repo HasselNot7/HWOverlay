@@ -9,10 +9,11 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from urllib.parse import unquote
 
-from . import overlay
+from . import overlay, registry
 
 ROOT = Path(__file__).resolve().parent.parent
 HTML_FILE = ROOT / "monitor.html"
+OVERLAY_FILE = ROOT / "overlays" / "monitor.json"
 
 
 class Handler(BaseHTTPRequestHandler):
@@ -37,6 +38,10 @@ class Handler(BaseHTTPRequestHandler):
         route = unquote(self.path.split("?", 1)[0])
         if route == "/hw.json":
             self._json(overlay.snapshot())
+        elif route == "/overlay.json":
+            self._json(self._overlay_config())
+        elif route == "/metrics.json":
+            self._json(registry.load())
         elif route == "/sensors":
             self._json(overlay.debug_dump())
         elif route in ("/", "/index.html", "/" + HTML_FILE.name):
@@ -46,6 +51,10 @@ class Handler(BaseHTTPRequestHandler):
                 self._send(404, b"monitor html not found", "text/plain")
         else:
             self._send(404, b"not found", "text/plain")
+
+    @staticmethod
+    def _overlay_config():
+        return json.loads(OVERLAY_FILE.read_text(encoding="utf-8"))
 
 
 def create_server(port):

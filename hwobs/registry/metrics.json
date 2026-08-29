@@ -18,7 +18,8 @@
       "sources": { "aida64": ["TCPUSOCK"] } },
 
     { "id": "cpu_clock", "out": "cpu.clock_mhz", "name": "CPU 主频", "kind": "gauge",
-      "unit": "MHz", "digits": 0, "sources": { "aida64": ["SCPUCLK"] } },
+      "unit": "GHz", "digits": 2, "divide": 1000,
+      "sources": { "aida64": ["SCPUCLK"] } },
 
     { "id": "cpu_power", "out": "cpu.power_w", "name": "CPU 功耗", "kind": "gauge",
       "unit": "W", "digits": 1, "sources": { "aida64": ["PCPUPKG", "PCPU"] } },
