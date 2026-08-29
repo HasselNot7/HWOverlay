@@ -12,12 +12,12 @@
 
 import json
 import re
-from pathlib import Path
 
+from .. import paths
 from ..calibrate import read_profile   # 单向依赖：calibrate 不认识 registry，无循环
 from ..metrics import TO_MBS, TO_MBPS, num, pick
 
-REGISTRY_FILE = Path(__file__).resolve().parent / "metrics.json"
+REGISTRY_FILE = paths.resource("hwobs/registry/metrics.json")
 
 _CACHED = None
 

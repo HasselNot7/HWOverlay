@@ -9,12 +9,11 @@
 
 import json
 import os
-from pathlib import Path
 
-from . import layout
+from . import layout, paths
 from .aida import controller
 
-OVERLAY_FILE = Path(__file__).resolve().parent.parent / "overlays" / "monitor.json"
+OVERLAY_FILE = paths.overlay_path("monitor")
 
 
 def read(path=OVERLAY_FILE):

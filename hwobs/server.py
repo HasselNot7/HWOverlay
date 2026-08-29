@@ -6,17 +6,15 @@
 
 import json
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
-from pathlib import Path
 from urllib.parse import unquote
 
-from . import config, overlay, registry
+from . import config, overlay, paths, registry
 from .aida import controller
 from .sources import winapi
 
-ROOT = Path(__file__).resolve().parent.parent
-HTML_FILE = ROOT / "monitor.html"
+HTML_FILE = paths.resource("monitor.html")
 OVERLAY_FILE = config.OVERLAY_FILE
-WEB_DIR = Path(__file__).resolve().parent / "web"
+WEB_DIR = paths.resource("hwobs/web")
 read_overlay_config = config.read
 
 
