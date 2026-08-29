@@ -12,7 +12,7 @@ import subprocess
 import time
 from pathlib import Path
 
-from .. import budget, registry
+from .. import budget, registry, refs
 from ..metrics import DISK_RX, NIC_RX
 from ..sources import aida64
 from . import ini
@@ -75,7 +75,8 @@ def runtime_ids(sensors):
 def needed_ids(overlay_cfg, reg=None, sensors=None):
     """版式实际引用到的输出路径 -> 需要导出的传感器 ID。
 
-    三条容易漏的取数路径，漏一条 apply() 就会把版式在用的传感器删掉：
+    版式树的遍历只有 refs 模块一份（历史上各写一份曾漏收三类路径，apply
+    一旦执行会把版式在用的传感器删掉）。本函数只负责"路径 -> 传感器 ID"：
       - sources.aida64：候选 ID 全收，候选是为跨主板兜底存在的
       - sum_of：派生量的依赖要递归展开（显存总量 = 已用 + 空闲，"空闲"也得导）
       - agg：这类指标只有正则没有 ID，要拿当前已导出的 ID 去匹配
@@ -85,23 +86,7 @@ def needed_ids(overlay_cfg, reg=None, sensors=None):
     by_id = {m["id"]: m for m in reg["metrics"]}
     sensors = sensors or {}
 
-    paths = []
-
-    def collect(node):
-        if isinstance(node, str):
-            paths.append(node)          # items/metrics 列表里的裸路径字符串
-        elif isinstance(node, dict):
-            for k in ("metric", "bar", "spark"):
-                if isinstance(node.get(k), str):
-                    paths.append(node[k])
-            for k in ("metrics", "pair", "diff", "items", "value", "sub"):
-                if k in node:
-                    collect(node[k])
-        elif isinstance(node, list):
-            for x in node:
-                collect(x)
-
-    collect(overlay_cfg.get("rows", []))
+    paths = refs.collect_refs(overlay_cfg)
 
     ids, seen = [], set()
 

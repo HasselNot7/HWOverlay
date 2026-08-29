@@ -9,47 +9,13 @@ chips 被顶到 bottom=204 而 body 只有 170，底部整块消失且没有任�
 
 import math
 
+from . import refs
+
 # 单位 px，对应 monitor.html 的当前样式
 BODY_PADDING = 12 * 2
 PROMPT_H = 33          # 19px 行高 + 10 margin
 CARD_H = 66            # 标题 21 + gap 5 + 进度条 18 + gap 5 + 次要行 17
 CHIPS_H = 28           # 15px 行高 + 10 margin
-
-# 单个传感器在共享内存里的最坏成本（budget.entry_cost 用默认 label 长度算出来的）
-CHIP_MIN_FONT_PX = 13
-CHAR_PX_PER_FONT = 0.62     # 等宽字体下 1 字符 ≈ 0.62 × font-size
-
-
-def _paths_of(node, out=None):
-    out = [] if out is None else out
-    if isinstance(node, str):
-        out.append(node)
-    elif isinstance(node, dict):
-        for k in ("metric", "bar", "spark"):
-            if isinstance(node.get(k), str):
-                out.append(node[k])
-        for k in ("metrics", "pair", "diff", "items", "value", "sub"):
-            if k in node:
-                _paths_of(node[k], out)
-    elif isinstance(node, list):
-        for x in node:
-            _paths_of(x, out)
-    return out
-
-
-def _unitless_composites(node, out=None):
-    """pair/diff 没有 unit 就会显示成裸数字，这类节点散落在卡片和 chips 里，递归找。"""
-    out = [] if out is None else out
-    if isinstance(node, dict):
-        for k in ("pair", "diff"):
-            if node.get(k) and not node.get("unit"):
-                out.append(f"{k}={','.join(node[k])}")
-        for v in node.values():
-            _unitless_composites(v, out)
-    elif isinstance(node, list):
-        for x in node:
-            _unitless_composites(x, out)
-    return out
 
 
 def _known_paths(reg):
@@ -85,15 +51,13 @@ def check(cfg, reg=None, plan=None):
                                 f"最后一行不满 {cols - len(items) % cols} 张")
             rows_needed = math.ceil(len(items) / cols) if items else 0
             used += rows_needed * CARD_H + max(0, rows_needed - 1) * row.get("gap", 32)
-            referenced += _paths_of(items)
         elif rtype == "chips":
-            items = row.get("items", [])
             used += CHIPS_H
-            referenced += _paths_of(items)
         else:
             errors.append(f"第 {i+1} 行 type={rtype!r} 不认识，会被直接跳过")
+        referenced += refs.iter_refs(row)
 
-    for node in _unitless_composites(cfg.get("rows", [])):
+    for node in refs.iter_composites(cfg.get("rows", [])):
         warnings.append(f"{node} 没有 unit，会显示成裸数字（没有单位）")
 
     unknown = sorted({p for p in referenced if p not in known})
