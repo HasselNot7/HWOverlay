@@ -14,12 +14,11 @@ import json
 import math
 import re
 import statistics
-import subprocess
 import time
 from datetime import datetime, timezone
 from pathlib import Path
 
-from .sources import aida64
+from .sources import aida64, winapi
 
 ROOT = Path(__file__).resolve().parent.parent
 PROFILE = ROOT / "profiles" / "rate_unit.json"
@@ -34,18 +33,6 @@ CANDIDATES = [
 
 HIGH_BYTES = 20 * 1024 * 1024      # 窗口内至少这么多流量才敢给 high
 MEDIUM_BYTES = 2 * 1024 * 1024
-
-
-def _net_bytes():
-    """Windows 自己记的网卡累计字节（所有适配器求和，未连接的恒为 0 不影响差值）。"""
-    out = subprocess.run(
-        ["powershell", "-NoProfile", "-Command",
-         "(Get-NetAdapterStatistics | Measure-Object -Property SentBytes -Sum).Sum;"
-         "(Get-NetAdapterStatistics | Measure-Object -Property ReceivedBytes -Sum).Sum"],
-        capture_output=True, text=True).stdout.split()
-    if len(out) < 2:
-        raise RuntimeError(f"取不到网卡计数：{out!r}")
-    return int(float(out[0])), int(float(out[1]))
 
 
 def _aida_sum(direction):
@@ -85,7 +72,7 @@ def measure(seconds=8.0):
         u, d = _aida_sum("UL"), _aida_sum("DL")
         if u is None or d is None:
             return {"ok": False, "reason": "AIDA64 没在导出 SNIC* 速率传感器，无法标定"}
-        s, r = _net_bytes()
+        s, r = winapi.net_bytes_total()
         pairs.append((time.time(), s, r, u, d))
         time.sleep(SAMPLE_INTERVAL)
     if len(pairs) < 4:

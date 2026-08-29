@@ -61,9 +61,14 @@ def _aggregate(sensors, m, rate_unit, bytes_per_unit=None):
     return round(_convert(m, sum(vals), rate_unit, bytes_per_unit), 2)
 
 
-def resolve(sensors, reg=None):
-    """返回 (指标值, 命中的传感器ID, 缺失的候选ID列表)。"""
+def resolve(sensors, reg=None, fallbacks=None):
+    """返回 (指标值, 命中的传感器ID, 缺失的候选ID列表)。
+
+    fallbacks: {兜底键: 数值}，例如 {"net_up": 6.32, "net_down": 0.4}。
+    只填声明了 winapi_fallback 且 AIDA64 没给值的指标 —— 逐指标降级，不整体换源。
+    """
     reg = reg or load()
+    fallbacks = fallbacks or {}
     rate_unit = reg["rate_unit"]
     values, matched, missing = {}, {}, []
 
@@ -77,6 +82,10 @@ def resolve(sensors, reg=None):
             values[m["id"]] = val
         elif m.get("agg"):
             values[m["id"]] = _aggregate(sensors, m, rate_unit, reg.get("_bytes_per_unit"))
+        fb = m.get("winapi_fallback")
+        if fb and values.get(m["id"]) is None and fallbacks.get(fb) is not None:
+            values[m["id"]] = fallbacks[fb]
+            matched[m["id"]] = "winapi"
 
     # 派生量单独一轮，这样 JSON 里的条目顺序不会静默影响结果
     for m in reg["metrics"]:

@@ -48,6 +48,9 @@
     /* AIDA64 数据断了就把整条压暗，直播时一眼能看出来 */
     body.offline { opacity: 0.45; }
 
+    /* 只剩 Windows 自带指标：轻度提示，数字还在动，不能压太暗 */
+    body.degraded { opacity: 0.75; }
+
     .prompt-line {
       font-size: 19px;
       font-weight: 700;
@@ -368,6 +371,7 @@
 
     function render() {
       document.body.classList.toggle('offline', !HW);
+      document.body.classList.toggle('degraded', !!(HW && HW.degraded));
       renderCards();
       renderChips();
     }

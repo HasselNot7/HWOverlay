@@ -100,11 +100,11 @@
       "unit": "GB", "digits": 1, "sources": { "winapi": "memory" } },
 
     { "id": "net_up", "out": "net.up_mbps", "name": "上行速率", "kind": "rate",
-      "unit": "Mbps", "digits": 2, "rate_untrusted": true,
+      "unit": "Mbps", "digits": 2, "rate_untrusted": true, "winapi_fallback": "net_up",
       "agg": "regex_sum", "regex": "^SNIC(\\d+)ULRATE$", "convert": "rate_to_mbps" },
 
     { "id": "net_down", "out": "net.down_mbps", "name": "下行速率", "kind": "rate",
-      "unit": "Mbps", "digits": 2, "rate_untrusted": true,
+      "unit": "Mbps", "digits": 2, "rate_untrusted": true, "winapi_fallback": "net_down",
       "agg": "regex_sum", "regex": "^SNIC(\\d+)DLRATE$", "convert": "rate_to_mbps" },
 
     { "id": "wifi_rssi", "out": "net.wifi_dbm", "name": "WiFi 信号", "kind": "gauge",

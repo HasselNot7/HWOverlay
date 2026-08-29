@@ -46,8 +46,12 @@ def main():
     b = new.snapshot()
 
     la, lb = leaves(a), leaves(b)
+    # M4 有意新增的字段。只放行这一份白名单，别的新增一律算回归。
+    ALLOWED_NEW = {"degraded"}
     only_a = sorted(set(la) - set(lb))
-    only_b = sorted(set(lb) - set(la))
+    only_b_all = sorted(set(lb) - set(la))
+    allowed = [k for k in only_b_all if k in ALLOWED_NEW]
+    only_b = [k for k in only_b_all if k not in ALLOWED_NEW]
 
     hard, volatile = [], []
     for path in sorted(set(la) & set(lb)):
@@ -64,6 +68,8 @@ def main():
 
     print(f"叶子字段数      旧 {len(la)}  新 {len(lb)}")
     print(f"结构差异        仅旧有 {only_a or '无'}   仅新有 {only_b or '无'}")
+    if allowed:
+        print(f"有意新增(已放行) {allowed}")
     print(f"matched 一致    {matched_same}")
     print(f"missing 一致    {missing_same}")
     print(f"非数值差异      {len(hard)}")
