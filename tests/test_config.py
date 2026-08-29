@@ -71,16 +71,19 @@ check("会导致裁切的版式被拒", not saved and any("裁" in e for e in re
 check("裁切版式同样没落盘", p.read_text(encoding="utf-8") == before)
 
 print("\n[正常写入与回滚]")
+base_h = cfg["canvas"]["h"]
+alt_h = 166 if base_h != 166 else 176        # 只要求"与基准不同"，不假设基准是多少
 good = json.loads(json.dumps(cfg))
-good["canvas"]["h"] = 166
+good["canvas"]["h"] = alt_h
 saved, rep = config.save(good, path=p)
 check("合法修改写入成功", saved, str(rep["errors"]))
-check("落盘内容就是提交的", json.loads(p.read_text(encoding="utf-8"))["canvas"]["h"] == 166)
-check("备份保留了旧内容", json.loads(p.with_suffix(".json.bak").read_text(encoding="utf-8"))["canvas"]["h"] == 170)
+check("落盘内容就是提交的", json.loads(p.read_text(encoding="utf-8"))["canvas"]["h"] == alt_h)
+check("备份保留了旧内容",
+      json.loads(p.with_suffix(".json.bak").read_text(encoding="utf-8"))["canvas"]["h"] == base_h)
 check("没有残留 .tmp 文件", not list(p.parent.glob("*.tmp")))
 
 saved, rep = config.rollback(path=p)
-check("回滚成功", saved and json.loads(p.read_text(encoding="utf-8"))["canvas"]["h"] == 170)
+check("回滚成功", saved and json.loads(p.read_text(encoding="utf-8"))["canvas"]["h"] == base_h)
 
 print("\n[幂等与边界]")
 before2 = p.read_text(encoding="utf-8")
