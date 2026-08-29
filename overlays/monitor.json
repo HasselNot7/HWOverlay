@@ -65,7 +65,7 @@
       "items": [
         "cpu.socket_temp", "cpu.clock_mhz", "cpu.power_w", "cpu.fan_rpm", "cpu.volt",
         "gpu.hotspot", "gpu.power_w", "gpu.mem_temp", "gpu.tdp_pct",
-        "misc.mobo_temp", { "max_of": ["misc.dimm1", "misc.dimm3"], "name": "内存温度", "unit": "°C", "digits": 0 },
+        "misc.mobo_temp", "misc.dimm_max",
         "net.wifi_dbm"
       ]
     }

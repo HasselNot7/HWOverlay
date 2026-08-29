@@ -343,13 +343,8 @@
     }
 
     function chipText(s) {
-      const mt = meta(s);
-      if (s.max_of) {
-        const vals = s.max_of.map(p => (HW ? dig(HW, p) : null)).filter(v => v != null);
-        return vals.length ? { value: Math.max(...vals), text: txt(Math.max(...vals), mt) } : null;
-      }
       const v = HW ? dig(HW, s.metric) : null;
-      return v == null ? null : { value: v, text: txt(v, mt) };
+      return v == null ? null : { value: v, text: txt(v, meta(s)) };
     }
 
     function renderChips() {

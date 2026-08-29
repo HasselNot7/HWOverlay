@@ -28,12 +28,27 @@ def _paths_of(node, out=None):
         for k in ("metric", "bar", "spark"):
             if isinstance(node.get(k), str):
                 out.append(node[k])
-        for k in ("metrics", "pair", "diff", "max_of", "items", "value", "sub"):
+        for k in ("metrics", "pair", "diff", "items", "value", "sub"):
             if k in node:
                 _paths_of(node[k], out)
     elif isinstance(node, list):
         for x in node:
             _paths_of(x, out)
+    return out
+
+
+def _unitless_composites(node, out=None):
+    """pair/diff 没有 unit 就会显示成裸数字，这类节点散落在卡片和 chips 里，递归找。"""
+    out = [] if out is None else out
+    if isinstance(node, dict):
+        for k in ("pair", "diff"):
+            if node.get(k) and not node.get("unit"):
+                out.append(f"{k}={','.join(node[k])}")
+        for v in node.values():
+            _unitless_composites(v, out)
+    elif isinstance(node, list):
+        for x in node:
+            _unitless_composites(x, out)
     return out
 
 
@@ -75,12 +90,11 @@ def check(cfg, reg=None, plan=None):
             items = row.get("items", [])
             used += CHIPS_H
             referenced += _paths_of(items)
-            for it in items:
-                if isinstance(it, dict) and not it.get("unit") and (it.get("max_of") or it.get("diff")):
-                    name = it.get("name") or str(it.get("max_of") or it.get("diff"))
-                    warnings.append(f"小指标 {name} 没有 unit，会显示成裸数字（没有单位）")
         else:
             errors.append(f"第 {i+1} 行 type={rtype!r} 不认识，会被直接跳过")
+
+    for node in _unitless_composites(cfg.get("rows", [])):
+        warnings.append(f"{node} 没有 unit，会显示成裸数字（没有单位）")
 
     unknown = sorted({p for p in referenced if p not in known})
     if unknown:

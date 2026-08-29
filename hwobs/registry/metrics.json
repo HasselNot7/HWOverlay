@@ -99,6 +99,10 @@
     { "id": "ram_total", "out": "ram.total", "name": "内存总量", "kind": "gauge",
       "unit": "GB", "digits": 1, "sources": { "winapi": "memory" } },
 
+    { "id": "dimm_max", "out": "misc.dimm_max", "name": "内存温度", "kind": "gauge",
+      "unit": "°C", "digits": 0, "na_zero": true, "warn": { "op": ">=", "value": 75 },
+      "agg": "regex_max", "regex": "^TDIMMTS\\d+$" },
+
     { "id": "net_up", "out": "net.up_mbps", "name": "上行速率", "kind": "rate",
       "unit": "Mbps", "digits": 2, "rate_untrusted": true, "winapi_fallback": "net_up",
       "agg": "regex_sum", "regex": "^SNIC(\\d+)ULRATE$", "convert": "rate_to_mbps" },

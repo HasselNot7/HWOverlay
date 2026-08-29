@@ -53,11 +53,12 @@ check("引用不存在的路径报错误", any("gpu.nope_missing" in e for e in 
       str(r3["errors"]))
 
 bad3 = copy.deepcopy(CFG)
-for i in bad3["rows"][1]["items"]:
-    if isinstance(i, dict) and i.get("max_of"):
-        i.pop("unit", None)
+for i in bad3["rows"][0]["items"]:
+    for m in (i.get("sub") or {}).get("metrics", []):
+        if isinstance(m, dict) and m.get("diff"):
+            m.pop("unit", None)
 r4 = layout.check(bad3)
-check("max_of 缺 unit 被提醒（会显示成裸数字）",
+check("pair/diff 缺 unit 被提醒（会显示成裸数字）",
       any("裸数字" in w for w in r4["warnings"]), str(r4["warnings"]))
 
 bad4 = copy.deepcopy(CFG)

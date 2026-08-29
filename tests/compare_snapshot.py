@@ -46,13 +46,14 @@ def main():
     b = new.snapshot()
 
     la, lb = leaves(a), leaves(b)
-    # 有意新增的字段。sources 是一棵子树，所以按顶层名前缀放行；
-    # 不在清单里的新增一律算回归。
-    ALLOWED_NEW = {"degraded", "sources"}
+    # 有意新增的字段。sources 是一棵子树，按顶层名放行；
+    # 单个新增字段必须写全路径，免得顺手放行掉以后冒出来的同类字段。
+    ALLOWED_PREFIX = {"degraded", "sources"}
+    ALLOWED_EXACT = {"misc.dimm_max"}
     only_a = sorted(set(la) - set(lb))
     only_b_all = sorted(set(lb) - set(la))
     top = lambda k: k.split(".")[0].split("[")[0]
-    allowed = [k for k in only_b_all if top(k) in ALLOWED_NEW]
+    allowed = [k for k in only_b_all if k in ALLOWED_EXACT or top(k) in ALLOWED_PREFIX]
     only_b = [k for k in only_b_all if k not in allowed]
 
     hard, volatile = [], []
