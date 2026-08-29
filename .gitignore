@@ -6,6 +6,10 @@ __pycache__/
 state/
 profiles/
 
+# 配置写盘产生的备份与临时文件
+*.bak
+*.tmp
+
 # PyInstaller（M5）
 build/
 dist/

@@ -168,12 +168,143 @@ async function refreshAll() {
   renderCheck();
 }
 
+/* ---------- 编辑器 ---------- */
+
+let CFG = null;        // 磁盘上的版本
+let draft = null;      // 正在改的版本
+let dirty = false;
+let debounce = null;
+
+const clone = o => JSON.parse(JSON.stringify(o));
+const chipsRow = () => draft.rows.find(r => r.type === 'chips');
+const cardsRow = () => draft.rows.find(r => r.type === 'cards');
+
+function pathsUsedByCards() {
+  const used = new Set();
+  for (const c of (cardsRow()?.items || [])) {
+    if (c.bar) used.add(c.bar);
+    if (c.spark) used.add(c.spark);
+    for (const m of (c.value?.metrics || [])) used.add(typeof m === 'string' ? m : m.metric);
+    for (const m of (c.sub?.metrics || [])) used.add(typeof m === 'string' ? m : m.metric);
+  }
+  return used;
+}
+
+async function postJSON(url, body) {
+  const r = await fetch(url, { method: 'POST', body: JSON.stringify(body),
+                              headers: { 'Content-Type': 'application/json' }, cache: 'no-store' });
+  return { status: r.status, data: await r.json() };
+}
+
+function buildEditor() {
+  $('#e-w').value = draft.canvas.w;
+  $('#e-h').value = draft.canvas.h;
+  $('#e-cols').value = cardsRow()?.cols ?? 4;
+
+  const labels = $('#e-labels');
+  labels.replaceChildren(...(cardsRow()?.items || []).map((c, i) => {
+    const inp = el('input');
+    inp.type = 'text'; inp.value = c.label; inp.size = 22;
+    inp.addEventListener('input', () => { c.label = inp.value; onChange(); });
+    return el('label', null, [el('span', 'src', `卡${i + 1} 标题`), inp]);
+  }));
+
+  const inChips = new Set(chipsRow()?.items || []);
+  const usedByCards = pathsUsedByCards();
+  const box = $('#e-chips');
+  box.replaceChildren(...METRICS.metrics.filter(m => m.out).map(m => {
+    const cb = el('input');
+    cb.type = 'checkbox'; cb.checked = inChips.has(m.out);
+    cb.addEventListener('change', () => {
+      const items = chipsRow().items.filter(x => x !== m.out);
+      if (cb.checked) items.push(m.out);
+      chipsRow().items = items;
+      onChange();
+    });
+    return el('label', null, [cb, el('span', null, m.name),
+      el('span', 'path', m.out), usedByCards.has(m.out) ? el('span', 'inuse', '卡片在用') : null]
+      .filter(Boolean));
+  }));
+
+  ['e-w', 'e-h', 'e-cols'].forEach(id => $('#' + id).addEventListener('change', () => {
+    draft.canvas.w = +$('#e-w').value;
+    draft.canvas.h = +$('#e-h').value;
+    cardsRow().cols = +$('#e-cols').value;
+    onChange();
+  }));
+}
+
+function setMsg(text, cls) {
+  const m = $('#e-msg');
+  m.textContent = text;
+  m.className = cls || '';
+}
+
+async function onChange() {
+  dirty = JSON.stringify(draft) !== JSON.stringify(CFG);
+  clearTimeout(debounce);
+  setMsg(dirty ? '校验中…' : '', '');
+  debounce = setTimeout(async () => {
+    const { data } = await postJSON('/api/layout-check', draft);
+    if (data.errors?.length) {
+      setMsg(`✗ ${data.errors.join('；')}`, 'bad');
+      $('#e-save').disabled = true;
+    } else {
+      setMsg(dirty ? (data.warnings?.length ? `可保存（${data.warnings.length} 条提醒）` : '可保存')
+                   : '没有改动', dirty ? 'warn' : '');
+      $('#e-save').disabled = !dirty;
+    }
+    state.check = data;
+    renderBudget();
+    renderCheck();
+  }, 350);
+}
+
+async function onSave() {
+  const r = await fetch('/api/config', { method: 'PUT', body: JSON.stringify(draft),
+                                         headers: { 'Content-Type': 'application/json' } });
+  const rep = await r.json();
+  if (!rep.saved) return setMsg(`✗ 保存失败：${(rep.errors || []).join('；')}`, 'bad');
+  CFG = clone(draft);
+  await onChange();
+  reloadPreview();
+  setMsg('✓ 已保存。OBS 里若没变化，点浏览器源的"刷新缓存"。', 'ok');
+}
+
+function reloadPreview() {
+  $('#pv').src = `/?t=${Date.now()}`;
+}
+
+async function onUndo() {
+  const { data } = await postJSON('/api/config/rollback', {});
+  if (!data.restored) return setMsg(`✗ ${data.errors.join('；')}`, 'bad');
+  await loadConfig();
+  reloadPreview();
+  setMsg('✓ 已还原到上一版', 'ok');
+}
+
+async function loadConfig() {
+  CFG = await getJSON('/overlay.json');
+  draft = clone(CFG);
+  buildEditor();
+  dirty = false;
+  $('#e-save').disabled = true;
+}
+
+$('#e-save').addEventListener('click', onSave);
+$('#e-undo').addEventListener('click', onUndo);
+
 let timer = null;
 function setAuto(on) {
   if (timer) clearInterval(timer);
   timer = on ? setInterval(refreshFast, 2000) : null;
 }
 
-$('#refresh').addEventListener('click', refreshAll);
+$('#refresh').addEventListener('click', () => refreshAll());
 $('#auto').addEventListener('change', e => setAuto(e.target.checked));
-refreshAll().then(() => setAuto($('#auto').checked));
+
+refreshAll().then(async () => {
+  await loadConfig();
+  reloadPreview();
+  setAuto($('#auto').checked);
+});
