@@ -95,4 +95,5 @@ def check(cfg, reg=None, plan=None):
                         f"超过可用的 {plan['usable']}：从第 {plan['truncated_at']+1} 个起会被 AIDA64 截断")
 
     return {"errors": errors, "warnings": warnings, "est_height": used,
-            "canvas_h": height, "ok": not errors}
+            "canvas_w": canvas.get("w"), "canvas_h": height,
+            "referenced": sorted(set(referenced)), "ok": not errors}

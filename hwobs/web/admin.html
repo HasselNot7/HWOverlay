@@ -1,0 +1,29 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<title>HWOverlay 管理</title>
+<link rel="stylesheet" href="/admin.css">
+</head>
+<body>
+  <header>
+    <h1>HWOverlay <span>直播硬件叠加层</span></h1>
+    <div class="tools">
+      <label><input type="checkbox" id="auto" checked> 自动刷新</label>
+      <button id="refresh">刷新</button>
+      <a class="ghost" href="/" target="_blank">打开叠加层</a>
+    </div>
+  </header>
+
+  <main>
+    <section id="sources" class="card"><h2>数据源</h2><div class="body">载入中…</div></section>
+    <section id="budget" class="card"><h2>导出预算</h2><div class="body">载入中…</div></section>
+    <section id="obs" class="card"><h2>OBS 里怎么填</h2><div class="body">载入中…</div></section>
+  </main>
+
+  <section id="check" class="card"><h2>版式校验</h2><div class="body">载入中…</div></section>
+  <section id="metrics" class="card"><h2>指标</h2><div class="body">载入中…</div></section>
+
+  <script type="module" src="/admin.js"></script>
+</body>
+</html>

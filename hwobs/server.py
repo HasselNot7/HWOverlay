@@ -11,10 +11,12 @@ from urllib.parse import unquote
 
 from . import layout, overlay, registry
 from .aida import controller
+from .sources import winapi
 
 ROOT = Path(__file__).resolve().parent.parent
 HTML_FILE = ROOT / "monitor.html"
 OVERLAY_FILE = ROOT / "overlays" / "monitor.json"
+WEB_DIR = Path(__file__).resolve().parent / "web"
 
 
 def read_overlay_config():
@@ -60,15 +62,28 @@ class Handler(BaseHTTPRequestHandler):
             self._json(registry.load())
         elif route == "/api/layout-check":
             self._json(layout_report())
+        elif route == "/api/aida/status":
+            st = controller.status()
+            st["windows_net_sampler"] = winapi.net_state()
+            self._json(st)
         elif route == "/sensors":
             self._json(overlay.debug_dump())
         elif route in ("/", "/index.html", "/" + HTML_FILE.name):
-            try:
-                self._send(200, HTML_FILE.read_bytes(), "text/html; charset=utf-8")
-            except OSError:
-                self._send(404, b"monitor html not found", "text/plain")
+            self._file(HTML_FILE, "text/html; charset=utf-8")
+        elif route in ("/admin", "/admin/", "/admin.html"):
+            self._file(WEB_DIR / "admin.html", "text/html; charset=utf-8")
+        elif route in ("/admin.js", "/admin.css"):
+            name = route.rsplit("/", 1)[-1]
+            kind = "text/javascript; charset=utf-8" if name.endswith(".js") else "text/css; charset=utf-8"
+            self._file(WEB_DIR / name, kind)
         else:
             self._send(404, b"not found", "text/plain")
+
+    def _file(self, path, ctype):
+        try:
+            self._send(200, path.read_bytes(), ctype)
+        except OSError:
+            self._send(404, f"{path.name} not found".encode(), "text/plain; charset=utf-8")
 
 
 def create_server(port):
