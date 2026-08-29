@@ -9,29 +9,20 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from urllib.parse import unquote
 
-from . import layout, overlay, registry
+from . import config, overlay, registry
 from .aida import controller
 from .sources import winapi
 
 ROOT = Path(__file__).resolve().parent.parent
 HTML_FILE = ROOT / "monitor.html"
-OVERLAY_FILE = ROOT / "overlays" / "monitor.json"
+OVERLAY_FILE = config.OVERLAY_FILE
 WEB_DIR = Path(__file__).resolve().parent / "web"
-
-
-def read_overlay_config():
-    return json.loads(OVERLAY_FILE.read_text(encoding="utf-8"))
+read_overlay_config = config.read
 
 
 def layout_report():
-    """版式校验 + 导出预算。管理页和启动横幅共用同一份判定，避免两套标准。"""
-    cfg = read_overlay_config()
-    ids, plan = controller.propose(cfg)
-    rep = layout.check(cfg, plan=plan)
-    rep["needed_ids"] = ids
-    rep["budget"] = {k: plan[k] for k in ("count", "usable", "worst_bytes",
-                                          "typical_bytes", "fits", "truncated_at")}
-    return rep
+    """版式校验 + 导出预算。管理页、启动横幅、写入前预检共用同一份判定。"""
+    return config.validate(read_overlay_config())
 
 
 class Handler(BaseHTTPRequestHandler):
@@ -49,8 +40,18 @@ class Handler(BaseHTTPRequestHandler):
         self.end_headers()
         self.wfile.write(body)
 
-    def _json(self, obj):
-        self._send(200, json.dumps(obj, ensure_ascii=False).encode(), "application/json; charset=utf-8")
+    def _json(self, obj, code=200):
+        self._send(code, json.dumps(obj, ensure_ascii=False).encode(), "application/json; charset=utf-8")
+
+    def _body_json(self):
+        """读请求体。限 64KB —— 版式配置远小于这个数，超了就是乱发。"""
+        length = int(self.headers.get("Content-Length") or 0)
+        if not 0 < length <= 64 * 1024:
+            return None, f"请求体大小非法（{length} 字节）"
+        try:
+            return json.loads(self.rfile.read(length).decode("utf-8")), None
+        except ValueError as e:
+            return None, f"不是合法 JSON：{e}"
 
     def do_GET(self):
         route = unquote(self.path.split("?", 1)[0])
@@ -78,6 +79,29 @@ class Handler(BaseHTTPRequestHandler):
             self._file(WEB_DIR / name, kind)
         else:
             self._send(404, b"not found", "text/plain")
+
+    def do_PUT(self):
+        if unquote(self.path.split("?", 1)[0]) != "/api/config":
+            return self._send(404, b"not found", "text/plain")
+        cfg, err = self._body_json()
+        if err:
+            return self._json({"saved": False, "errors": [err]}, 400)
+        try:
+            saved, rep = config.save(cfg)
+        except Exception as e:      # noqa: BLE001 - 不能让异常掐断连接
+            return self._json({"saved": False, "errors": [f"服务端处理失败：{e}"]}, 500)
+        self._json({"saved": saved, **rep}, 200 if saved else 400)
+
+    def do_POST(self):
+        if unquote(self.path.split("?", 1)[0]) != "/api/config/rollback":
+            return self._send(404, b"not found", "text/plain")
+        try:
+            ok, rep = config.rollback()
+        except Exception as e:      # noqa: BLE001
+            return self._json({"restored": False, "errors": [f"回滚失败：{e}"]}, 500)
+        if not ok:
+            return self._json({"restored": False, "errors": ["没有 .bak 可回滚"]}, 409)
+        self._json({"restored": True, **rep})
 
     def _file(self, path, ctype):
         try:
