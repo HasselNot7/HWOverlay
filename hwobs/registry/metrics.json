@@ -1,0 +1,107 @@
+{
+  "version": 1,
+  "rate_unit": "KB/s",
+  "_rate_unit_note": "AIDA64 导出的速率是自动换算后的显示值且不带单位，这里声明按什么单位解读。M4 会用 Windows 网卡计数器对拍标定。",
+  "metrics": [
+    { "id": "cpu_usage", "out": "cpu.usage", "name": "CPU 使用率", "kind": "gauge",
+      "unit": "%", "digits": 0, "range": [0, 100], "warn": { "op": ">=", "value": 85 },
+      "sources": { "aida64": ["SCPUUTI", "SCPU1UTI"] } },
+
+    { "id": "cpu_temp", "out": "cpu.temp", "name": "CPU 温度", "kind": "gauge",
+      "unit": "°C", "digits": 0, "range": [0, 110], "na_zero": true,
+      "warn": { "op": ">=", "value": 95 },
+      "sources": { "aida64": ["TCPUPKG", "TCPUSOCK", "TCPU"] } },
+
+    { "id": "cpu_socket", "out": "cpu.socket_temp", "name": "CPU 插座", "kind": "gauge",
+      "unit": "°C", "digits": 0, "range": [0, 110], "na_zero": true,
+      "warn": { "op": ">=", "value": 85 },
+      "sources": { "aida64": ["TCPUSOCK"] } },
+
+    { "id": "cpu_clock", "out": "cpu.clock_mhz", "name": "CPU 主频", "kind": "gauge",
+      "unit": "MHz", "digits": 0, "sources": { "aida64": ["SCPUCLK"] } },
+
+    { "id": "cpu_power", "out": "cpu.power_w", "name": "CPU 功耗", "kind": "gauge",
+      "unit": "W", "digits": 1, "sources": { "aida64": ["PCPUPKG", "PCPU"] } },
+
+    { "id": "cpu_fan", "out": "cpu.fan_rpm", "name": "CPU 风扇", "kind": "gauge",
+      "unit": "RPM", "digits": 0, "sources": { "aida64": ["FCPU"] } },
+
+    { "id": "cpu_volt", "out": "cpu.volt", "name": "CPU 电压", "kind": "gauge",
+      "unit": "V", "digits": 3, "sources": { "aida64": ["VCPU"] } },
+
+    { "id": "gpu_usage", "out": "gpu.usage", "name": "GPU 使用率", "kind": "gauge",
+      "unit": "%", "digits": 0, "range": [0, 100], "warn": { "op": ">=", "value": 85 },
+      "sources": { "aida64": ["SGPU1UTI"] } },
+
+    { "id": "gpu_temp", "out": "gpu.temp", "name": "GPU 温度", "kind": "gauge",
+      "unit": "°C", "digits": 0, "range": [0, 110], "na_zero": true,
+      "warn": { "op": ">=", "value": 85 },
+      "sources": { "aida64": ["TGPU1", "TGPU1HOT"] } },
+
+    { "id": "gpu_hotspot", "out": "gpu.hotspot", "name": "GPU 热点", "kind": "gauge",
+      "unit": "°C", "digits": 0, "range": [0, 120], "na_zero": true,
+      "warn": { "op": ">=", "value": 90 },
+      "sources": { "aida64": ["TGPU1HOT"] } },
+
+    { "id": "gpu_memtemp", "out": "gpu.mem_temp", "name": "显存温度", "kind": "gauge",
+      "unit": "°C", "digits": 0, "range": [0, 120], "na_zero": true,
+      "warn": { "op": ">=", "value": 95 },
+      "sources": { "aida64": ["TGPU1MEM"] } },
+
+    { "id": "gpu_mem_used", "out": "gpu.mem_used_mb", "name": "显存占用", "kind": "gauge",
+      "unit": "MB", "digits": 0, "sources": { "aida64": ["SUSEDVMEM"] } },
+
+    { "id": "gpu_mem_free", "out": null, "name": "显存空闲", "kind": "gauge",
+      "unit": "MB", "digits": 0, "sources": { "aida64": ["SFREEVMEM"] } },
+
+    { "id": "gpu_mem_total", "out": "gpu.mem_total_mb", "name": "显存总量", "kind": "gauge",
+      "unit": "MB", "digits": 0, "sum_of": ["gpu_mem_used", "gpu_mem_free"] },
+
+    { "id": "gpu_mem_pct", "out": "gpu.mem_pct", "name": "显存占用率", "kind": "gauge",
+      "unit": "%", "digits": 0, "range": [0, 100],
+      "sources": { "aida64": ["SVMEMUSAGE"] } },
+
+    { "id": "gpu_clock", "out": "gpu.clock_mhz", "name": "GPU 核心频率", "kind": "gauge",
+      "unit": "MHz", "digits": 0, "sources": { "aida64": ["SGPU1CLK"] } },
+
+    { "id": "gpu_mem_clock", "out": "gpu.mem_clock_mhz", "name": "显存频率", "kind": "gauge",
+      "unit": "MHz", "digits": 0, "sources": { "aida64": ["SGPU1MEMCLK"] } },
+
+    { "id": "gpu_volt", "out": "gpu.volt", "name": "GPU 核心电压", "kind": "gauge",
+      "unit": "V", "digits": 3, "sources": { "aida64": ["VGPU1"] } },
+
+    { "id": "gpu_power", "out": "gpu.power_w", "name": "GPU 功耗", "kind": "gauge",
+      "unit": "W", "digits": 1, "sources": { "aida64": ["PGPU1"] } },
+
+    { "id": "gpu_tdp", "out": "gpu.tdp_pct", "name": "GPU TDP 占比", "kind": "gauge",
+      "unit": "%", "digits": 0, "sources": { "aida64": ["PGPU1TDPP"] } },
+
+    { "id": "ram_pct", "out": "ram.pct", "name": "内存使用率", "kind": "gauge",
+      "unit": "%", "digits": 0, "range": [0, 100], "warn": { "op": ">=", "value": 90 },
+      "sources": { "aida64": ["SMEMUTI"] } },
+
+    { "id": "mobo_temp", "out": "misc.mobo_temp", "name": "主板温度", "kind": "gauge",
+      "unit": "°C", "digits": 0, "na_zero": true,
+      "sources": { "aida64": ["TMOBO"] } },
+
+    { "id": "dimm1", "out": "misc.dimm1", "name": "DIMM1 温度", "kind": "gauge",
+      "unit": "°C", "digits": 0, "na_zero": true, "warn": { "op": ">=", "value": 75 },
+      "sources": { "aida64": ["TDIMMTS1"] } },
+
+    { "id": "dimm3", "out": "misc.dimm3", "name": "DIMM3 温度", "kind": "gauge",
+      "unit": "°C", "digits": 0, "na_zero": true, "warn": { "op": ">=", "value": 75 },
+      "sources": { "aida64": ["TDIMMTS3"] } },
+
+    { "id": "net_up", "out": "net.up_mbps", "name": "上行速率", "kind": "rate",
+      "unit": "Mbps", "digits": 2, "rate_untrusted": true,
+      "agg": "regex_sum", "regex": "^SNIC(\\d+)ULRATE$", "convert": "rate_to_mbps" },
+
+    { "id": "net_down", "out": "net.down_mbps", "name": "下行速率", "kind": "rate",
+      "unit": "Mbps", "digits": 2, "rate_untrusted": true,
+      "agg": "regex_sum", "regex": "^SNIC(\\d+)DLRATE$", "convert": "rate_to_mbps" },
+
+    { "id": "wifi_rssi", "out": "net.wifi_dbm", "name": "WiFi 信号", "kind": "gauge",
+      "unit": "dBm", "digits": 0, "agg": "regex_max", "regex": "^SNIC(\\d+)WLANRSSI$",
+      "warn": { "op": "<=", "value": -70 } }
+  ]
+}

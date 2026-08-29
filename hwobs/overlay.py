@@ -1,53 +1,40 @@
-"""把各数据源的读数装配成叠加层用的那一份 JSON。"""
+"""把各数据源的读数装配成叠加层用的那一份 JSON。
+
+指标清单、单位、阈值、聚合方式全在 registry/metrics.json；本文件只负责：
+读源 → 交给 registry 解析装配 → 补上注册表表达不了的少数项（Windows 内存、
+网卡编号列表、磁盘列表、共享内存预算）。
+"""
 
 import time
 
-from . import metrics
+from . import metrics, registry
 from .sources import aida64, winapi
 
 
 def snapshot():
-    out = {"ts": round(time.time(), 1), "rate_unit": metrics.RATE_UNIT}
+    reg = registry.load()
+    out = {"ts": round(time.time(), 1), "rate_unit": reg["rate_unit"]}
     sensors, shm_bytes = aida64.read_sensors()
     if sensors is None:
         out.update(ok=False, error=f"共享内存 {aida64.SHM_NAME} 打不开，AIDA64 可能没运行")
         return out
 
-    matched, missing, v = {}, [], {}
-    for key, ids in metrics.WANTED.items():
-        sid, val = metrics.pick(sensors, ids, key in metrics.ZERO_IS_NA)
-        matched[key] = sid
-        if sid is None:
-            missing.append(ids[0])
-        v[key] = val
-
-    up = metrics.nic_total(sensors, "UL")
-    down = metrics.nic_total(sensors, "DL")
-    rssi = [metrics.num(raw) for sid, (_label, raw) in sensors.items() if metrics.RSSI_RX.match(sid)]
+    values, matched, missing = registry.resolve(sensors, reg)
+    tree = registry.apply(values, reg)
 
     used, total, pct = winapi.windows_ram()
-    mem_used = v["gpu_mem_used"]
-    mem_total = None if mem_used is None or v["gpu_mem_free"] is None else mem_used + v["gpu_mem_free"]
+    # 内存优先用 AIDA64 的 SMEMUTI，拿不到再退回 Windows 自己算的
+    tree["ram"] = {**tree.get("ram", {}), "used": used, "total": total,
+                   "pct": values.get("ram_pct") or pct}
+    tree.setdefault("net", {})["active_nics"] = metrics.active_nics(sensors)
 
     out.update(
         ok=True,
         exported=len(sensors),
         shm={"bytes": shm_bytes, "limit": aida64.SHM_SIZE,
              "pct": round(shm_bytes / aida64.SHM_SIZE * 100)},
-        cpu={"usage": v["cpu_usage"], "temp": v["cpu_temp"], "socket_temp": v["cpu_socket"],
-             "clock_mhz": v["cpu_clock"], "power_w": v["cpu_power"],
-             "fan_rpm": v["cpu_fan"], "volt": v["cpu_volt"]},
-        gpu={"usage": v["gpu_usage"], "temp": v["gpu_temp"], "hotspot": v["gpu_hotspot"],
-             "mem_temp": v["gpu_memtemp"], "volt": v["gpu_volt"], "power_w": v["gpu_power"],
-             "tdp_pct": v["gpu_tdp"], "mem_pct": v["gpu_mem_pct"],
-             "clock_mhz": v["gpu_clock"], "mem_clock_mhz": v["gpu_mem_clock"],
-             "mem_used_mb": mem_used, "mem_total_mb": mem_total},
-        ram={"used": used, "total": total, "pct": v["ram_pct"] or pct},
-        net={"up_mbps": None if up is None else round(up * metrics.TO_MBPS[metrics.RATE_UNIT], 2),
-             "down_mbps": None if down is None else round(down * metrics.TO_MBPS[metrics.RATE_UNIT], 2),
-             "active_nics": metrics.active_nics(sensors), "wifi_dbm": max(rssi) if rssi else None},
-        disk=metrics.disks(sensors),
-        misc={"mobo_temp": v["mobo_temp"], "dimm1": v["dimm1"], "dimm3": v["dimm3"]},
+        **tree,
+        disk=metrics.disks(sensors, reg["rate_unit"]),
         matched=matched,
         missing=missing,
     )
