@@ -33,9 +33,9 @@
     }
 
     body {
-      /* 宽高由 overlay 配置的 canvas 决定，这里只是兜底 */
+      /* 宽高与内边距由 overlay 配置决定，这里只是兜底 */
       width: 2000px;
-      height: 170px;
+      height: 200px;
       background-color: var(--bg-color);
       color: var(--text-color);
       overflow: hidden;
@@ -139,6 +139,10 @@
     .chip b { color: var(--chip-label); font-weight: 400; }
     .chip span { color: var(--text-color); }
     .chip.warn span { color: var(--bar-high); }
+
+    .text-line { font-size: 19px; color: var(--text-color); white-space: nowrap; overflow: hidden; }
+    .text-line .tv { color: var(--label-color); }
+    .text-line .tmiss { color: var(--subtext-color); }
   </style>
 </head>
 <body>
@@ -146,21 +150,25 @@
     // 配置驱动的叠加层渲染器。三层数据来源：
     //   /hw.json      值，按输出路径取（cpu.usage）
     //   /metrics.json 怎么解读：单位、位数、量程、阈值、中文名
-    //   /overlay.json 显示哪些、摆在哪
+    //   /overlay.json 显示哪些、摆在哪（schema v2：widgets 部件数组）
     // 本文件不含任何指标清单或阈值 —— 那些都是数据。
+
+    // 部件架构：每种 type 对应一个工厂 makeXxx(widget)，build 一次 DOM、
+    // 返回 update() 在每秒刷新时重绘。与 hwobs/widgets.py 的注册表以 type 为契约：
+    // 那边登记默认几何与校验，这边负责渲染；两边都不允许出现第三份遍历。
+    // 新增部件 = 在 widgets.py 登记 + 在 WIDGET_TYPES 加一个工厂，两处即可。
 
     const REFRESH_MS = 1000;
     const HISTORY = 22;       // 迷你曲线秒数
     const SPARK_W = 82;       // 与 CSS .spark 的 flex-basis 一致
     const SUB_GAP = 8;        // 与 CSS .metric-sub 的 gap 一致
     const SUB_FONT_PX = 14;   // 与 CSS .metric-sub 的 font-size 一致
+    const TEXT_REF_RX = /\{([a-zA-Z0-9_.]+)\}/g;
 
     let HW = null;
-    let chipHost = null;
-    let chipSpecs = [];
     const byOut = new Map();  // 输出路径 -> 注册表条目
-    const cards = {};
-    const history = {};       // 指标路径 -> 采样数组
+    const history = {};       // 指标路径 -> 采样数组（cards 的迷你曲线用）
+    let instances = [];
 
     const probe = document.createElement('span');
     probe.style.cssText =
@@ -242,33 +250,35 @@
     }
     const text = s => document.createTextNode(s);
 
-    function build(layout) {
-      if (layout.canvas) {
-        document.body.style.width = layout.canvas.w + 'px';
-        document.body.style.height = layout.canvas.h + 'px';
+    // 几何内联应用：CSS 里的值只是无配置时的兜底，校验器算的是同一份配置数
+    function applyCanvas(canvas) {
+      if (!canvas) return;
+      document.body.style.width = canvas.w + 'px';
+      document.body.style.height = canvas.h + 'px';
+      if (canvas.padding) {
+        document.body.style.padding = `${canvas.padding[0]}px ${canvas.padding[1]}px`;
       }
-      if (layout.prompt) {
-        const p = layout.prompt;
-        const line = el('div', 'prompt-line', [
-          el('span', 'prompt-user', [text(p.user)]),
-          el('span', 'prompt-symbol', [text('>'),]),
-          el('span', 'prompt-cmd', [text(p.cmd)]),
-        ]);
-        if (p.cursor) line.appendChild(el('div', 'cursor'));
-        document.body.appendChild(line);
-      }
-      for (const row of layout.rows || []) {
-        if (row.type === 'cards') document.body.appendChild(buildCards(row));
-        else if (row.type === 'chips') { chipHost = buildChips(row); document.body.appendChild(chipHost); }
-      }
-      document.body.appendChild(probe);
     }
 
-    function buildCards(row) {
+    function buildPrompt(p) {
+      const line = el('div', 'prompt-line', [
+        el('span', 'prompt-user', [text(p.user)]),
+        el('span', 'prompt-symbol', [text('>')]),
+        el('span', 'prompt-cmd', [text(p.cmd)]),
+      ]);
+      if (p.size) line.style.fontSize = p.size + 'px';
+      if (p.cursor) line.appendChild(el('div', 'cursor'));
+      document.body.appendChild(line);
+    }
+
+    // --- cards：指标卡片网格 ------------------------------------------------
+
+    function makeCards(w) {
+      const states = {};
       const grid = el('div', 'monitor-grid');
-      grid.style.gridTemplateColumns = `repeat(${row.cols}, minmax(0, 1fr))`;
-      grid.style.gap = row.gap + 'px';
-      for (const c of row.items) {
+      grid.style.gridTemplateColumns = `repeat(${w.cols ?? 4}, minmax(0, 1fr))`;
+      grid.style.gap = (w.gap ?? 32) + 'px';
+      for (const c of w.items || []) {
         const card = el('div', 'metric-card');
         card.dataset.key = c.key;
         const value = el('span', 'metric-value', [text('--')]);
@@ -284,48 +294,43 @@
         ]));
         card.appendChild(el('div', 'metric-sub', [spark, subText]));
         grid.appendChild(card);
-        cards[c.key] = { el: card, value, bar, subText, spark,
-                         barMetric: c.bar, barFull: c.bar_full,
-                         valueDef: c.value, subDef: c.sub, sparkMetric: c.spark };
+        states[c.key] = { el: card, value, bar, subText, spark,
+                          barMetric: c.bar, barFull: c.bar_full,
+                          valueDef: c.value, subDef: c.sub, sparkMetric: c.spark };
         if (c.spark) history[c.spark] = [];
       }
-      return grid;
-    }
+      document.body.appendChild(grid);
 
-    function buildChips(row) {
-      chipSpecs = (row.items || []).map(asRef);
-      const host = el('div', 'chips');
-      host.dataset.fit = row.fit || 'none';
-      return host;
-    }
+      return {
+        update() {
+          for (const key of Object.keys(states)) {
+            const c = states[key];
+            c.value.textContent = group(c.valueDef, false) || '--';
+            c.subText.textContent = group(c.subDef, true) || '--';
 
-    function renderCards() {
-      for (const key of Object.keys(cards)) {
-        const c = cards[key];
-        c.value.textContent = group(c.valueDef, false) || '--';
-        c.subText.textContent = group(c.subDef, true) || '--';
+            const m = byOut.get(c.barMetric) || {};
+            const v = HW ? dig(HW, c.barMetric) : null;
+            const max = c.barFull !== undefined ? c.barFull : (m.range ? m.range[1] : 100);
+            const min = m.range ? m.range[0] : 0;
+            const pct = v == null ? 0 : Math.max(0, Math.min(100, (v - min) / (max - min) * 100));
+            c.bar.style.width = pct + '%';
+            c.bar.style.backgroundColor = isHigh(v, m.warn) ? 'var(--bar-high)' : 'var(--bar-fill)';
 
-        const m = byOut.get(c.barMetric) || {};
-        const v = HW ? dig(HW, c.barMetric) : null;
-        const max = c.barFull !== undefined ? c.barFull : (m.range ? m.range[1] : 100);
-        const min = m.range ? m.range[0] : 0;
-        const pct = v == null ? 0 : Math.max(0, Math.min(100, (v - min) / (max - min) * 100));
-        c.bar.style.width = pct + '%';
-        c.bar.style.backgroundColor = isHigh(v, m.warn) ? 'var(--bar-high)' : 'var(--bar-fill)';
+            // 次要行宽度随数值变（显存 10.0GB、核心 2000MHz），放不下就降一号。
+            // 用隐藏探针恒按正常字号量：直接量元素会在 14px/12.5px 两种状态间来回跳。
+            probe.textContent = c.subText.textContent;
+            const room = c.subText.parentElement.clientWidth - SPARK_W - SUB_GAP;
+            c.el.classList.toggle('tight', probe.scrollWidth > room);
 
-        // 次要行宽度随数值变（显存 10.0GB、核心 2000MHz），放不下就降一号。
-        // 用隐藏探针恒按正常字号量：直接量元素会在 14px/12.5px 两种状态间来回跳。
-        probe.textContent = c.subText.textContent;
-        const room = c.subText.parentElement.clientWidth - SPARK_W - SUB_GAP;
-        c.el.classList.toggle('tight', probe.scrollWidth > room);
-
-        if (c.sparkMetric) {
-          const h = history[c.sparkMetric];
-          h.push(HW ? dig(HW, c.sparkMetric) : null);
-          while (h.length > HISTORY) h.shift();
-          drawSpark(c.spark, h, (byOut.get(c.sparkMetric) || {}).warn);
+            if (c.sparkMetric) {
+              const h = history[c.sparkMetric];
+              h.push(HW ? dig(HW, c.sparkMetric) : null);
+              while (h.length > HISTORY) h.shift();
+              drawSpark(c.spark, h, (byOut.get(c.sparkMetric) || {}).warn);
+            }
+          }
         }
-      }
+      };
     }
 
     function drawSpark(host, hist, warn) {
@@ -342,33 +347,87 @@
       });
     }
 
-    function chipText(s) {
-      const v = HW ? dig(HW, s.metric) : null;
-      return v == null ? null : { value: v, text: txt(v, meta(s)) };
+    // --- chips：底部小指标行 --------------------------------------------------
+
+    function makeChips(w) {
+      const specs = (w.items || []).map(asRef);
+      const host = el('div', 'chips');
+      host.style.fontSize = (w.font ?? 15) + 'px';
+      host.style.marginTop = (w.margin_top ?? 10) + 'px';
+      host.dataset.fit = w.fit || 'none';
+      document.body.appendChild(host);
+
+      return {
+        update() {
+          const html = [];
+          for (const s of specs) {
+            const mt = meta(s);
+            const v = HW ? dig(HW, s.metric) : null;
+            if (v == null) continue;
+            html.push(`<div class="chip${isHigh(v, mt.warn) ? ' warn' : ''}">` +
+                      `<b>${mt.name}</b><span>${txt(v, mt)}</span></div>`);
+          }
+          host.innerHTML = html.join('');
+          if (host.dataset.fit === 'shrink') {
+            // 传感器数量变了会挤爆这一行，缩一号也比裁掉好
+            host.classList.toggle('dense', host.scrollWidth > host.clientWidth);
+          }
+        }
+      };
     }
 
-    function renderChips() {
-      if (!chipHost) return;
-      const html = [];
-      for (const s of chipSpecs) {
-        const mt = meta(s);
-        const r = chipText(s);
-        if (!r) continue;
-        html.push(`<div class="chip${isHigh(r.value, mt.warn) ? ' warn' : ''}">` +
-                  `<b>${mt.name}</b><span>${r.text}</span></div>`);
+    // --- text：自定义文本行，{输出路径} 占位符插值 ------------------------------
+
+    function makeText(w) {
+      const line = el('div', 'text-line');
+      line.style.fontSize = (w.size ?? 19) + 'px';
+      line.style.marginTop = (w.margin_top ?? 0) + 'px';
+      document.body.appendChild(line);
+
+      // 按 {路径} 切开：字面量与值交替。值用文本节点拼装，
+      // 配置里就算混进了 HTML 也不会被执行。
+      const parts = [];
+      let last = 0;
+      const src = w.text || '';
+      for (const m of src.matchAll(TEXT_REF_RX)) {
+        if (m.index > last) parts.push({ lit: src.slice(last, m.index) });
+        parts.push({ ref: m[1] });
+        last = m.index + m[0].length;
       }
-      chipHost.innerHTML = html.join('');
-      if (chipHost.dataset.fit === 'shrink') {
-        // 传感器数量变了会挤爆这一行，缩一号也比裁掉好
-        chipHost.classList.toggle('dense', chipHost.scrollWidth > chipHost.clientWidth);
+      if (last < src.length) parts.push({ lit: src.slice(last) });
+
+      return {
+        update() {
+          line.replaceChildren(...parts.map(p => {
+            if (p.lit !== undefined) return text(p.lit);
+            const v = HW ? dig(HW, p.ref) : null;
+            const mt = meta({ metric: p.ref });
+            const span = el('span', v == null ? 'tmiss' : 'tv');
+            span.textContent = txt(v, mt);
+            return span;
+          }));
+        }
+      };
+    }
+
+    const WIDGET_TYPES = { cards: makeCards, chips: makeChips, text: makeText };
+
+    function build(layout) {
+      applyCanvas(layout.canvas);
+      if (layout.prompt) buildPrompt(layout.prompt);
+      instances = [];
+      for (const w of layout.widgets || []) {
+        const make = WIDGET_TYPES[w.type];
+        if (!make) { console.warn('未知部件类型：' + w.type); continue; }
+        instances.push(make(w));
       }
+      document.body.appendChild(probe);
     }
 
     function render() {
       document.body.classList.toggle('offline', !HW);
       document.body.classList.toggle('degraded', !!(HW && HW.degraded));
-      renderCards();
-      renderChips();
+      for (const inst of instances) inst.update();
     }
 
     async function getJSON(url) {
