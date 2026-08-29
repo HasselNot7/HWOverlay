@@ -1,0 +1,398 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <title>Console Hardware Monitor Overlay</title>
+  <style>
+    @import url("https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;700&family=Noto+Sans+SC:wght@400;700&display=swap");
+
+    :root {
+      --console-font: "JetBrains Maple Mono", "JetBrains Mono", monospace;
+      --fallback-fonts: "Noto Sans SC", sans-serif;
+      
+      /* Nord Console 配色方案 */
+      --bg-color: #1b1d24;
+      --prompt-user: #d08770;     /* 橙褐色 */
+      --prompt-symbol: #81a1c1;   /* 蓝灰色 */
+      --label-color: #ebcb8b;     /* 黄色 */
+      --text-color: #eceff4;      /* 白灰色 */
+      --dim-color: #cdd6e4;       /* 次要信息：深色底上要够亮 */
+      --chip-label: #8fbcbb;      /* 小指标标签：青蓝 */
+      --subtext-color: #4c566a;   /* 仅用于进度条底槽 */
+      
+      --bar-bg: #2e3440;
+      --bar-fill: #a3be8c;        /* 正常状态绿 */
+      --bar-high: #bf616a;        /* 高负载红 */
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      font-family: var(--console-font), var(--fallback-fonts) !important;
+    }
+
+    body {
+      width: 2000px;
+      height: 170px;
+      background-color: var(--bg-color);
+      color: var(--text-color);
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      padding: 12px 24px;
+    }
+
+    /* AIDA64 数据断了就把整条压暗，直播时一眼能看出来 */
+    body.offline { opacity: 0.45; }
+
+    /* 顶部 Prompt 命令行提示符 */
+    .prompt-line {
+      font-size: 19px;
+      font-weight: 700;
+      margin-bottom: 10px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .prompt-user { color: var(--prompt-user); }
+    .prompt-symbol { color: var(--prompt-symbol); }
+    .prompt-cmd { color: var(--text-color); }
+    .cursor {
+      display: inline-block;
+      width: 10px;
+      height: 20px;
+      background-color: var(--text-color);
+      animation: blink 1s infinite;
+    }
+
+    /* 硬件数据网格布局 —— minmax(0,1fr) 是必需的：默认 1fr 的最小宽度等于内容宽度，
+       长文本会把列撑宽去挤相邻卡片，还会让溢出判据量到一个跟着变大的 room */
+    .monitor-grid {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      gap: 32px;
+    }
+
+    .metric-card {
+      display: flex;
+      flex-direction: column;
+      gap: 5px;
+      min-width: 0;
+    }
+
+    .metric-header {
+      display: flex;
+      justify-content: space-between;
+      font-size: 17px;
+      font-weight: bold;
+    }
+
+    .metric-label { color: var(--label-color); }
+    .metric-value { color: var(--text-color); }
+
+    /* ASCII / 控制台风格进度条 */
+    .progress-bar-container {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 15px;
+    }
+
+    .progress-track {
+      flex: 1;
+      height: 13px;
+      background-color: var(--bar-bg);
+      border-radius: 2px;
+      overflow: hidden;
+    }
+
+    .progress-fill {
+      height: 100%;
+      width: 0%;
+      background-color: var(--bar-fill);
+      transition: width 0.4s ease, background-color 0.4s ease;
+    }
+
+    /* 次要信息行：迷你曲线 + 文字 */
+    .metric-sub {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 14px;
+      color: var(--dim-color);
+      white-space: nowrap;
+      overflow: hidden;
+    }
+
+    /* 值变宽时（显存 10.0GB、核心 2000MHz）降一号，宁可小一点也不越界压到相邻卡片 */
+    .metric-card.tight .metric-sub { font-size: 12.5px; }
+
+    /* span 必须是滚动容器，否则 scrollWidth 恒等于 clientWidth，测不出真实内容宽度 */
+    .metric-sub > span { overflow: hidden; }
+
+    .spark {
+      display: flex;
+      align-items: flex-end;
+      gap: 1px;
+      flex: 0 0 82px;
+      height: 17px;
+      background-color: var(--bar-bg);
+      padding: 1px;
+    }
+
+    .spark i {
+      flex: 1;
+      min-height: 1px;
+      background-color: var(--bar-fill);
+      transition: height 0.3s ease;
+    }
+
+    /* 底部一行小指标 */
+    .chips {
+      display: flex;
+      justify-content: space-between;
+      gap: 18px;
+      margin-top: 10px;
+      font-size: 15px;
+    }
+    .chip { flex: 0 0 auto; display: flex; gap: 6px; white-space: nowrap; }
+    .chips.dense { font-size: 13px; gap: 10px; }
+    .chip b { color: var(--chip-label); font-weight: 400; }
+    .chip span { color: var(--text-color); }
+    .chip.warn span { color: var(--bar-high); }
+
+    @keyframes blink {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0; }
+    }
+  </style>
+</head>
+<body>
+
+  <!-- Prompt 标头 -->
+  <div class="prompt-line">
+    <span class="prompt-user">HasselNot@system</span>
+    <span class="prompt-symbol">&gt;</span>
+    <span class="prompt-cmd">./sysmon --source=aida64 --interval=1s</span>
+    <div class="cursor"></div>
+  </div>
+
+  <!-- 4 列硬件监视网络 -->
+  <div class="monitor-grid">
+    
+    <!-- CPU -->
+    <div class="metric-card" data-key="cpu">
+      <div class="metric-header">
+        <span class="metric-label">[CPU] i9-13900KF</span>
+        <span class="metric-value">-- | --</span>
+      </div>
+      <div class="progress-bar-container">
+        <span>[</span>
+        <div class="progress-track"><div class="progress-fill"></div></div>
+        <span>]</span>
+      </div>
+      <div class="metric-sub"><div class="spark"></div><span>--</span></div>
+    </div>
+
+    <!-- GPU -->
+    <div class="metric-card" data-key="gpu">
+      <div class="metric-header">
+        <span class="metric-label">[GPU] RTX 3080</span>
+        <span class="metric-value">-- | --</span>
+      </div>
+      <div class="progress-bar-container">
+        <span>[</span>
+        <div class="progress-track"><div class="progress-fill"></div></div>
+        <span>]</span>
+      </div>
+      <div class="metric-sub"><div class="spark"></div><span>--</span></div>
+    </div>
+
+    <!-- RAM -->
+    <div class="metric-card" data-key="ram">
+      <div class="metric-header">
+        <span class="metric-label">[RAM] DDR5</span>
+        <span class="metric-value">-- / -- GB</span>
+      </div>
+      <div class="progress-bar-container">
+        <span>[</span>
+        <div class="progress-track"><div class="progress-fill"></div></div>
+        <span>]</span>
+      </div>
+      <div class="metric-sub"><div class="spark"></div><span>--</span></div>
+    </div>
+
+    <!-- NET -->
+    <div class="metric-card" data-key="net">
+      <div class="metric-header">
+        <span class="metric-label">[NET] Uplink</span>
+        <span class="metric-value">-- Mbps</span>
+      </div>
+      <div class="progress-bar-container">
+        <span>[</span>
+        <div class="progress-track"><div class="progress-fill"></div></div>
+        <span>]</span>
+      </div>
+      <div class="metric-sub"><div class="spark"></div><span>--</span></div>
+    </div>
+
+  </div>
+
+  <div class="chips" id="chips"></div>
+
+  <script>
+    const REFRESH_MS = 1000;
+    const HISTORY = 22;          // 迷你曲线长度（秒）
+    const NET_FULL_MBPS = 20;    // NET 进度条满量程，按你的上行带宽上限调
+    const HIGH_LOAD = 85;
+    const SPARK_W = 82;          // 与 CSS .spark 的 flex-basis 保持一致
+    const SUB_GAP = 8;           // 与 CSS .metric-sub 的 gap 保持一致
+    const SUB_FONT_PX = 14;      // 与 CSS .metric-sub 的 font-size 保持一致
+
+    const n = (v, d = 0) => v == null ? '--' : v.toFixed(d);
+    const ghz = v => v == null ? null : n(v / 1000, 2) + ' GHz';
+    const watt = v => v == null ? null : n(v, 1) + ' W';
+    const volt = v => v == null ? null : n(v, 3) + ' V';
+    const mhz = (v, name) => v == null ? null : `${name} ${n(v)}MHz`;
+    const parts = (...xs) => xs.filter(x => x != null && x !== '').join(' · ') || '--';
+
+    // 每张卡的迷你曲线画哪个字段
+    const SPARKS = {
+      cpu: d => d.cpu.usage,
+      gpu: d => d.gpu.usage,
+      ram: d => d.ram.pct,
+      net: d => d.net.up_mbps,
+    };
+
+    // 底部小指标：get 取数（拿不到返回 null）、fmt 出文字、warn 决定要不要标红
+    const CHIPS = [
+      { get: d => d.cpu.socket_temp, fmt: v => n(v) + ' °C', warn: v => v >= 85, label: 'CPU 插座' },
+      { get: d => d.cpu.clock_mhz, fmt: ghz, label: 'CPU 主频' },
+      { get: d => d.cpu.power_w, fmt: watt, label: 'CPU 功耗' },
+      { get: d => d.cpu.fan_rpm, fmt: v => v == null ? null : n(v) + ' RPM', label: 'CPU 风扇' },
+      { get: d => d.cpu.volt, fmt: volt, label: 'CPU 电压' },
+      { get: d => d.gpu.hotspot, fmt: v => n(v) + ' °C', warn: v => v >= 90, label: 'GPU 热点' },
+      { get: d => d.gpu.power_w, fmt: watt, label: 'GPU 功耗' },
+      { get: d => d.gpu.mem_temp, fmt: v => n(v) + ' °C', warn: v => v >= 95, label: '显存温度' },
+      { get: d => d.gpu.tdp_pct, fmt: v => n(v) + ' %', label: 'GPU TDP' },
+      { get: d => d.misc.mobo_temp, fmt: v => n(v) + ' °C', label: '主板温度' },
+      { get: d => { const xs = [d.misc.dimm1, d.misc.dimm3].filter(x => x != null);
+                    return xs.length ? Math.max(...xs) : null; },
+        fmt: v => n(v) + ' °C', warn: v => v >= 75, label: '内存温度' },
+      { get: d => d.net.wifi_dbm, fmt: v => n(v) + ' dBm', warn: v => v <= -70, label: 'WiFi 信号' },
+      { get: d => d.disk.length ? d.disk.reduce((a, x) => a + (x.read || 0), 0) : null,
+        fmt: v => n(v, 1) + ' MB/s', label: '磁盘读取' },
+      { get: d => d.disk.length ? d.disk.reduce((a, x) => a + (x.write || 0), 0) : null,
+        fmt: v => n(v, 1) + ' MB/s', label: '磁盘写入' },
+      { get: d => d.disk.length ? Math.max(...d.disk.map(x => x.temp || 0)) : null,
+        fmt: v => n(v) + ' °C', warn: v => v >= 60, label: 'NVMe 温度' },
+    ];
+
+    const history = { cpu: [], gpu: [], ram: [], net: [] };
+
+    const cards = {};
+    document.querySelectorAll('.metric-card').forEach(el => {
+      cards[el.dataset.key] = {
+        el,
+        value: el.querySelector('.metric-value'),
+        bar: el.querySelector('.progress-fill'),
+        sub: el.querySelector('.metric-sub > span'),
+        spark: el.querySelector('.spark'),
+      };
+    });
+
+    // 恒按正常字号量宽度：直接用元素自身量会在 14px/12.5px 两种状态间来回跳
+    const probe = document.createElement('span');
+    probe.style.cssText = `position:absolute;left:-9999px;visibility:hidden;white-space:nowrap;font-size:${SUB_FONT_PX}px`;
+    document.body.appendChild(probe);
+
+    function paint(key, text, percent, sub) {
+      const c = cards[key];
+      c.value.textContent = text;
+      c.sub.textContent = sub;
+      const pct = percent == null ? 0 : Math.max(0, Math.min(100, percent));
+      c.bar.style.width = pct + '%';
+      c.bar.style.backgroundColor = pct > HIGH_LOAD ? 'var(--bar-high)' : 'var(--bar-fill)';
+
+      // 次要行的宽度随数值变（显存 10.0GB、核心 2000MHz），放不下就降一号
+      probe.textContent = sub;
+      const room = c.sub.parentElement.clientWidth - SPARK_W - SUB_GAP;
+      c.el.classList.toggle('tight', probe.scrollWidth > room);
+    }
+
+    function drawSpark(key) {
+      const hist = history[key];
+      const el = cards[key].spark;
+      if (el.children.length !== hist.length) {
+        el.replaceChildren(...hist.map(() => document.createElement('i')));
+      }
+      // 按窗口内的峰值定标，否则 20% 的负载只有 2px 高，看不出形状
+      const peak = Math.max(20, ...hist.filter(v => v != null));
+      hist.forEach((v, i) => {
+        const cell = el.children[i];
+        cell.style.height = v == null ? '0%' : Math.max(2, v / peak * 100) + '%';
+        cell.style.backgroundColor = v != null && v > HIGH_LOAD ? 'var(--bar-high)' : 'var(--bar-fill)';
+      });
+    }
+
+    function renderChips(d) {
+      const html = [];
+      for (const c of CHIPS) {
+        const raw = c.get(d);
+        if (raw == null) continue;
+        html.push(`<div class="chip${c.warn && c.warn(raw) ? ' warn' : ''}"><b>${c.label}</b><span>${c.fmt(raw)}</span></div>`);
+      }
+      const host = document.getElementById('chips');
+      host.innerHTML = html.join('');
+      // 传感器数量变了会挤爆这一行，缩一号也比裁掉好
+      host.classList.toggle('dense', host.scrollWidth > host.clientWidth);
+    }
+
+    function render(d) {
+      document.body.classList.toggle('offline', !d);
+      for (const key of Object.keys(SPARKS)) {
+        const hist = history[key];
+        hist.push(d ? SPARKS[key](d) : null);
+        while (hist.length > HISTORY) hist.shift();
+        drawSpark(key);
+      }
+      if (!d) {
+        ['cpu', 'gpu', 'ram', 'net'].forEach(k => paint(k, '--', 0, '--'));
+        document.getElementById('chips').replaceChildren();
+        return;
+      }
+      const vram = d.gpu.mem_used_mb == null ? null
+        : `显存 ${n(d.gpu.mem_used_mb / 1024, 1)}/${n(d.gpu.mem_total_mb / 1024, 0)}GB`;
+      paint('cpu', `${n(d.cpu.usage)}% | ${n(d.cpu.temp)}°C`, d.cpu.usage,
+            parts(ghz(d.cpu.clock_mhz), watt(d.cpu.power_w), volt(d.cpu.volt)));
+      paint('gpu', `${n(d.gpu.usage)}% | ${n(d.gpu.temp)}°C`, d.gpu.usage,
+            parts(vram, mhz(d.gpu.clock_mhz, '核心'), mhz(d.gpu.mem_clock_mhz, '显存频率')));
+      paint('ram', `${n(d.ram.used, 1)} / ${n(d.ram.total, 1)} GB`, d.ram.pct,
+            parts(d.ram.used == null ? null : n(d.ram.total - d.ram.used, 1) + 'GB 可用',
+                  d.ram.pct == null ? null : n(d.ram.pct) + '%'));
+      paint('net', `${n(d.net.up_mbps, 2)} ↑ | ${n(d.net.down_mbps, 2)} Mbps`,
+            d.net.up_mbps == null ? 0 : d.net.up_mbps / NET_FULL_MBPS * 100,
+            d.net.wifi_dbm == null ? '--' : 'WiFi ' + n(d.net.wifi_dbm) + ' dBm');
+      renderChips(d);
+    }
+
+    async function tick() {
+      let d = null;
+      try {
+        const r = await fetch('/hw.json?_=' + Date.now(), { cache: 'no-store' });
+        const j = await r.json();
+        if (j && j.ok) d = j;
+      } catch (e) {
+        /* 服务没起来时走 render(null) */
+      }
+      render(d);
+    }
+
+    tick();
+    setInterval(tick, REFRESH_MS);
+  </script>
+</body>
+</html>

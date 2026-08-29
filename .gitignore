@@ -1,0 +1,17 @@
+__pycache__/
+*.py[cod]
+
+# 运行期产物
+*.log
+state/
+
+# PyInstaller（M5）
+build/
+dist/
+work/
+
+# 编辑器与系统
+.vscode/
+.idea/
+Thumbs.db
+Desktop.ini
