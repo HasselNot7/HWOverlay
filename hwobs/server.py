@@ -93,7 +93,16 @@ class Handler(BaseHTTPRequestHandler):
         self._json({"saved": saved, **rep}, 200 if saved else 400)
 
     def do_POST(self):
-        if unquote(self.path.split("?", 1)[0]) != "/api/config/rollback":
+        route = unquote(self.path.split("?", 1)[0])
+        if route == "/api/layout-check":
+            cfg, err = self._body_json()
+            if err:
+                return self._json({"errors": [err], "warnings": [], "ok": False}, 400)
+            try:
+                return self._json(config.validate(cfg))
+            except Exception as e:      # noqa: BLE001
+                return self._json({"errors": [f"校验失败：{e}"], "warnings": [], "ok": False}, 500)
+        if route != "/api/config/rollback":
             return self._send(404, b"not found", "text/plain")
         try:
             ok, rep = config.rollback()
