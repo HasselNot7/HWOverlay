@@ -46,12 +46,14 @@ def main():
     b = new.snapshot()
 
     la, lb = leaves(a), leaves(b)
-    # M4 有意新增的字段。只放行这一份白名单，别的新增一律算回归。
-    ALLOWED_NEW = {"degraded"}
+    # 有意新增的字段。sources 是一棵子树，所以按顶层名前缀放行；
+    # 不在清单里的新增一律算回归。
+    ALLOWED_NEW = {"degraded", "sources"}
     only_a = sorted(set(la) - set(lb))
     only_b_all = sorted(set(lb) - set(la))
-    allowed = [k for k in only_b_all if k in ALLOWED_NEW]
-    only_b = [k for k in only_b_all if k not in ALLOWED_NEW]
+    top = lambda k: k.split(".")[0].split("[")[0]
+    allowed = [k for k in only_b_all if top(k) in ALLOWED_NEW]
+    only_b = [k for k in only_b_all if k not in allowed]
 
     hard, volatile = [], []
     for path in sorted(set(la) & set(lb)):

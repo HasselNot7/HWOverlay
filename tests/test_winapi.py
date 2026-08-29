@@ -30,19 +30,37 @@ reg = registry.load()
 fb = {"net_up": 6.32, "net_down": 0.41}
 
 # AIDA64 什么都没导出：网卡速率走 Windows 兜底，其余指标如实报缺
-vals, matched, missing = registry.resolve({}, reg, fb)
+vals, matched, missing, sources = registry.resolve({}, reg, fb)
 check("无 AIDA64 时上行走 Windows 兜底", vals["net_up"] == 6.32, str(vals.get("net_up")))
 check("兜底命中记在 matched 上（管理页要能看出来源）",
       matched.get("net_up") == "winapi", str(matched.get("net_up")))
 check("AIDA64 专属指标仍报缺，不被兜底糊过去",
       "SCPUUTI" in missing and vals["cpu_usage"] is None)
+check("sources 覆盖注册表里的每一个指标",
+      set(sources) == {m["id"] for m in reg["metrics"]},
+      f"缺 {sorted({m['id'] for m in reg['metrics']} - set(sources))}")
+check("兜底生效时 sources 指向 winapi", sources["net_up"] == "winapi:net_up",
+      str(sources.get("net_up")))
+check("没数据的指标 sources 明确为 None，不含糊",
+      sources["cpu_usage"] is None and sources["mobo_temp"] is None)
+
+# 回归：Windows 自带指标的值曾经是在 resolve() 之后注入的，导致有值却永远报"无来源"
+_wv = {"ram_used": 16.8, "ram_total": 47.8}
+_v3, _m3, _ms3, s3 = registry.resolve({}, reg, fb, winapi_values=_wv)
+check("Windows 自带指标有值时来源如实标出",
+      s3["ram_used"] == "winapi:memory" and s3["ram_total"] == "winapi:memory",
+      f"{s3.get('ram_used')} / {s3.get('ram_total')}")
+check("没传值时不谎报来源",
+      registry.resolve({}, reg, fb)[3]["ram_used"] is None)
 
 # AIDA64 有网卡速率：必须优先用它，兜底不得插手
 sensors = {"SNIC5ULRATE": ("NIC5 Upload Rate", "880.5"), "SNIC5DLRATE": ("NIC5 Download Rate", "12.0")}
-vals2, matched2, _ = registry.resolve(sensors, reg, fb)
+vals2, matched2, _, sources2 = registry.resolve(sensors, reg, fb)
 check("AIDA64 有值时不被 Windows 兜底覆盖", vals2["net_up"] != 6.32, str(vals2.get("net_up")))
-check("此时 matched 指向 AIDA64 而非 winapi", matched2.get("net_up") != "winapi",
+check("此时 matched 不再指向 winapi", matched2.get("net_up") != "winapi",
       str(matched2.get("net_up")))
+check("聚合类指标也报得出来源（matched 以前漏的就是这类）",
+      sources2["net_up"] == "aida64:regex_sum", str(sources2.get("net_up")))
 check("AIDA64 在位时不启动昂贵的采样线程", overlay._net_fallback(sensors) == {})
 
 print("\n[网卡计数读取]")

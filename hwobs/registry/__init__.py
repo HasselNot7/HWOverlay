@@ -61,39 +61,56 @@ def _aggregate(sensors, m, rate_unit, bytes_per_unit=None):
     return round(_convert(m, sum(vals), rate_unit, bytes_per_unit), 2)
 
 
-def resolve(sensors, reg=None, fallbacks=None):
-    """返回 (指标值, 命中的传感器ID, 缺失的候选ID列表)。
+def resolve(sensors, reg=None, fallbacks=None, winapi_values=None):
+    """返回 (指标值, 命中的传感器ID, 缺失的候选ID列表, 每个指标的数据来源)。
 
     fallbacks: {兜底键: 数值}，例如 {"net_up": 6.32, "net_down": 0.4}。
-    只填声明了 winapi_fallback 且 AIDA64 没给值的指标 —— 逐指标降级，不整体换源。
+      只填声明了 winapi_fallback 且 AIDA64 没给值的指标 —— 逐指标降级，不整体换源。
+    winapi_values: {指标id: 数值}，Windows 自己就能算出来的指标（内存等），
+      由调用方读好传进来；值和来源必须同时决定，否则来源会永远是 None。
+
+    matched 只覆盖 AIDA64 候选类指标（历史字段，回归对比依赖它）；
+    sources 覆盖全部指标，管理页要显示"这个数从哪来"就读它。
     """
     reg = reg or load()
     fallbacks = fallbacks or {}
+    winapi_values = winapi_values or {}
     rate_unit = reg["rate_unit"]
-    values, matched, missing = {}, {}, []
+    values, matched, missing, sources = {}, {}, [], {}
 
     for m in reg["metrics"]:
+        mid = m["id"]
         ids = m.get("sources", {}).get("aida64")
         if ids:
             sid, val = pick(sensors, ids, m.get("na_zero", False))
-            matched[m["id"]] = sid
+            matched[mid] = sid
+            sources[mid] = f"aida64:{sid}" if sid else None
             if sid is None:
                 missing.append(ids[0])
-            values[m["id"]] = val
+            values[mid] = val
         elif m.get("agg"):
-            values[m["id"]] = _aggregate(sensors, m, rate_unit, reg.get("_bytes_per_unit"))
+            val = _aggregate(sensors, m, rate_unit, reg.get("_bytes_per_unit"))
+            values[mid] = val
+            sources[mid] = f"aida64:{m['agg']}" if val is not None else None
+        elif (wkey := m.get("sources", {}).get("winapi")):
+            val = winapi_values.get(mid)
+            values[mid] = val
+            sources[mid] = f"winapi:{wkey}" if val is not None else None
         fb = m.get("winapi_fallback")
-        if fb and values.get(m["id"]) is None and fallbacks.get(fb) is not None:
-            values[m["id"]] = fallbacks[fb]
-            matched[m["id"]] = "winapi"
+        if fb and values.get(mid) is None and fallbacks.get(fb) is not None:
+            values[mid] = fallbacks[fb]
+            matched[mid] = "winapi"
+            sources[mid] = f"winapi:{fb}"
 
     # 派生量单独一轮，这样 JSON 里的条目顺序不会静默影响结果
     for m in reg["metrics"]:
         if m.get("sum_of"):
             parts = [values.get(i) for i in m["sum_of"]]
             values[m["id"]] = None if any(p is None for p in parts) else sum(parts)
+            srcs = {sources.get(i) for i in m["sum_of"]}
+            sources[m["id"]] = "+".join(sorted(x for x in srcs if x)) or None
 
-    return values, matched, missing
+    return values, matched, missing, sources
 
 
 def apply(values, reg=None):

@@ -29,11 +29,10 @@ def snapshot():
         # AIDA64 没跑：不再整幅判死，让它退化成"只有 Windows 自带指标"的面板
         sensors, shm_bytes, degraded = {}, 0, "AIDA64 未运行，仅显示 Windows 自带指标"
 
-    values, matched, missing = registry.resolve(sensors, reg, _net_fallback(sensors))
-
     used, total, pct = winapi.windows_ram()
-    values["ram_used"] = used
-    values["ram_total"] = total
+    values, matched, missing, sources = registry.resolve(
+        sensors, reg, _net_fallback(sensors),
+        winapi_values={"ram_used": used, "ram_total": total})
     tree = registry.apply(values, reg)
 
     # 内存占用率优先用 AIDA64 的 SMEMUTI，拿不到再退回 Windows 自己算的
@@ -49,6 +48,7 @@ def snapshot():
         **tree,
         disk=metrics.disks(sensors, reg["rate_unit"]),
         matched=matched,
+        sources=sources,
         missing=missing,
     )
     return out
