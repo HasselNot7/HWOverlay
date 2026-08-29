@@ -67,6 +67,11 @@
       animation: blink 1s infinite;
     }
 
+    @keyframes blink {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0; }
+    }
+
     /* minmax(0,1fr) 是必需的：默认 1fr 的最小宽度等于内容宽度，
        长文本会把列撑宽去挤相邻卡片，还会让溢出判据量到一个跟着变大的 room */
     .monitor-grid {
