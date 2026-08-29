@@ -8,7 +8,12 @@ PORT = 8765
 
 def print_banner():
     s = overlay.snapshot()
-    print(f"AIDA64 共享内存 -> http://127.0.0.1:{PORT}/   调试: /sensors")
+    print(f"AIDA64 共享内存 -> http://127.0.0.1:{PORT}/   调试: /sensors   校验: /api/layout-check")
+    rep = server.layout_report()
+    for e in rep["errors"]:
+        print(f"  !! 版式错误: {e}")
+    for w in rep["warnings"]:
+        print(f"  ~~ 版式提醒: {w}")
     if not s.get("ok"):
         print(f"  !! {s.get('error')}")
         return
