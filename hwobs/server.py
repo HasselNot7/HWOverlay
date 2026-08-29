@@ -67,6 +67,8 @@ class Handler(BaseHTTPRequestHandler):
             st = controller.status()
             st["windows_net_sampler"] = winapi.net_state()
             self._json(st)
+        elif route == "/api/aida/plan":
+            self._json(controller.plan_export())
         elif route == "/sensors":
             self._json(overlay.debug_dump())
         elif route in ("/", "/index.html", "/" + HTML_FILE.name):
@@ -102,6 +104,27 @@ class Handler(BaseHTTPRequestHandler):
                 return self._json(config.validate(cfg))
             except Exception as e:      # noqa: BLE001
                 return self._json({"errors": [f"校验失败：{e}"], "warnings": [], "ok": False}, 500)
+        if route == "/api/aida/apply":
+            body, err = self._body_json()
+            if err:
+                return self._json({"applied": False, "reason": err}, 400)
+            if not (isinstance(body, dict) and body.get("confirm") is True):
+                return self._json({"applied": False,
+                                   "reason": "需要 confirm=true：这一步会关闭并重启你的 AIDA64"}, 400)
+            plan = controller.plan_export()
+            if plan["unchanged"]:
+                return self._json({"applied": False, "reason": "导出清单已经正确，无需改动"})
+            if not plan["fits"]:
+                return self._json({"applied": False, "reason": "版式需要的传感器超出 4096 预算，先去掉几个"}, 409)
+            if body.get("expect_count") != plan["needed_count"]:
+                return self._json({"applied": False, "reason": "清单已变化，请刷新后重新确认",
+                                   "plan": plan}, 409)
+            ids, _ = controller.propose(config.read())
+            try:
+                res = controller.apply(ids, confirm=True)
+            except Exception as e:      # noqa: BLE001
+                return self._json({"applied": False, "reason": f"执行失败：{e}"}, 500)
+            return self._json({**res, "plan_after": controller.plan_export()})
         if route != "/api/config/rollback":
             return self._send(404, b"not found", "text/plain")
         try:

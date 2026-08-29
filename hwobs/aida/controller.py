@@ -7,6 +7,7 @@
 本模块是全项目唯一会启停外部进程的地方。apply() 不带 confirm=True 直接拒绝执行。
 """
 
+import re
 import subprocess
 import time
 from pathlib import Path
@@ -72,12 +73,17 @@ def runtime_ids(sensors):
 
 
 def needed_ids(overlay_cfg, reg=None, sensors=None):
-    """版式实际引用到的输出路径 -> 需要导出的传感器 ID（含候选 ID，候选是为跨主板兜底）。"""
+    """版式实际引用到的输出路径 -> 需要导出的传感器 ID。
+
+    三条容易漏的取数路径，漏一条 apply() 就会把版式在用的传感器删掉：
+      - sources.aida64：候选 ID 全收，候选是为跨主板兜底存在的
+      - sum_of：派生量的依赖要递归展开（显存总量 = 已用 + 空闲，"空闲"也得导）
+      - agg：这类指标只有正则没有 ID，要拿当前已导出的 ID 去匹配
+    """
     reg = reg or registry.load()
     by_out = {m["out"]: m for m in reg["metrics"] if m.get("out")}
-    # out 为 null 的条目（如显存空闲）只能按 id 引用到
-    for m in reg["metrics"]:
-        by_out.setdefault(m["id"], m)
+    by_id = {m["id"]: m for m in reg["metrics"]}
+    sensors = sensors or {}
 
     paths = []
 
@@ -88,7 +94,7 @@ def needed_ids(overlay_cfg, reg=None, sensors=None):
             for k in ("metric", "bar", "spark"):
                 if isinstance(node.get(k), str):
                     paths.append(node[k])
-            for k in ("metrics", "pair", "diff", "max_of", "items", "value", "sub"):
+            for k in ("metrics", "pair", "diff", "items", "value", "sub"):
                 if k in node:
                     collect(node[k])
         elif isinstance(node, list):
@@ -98,19 +104,74 @@ def needed_ids(overlay_cfg, reg=None, sensors=None):
     collect(overlay_cfg.get("rows", []))
 
     ids, seen = [], set()
-    for p in paths:
-        m = by_out.get(p)
-        if not m:
-            continue
-        for sid in m.get("sources", {}).get("aida64", []):
-            if sid not in seen:
-                seen.add(sid)
-                ids.append(sid)
-    for sid in runtime_ids(sensors):
+
+    def push(sid):
         if sid not in seen:
             seen.add(sid)
             ids.append(sid)
-    return ids, sorted(set(paths) - set(by_out))
+
+    def add_metric(m, depth=0):
+        if m is None or depth > 4:                     # 防 sum_of 写成环
+            return
+        for sid in m.get("sources", {}).get("aida64", []):
+            push(sid)
+        rx = m.get("regex")
+        if m.get("agg") and rx:
+            rx = re.compile(rx)
+            for sid in sensors:
+                if rx.match(sid):
+                    push(sid)
+        for dep in m.get("sum_of", []):
+            add_metric(by_id.get(dep), depth + 1)
+
+    unknown = []
+    for p in paths:
+        m = by_out.get(p) or by_id.get(p)
+        if m is None:
+            unknown.append(p)
+            continue
+        add_metric(m)
+
+    for sid in runtime_ids(sensors):
+        push(sid)
+    return ids, sorted(set(unknown))
+
+
+def plan_export(overlay_cfg=None, sensors=None):
+    """只读：当前导出清单 vs 版式需要的清单。向导和 apply 确认框都用它。"""
+    from .. import config
+    cfg = overlay_cfg or config.read()
+    sensors = sensors if sensors is not None else (read_sensors_now())
+    needed, plan = propose(cfg, sensors=sensors)
+    current = list(sensors or {})
+    hints = {sid: (label, value) for sid, (label, value) in (sensors or {}).items()}
+    now = budget.plan(current, hints=hints)
+
+    why = {}
+    for m in registry.load()["metrics"]:
+        for sid in m.get("sources", {}).get("aida64", []):
+            why.setdefault(sid, []).append(m.get("name") or m["id"])
+
+    to_add = [i for i in needed if i not in current]
+    to_remove = [i for i in current if i not in needed]
+    return {
+        "current_count": len(current),
+        "needed_count": len(needed),
+        "to_add": to_add,
+        "to_remove": to_remove,
+        "add_reasons": {i: why.get(i, ["网卡/磁盘聚合，代码按正则取用"]) for i in to_add},
+        "budget_now": {k: now[k] for k in ("count", "usable", "worst_bytes", "typical_bytes", "fits")},
+        "budget_new": {k: plan[k] for k in ("count", "usable", "worst_bytes", "typical_bytes", "fits",
+                                            "truncated_at")},
+        "fits": plan["fits"],
+        "restart_required": bool(to_add or to_remove),
+        "unchanged": not (to_add or to_remove),
+        "unknown_paths": plan["unknown_paths"],
+    }
+
+
+def read_sensors_now():
+    return aida64.read_sensors()[0]
 
 
 def propose(overlay_cfg, sensors=None):
