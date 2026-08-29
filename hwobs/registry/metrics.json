@@ -93,6 +93,12 @@
       "unit": "°C", "digits": 0, "na_zero": true, "warn": { "op": ">=", "value": 75 },
       "sources": { "aida64": ["TDIMMTS3"] } },
 
+    { "id": "ram_used", "out": "ram.used", "name": "内存已用", "kind": "gauge",
+      "unit": "GB", "digits": 1, "sources": { "winapi": "memory" } },
+
+    { "id": "ram_total", "out": "ram.total", "name": "内存总量", "kind": "gauge",
+      "unit": "GB", "digits": 1, "sources": { "winapi": "memory" } },
+
     { "id": "net_up", "out": "net.up_mbps", "name": "上行速率", "kind": "rate",
       "unit": "Mbps", "digits": 2, "rate_untrusted": true,
       "agg": "regex_sum", "regex": "^SNIC(\\d+)ULRATE$", "convert": "rate_to_mbps" },

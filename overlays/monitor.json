@@ -37,8 +37,7 @@
           "key": "ram",
           "label": "[RAM] DDR5",
           "bar": "ram.pct",
-          "value": { "metrics": ["ram.used", "ram.total"], "sep": " / ", "unit_policy": "last",
-                     "unit": "GB", "digits": 1 },
+          "value": { "metrics": ["ram.used", "ram.total"], "sep": " / ", "unit_policy": "last" },
           "sub": {
             "sep": " · ",
             "metrics": [

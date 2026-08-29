@@ -20,12 +20,14 @@ def snapshot():
         return out
 
     values, matched, missing = registry.resolve(sensors, reg)
-    tree = registry.apply(values, reg)
 
     used, total, pct = winapi.windows_ram()
-    # 内存优先用 AIDA64 的 SMEMUTI，拿不到再退回 Windows 自己算的
-    tree["ram"] = {**tree.get("ram", {}), "used": used, "total": total,
-                   "pct": values.get("ram_pct") or pct}
+    values["ram_used"] = used
+    values["ram_total"] = total
+    tree = registry.apply(values, reg)
+
+    # 内存占用率优先用 AIDA64 的 SMEMUTI，拿不到再退回 Windows 自己算的
+    tree["ram"]["pct"] = values.get("ram_pct") or pct
     tree.setdefault("net", {})["active_nics"] = metrics.active_nics(sensors)
 
     out.update(
