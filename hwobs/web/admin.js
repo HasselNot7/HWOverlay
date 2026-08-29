@@ -168,6 +168,106 @@ async function refreshAll() {
   renderCheck();
 }
 
+/* ---------- 首启向导 ---------- */
+
+let PLAN = null;
+
+function diffList(ids, cls) {
+  const d = el('div', 'diff ' + cls);
+  ids.forEach(i => d.append(el('span', null, i)));
+  return d;
+}
+
+function step(cls, title, kids) {
+  return el('li', cls, [el('div', 'st', title)].concat(kids || []));
+}
+
+function setWmsg(text, cls) {
+  const m = $('#w-msg');
+  if (m) { m.textContent = text; m.className = cls || 'src'; }
+}
+
+function renderWizard() {
+  const st = state.status, host = $('#w-steps');
+  if (!st) return host.replaceChildren(el('li', 'todo', '检测中…'));
+  const steps = [];
+
+  if (!st.running || !st.ini) {
+    steps.push(step('bad', '① 连接 AIDA64', [
+      el('div', null, st.running ? 'AIDA64 在跑，但共享内存读不到' : 'AIDA64 没在运行'),
+      el('div', 'src', st.install || '没找到安装目录（绿色版请先启动一次 AIDA64）')]));
+  } else {
+    steps.push(step('done', '① AIDA64 已连接', [
+      el('div', 'src', `导出 ${st.current_count ?? st.exported_ids.length} 个传感器 · 共享内存 `
+        + `${st.shm_bytes}/${st.shm_limit} 字节 = ${st.shm_pct}%`)]));
+  }
+
+  if (!PLAN) {
+    steps.push(el('li', 'todo', '② 读取导出清单…'));
+  } else if (PLAN.unchanged) {
+    steps.push(step('done', '② 导出清单与版式一致', []));
+  } else if (!PLAN.fits) {
+    steps.push(step('bad', '② 版式需要的传感器超出 4096 预算', [
+      el('div', 'warnbox', `最坏 ${PLAN.budget_new.worst_bytes} 字节 > 可用 ${PLAN.budget_new.usable}，`
+        + `从第 ${PLAN.budget_new.truncated_at + 1} 个起会被截断。回编辑器去掉几个小指标。`)]));
+  } else {
+    const kids = [];
+    if (PLAN.to_add.length) kids.push(el('div', 'src', `需增加 ${PLAN.to_add.length} 个`), diffList(PLAN.to_add, 'add'));
+    if (PLAN.to_remove.length) kids.push(el('div', 'src', `可移除 ${PLAN.to_remove.length} 个`), diffList(PLAN.to_remove, 'del'));
+    kids.push(el('div', 'src', `预算 ${PLAN.budget_now.worst_bytes} → ${PLAN.budget_new.worst_bytes} / `
+      + `${PLAN.budget_new.usable} 字节`));
+    const cb = el('input'); cb.type = 'checkbox'; cb.id = 'w-confirm';
+    const btn = el('button'); btn.textContent = '应用并重启 AIDA64'; btn.disabled = true;
+    btn.addEventListener('click', () => onApply(btn));
+    cb.addEventListener('change', () => { btn.disabled = !cb.checked; });
+    kids.push(el('div', 'confirm', [cb,
+      el('label', null, '我确认：这会关闭并重启 AIDA64，期间 OSD / 信息板会断流'), btn]));
+    kids.push(el('div', 'src', '原理：AIDA64 只把 HWMonExtAppItems 列出的传感器写进共享内存，且退出时才回写 ini。'));
+    steps.push(step('todo', `② 导出清单需要调整（加 ${PLAN.to_add.length} / 减 ${PLAN.to_remove.length}）`, kids));
+  }
+
+  steps.push(step('done', '③ 在 OBS 里添加"浏览器"源', [
+    el('div', 'src', `URL ${location.origin}/　宽 ${state.check?.canvas_w ?? '—'}　高 ${state.check?.canvas_h ?? '—'}`),
+    el('div', 'src', '改过版式后要在浏览器源属性里点"刷新缓存"，否则 OBS 还是旧页面。')]));
+
+  host.replaceChildren(...steps);
+  const msg = el('div', 'src');
+  msg.id = 'w-msg';
+  host.append(msg);
+}
+
+async function onApply(btn) {
+  btn.disabled = true;
+  setWmsg('应用中：关闭 AIDA64 → 写 ini → 重启 → 回读校验…', 'warnbox');
+  let rep;
+  try {
+    const r = await fetch('/api/aida/apply', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' }, cache: 'no-store',
+      body: JSON.stringify({ confirm: true, expect_count: PLAN.needed_count }),
+    });
+    rep = await r.json();
+  } catch (e) {
+    setWmsg('✗ 请求失败：' + e, 'bad');
+    btn.disabled = false;
+    return;
+  }
+  if (!rep.applied) {
+    setWmsg('✗ ' + (rep.reason || '未应用'), 'bad');
+    btn.disabled = false;
+    return;
+  }
+  setWmsg('✓ 已应用' + (rep.rolled_back ? '，但回读发现截断，已自动回滚——请减少指标' : '，共享内存已更新'),
+          rep.rolled_back ? 'bad' : 'ok');
+  await refreshAll();
+  await loadPlan();
+  reloadPreview();
+}
+
+async function loadPlan() {
+  try { PLAN = await getJSON('/api/aida/plan'); } catch (e) { PLAN = null; }
+  renderWizard();
+}
+
 /* ---------- 编辑器 ---------- */
 
 let CFG = null;        // 磁盘上的版本
@@ -300,11 +400,12 @@ function setAuto(on) {
   timer = on ? setInterval(refreshFast, 2000) : null;
 }
 
-$('#refresh').addEventListener('click', () => refreshAll());
+$('#refresh').addEventListener('click', () => { refreshAll(); loadPlan(); });
 $('#auto').addEventListener('change', e => setAuto(e.target.checked));
 
 refreshAll().then(async () => {
   await loadConfig();
+  await loadPlan();
   reloadPreview();
   setAuto($('#auto').checked);
 });

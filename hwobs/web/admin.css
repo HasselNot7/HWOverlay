@@ -91,3 +91,19 @@ h3 { font-size: 12px; color: var(--muted); font-weight: 400; margin: 14px 0 8px;
 button:disabled { opacity: .4; cursor: not-allowed; }
 .pv-wrap { width: 100%; height: 90px; overflow: hidden; background: var(--bg); border: 1px solid var(--line); }
 .pv-wrap iframe { width: 2000px; height: 200px; border: 0; transform: scale(.45); transform-origin: 0 0; }
+
+/* 首启向导 */
+.steps { margin: 0; padding-left: 22px; }
+.steps > li { margin: 8px 0; }
+.steps .st { font-weight: 700; }
+.steps .done .st { color: var(--ok); }
+.steps .todo .st { color: var(--warn); }
+.steps .bad .st { color: var(--bad); }
+.steps ul { margin: 4px 0 0; padding-left: 18px; color: var(--dim); font-size: 13px; }
+.diff { display: flex; flex-wrap: wrap; gap: 4px 6px; margin: 6px 0; }
+.diff span { background: #191b21; border: 1px solid var(--line); border-radius: 3px; padding: 0 6px; font-size: 12px; }
+.diff.add span { border-color: #3f5d43; }
+.diff.del span { color: var(--muted); text-decoration: line-through; }
+.confirm { display: flex; align-items: center; gap: 10px; margin-top: 8px; }
+.confirm label { color: var(--dim); font-size: 13px; }
+.warnbox { color: var(--warn); font-size: 13px; }
