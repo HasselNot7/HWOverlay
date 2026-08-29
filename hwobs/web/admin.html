@@ -34,11 +34,9 @@
       <div class="form">
         <label>宽 <input type="number" id="e-w" min="200" max="4000" step="10"></label>
         <label>高 <input type="number" id="e-h" min="60" max="1000" step="1"></label>
-        <label>每行卡片数 <input type="number" id="e-cols" min="1" max="6" step="1"></label>
+        <span class="src">部件的高度、字号、间距都在下面各部件自己的设置里。</span>
       </div>
-      <div id="e-labels" class="form"></div>
-      <h3>底部小指标</h3>
-      <div id="e-chips" class="chips-edit"></div>
+      <div id="e-widgets"></div>
       <div class="savebar">
         <button id="e-save" disabled>保存</button>
         <button id="e-undo">还原上一版</button>
@@ -48,8 +46,8 @@
   </section>
 
   <section id="preview" class="card"><h2>预览</h2><div class="body">
-    <div class="pv-wrap"><iframe id="pv" title="叠加层预览" scrolling="no"></iframe></div>
-    <div class="src">预览按 45% 缩放显示真实的 2000×170 叠加层。</div>
+    <div class="pv-wrap" id="pv-wrap"><iframe id="pv" title="叠加层预览" scrolling="no"></iframe></div>
+    <div class="src" id="pv-note">预览按 45% 缩放。</div>
   </div></section>
 
   <section id="metrics" class="card"><h2>指标</h2><div class="body">载入中…</div></section>

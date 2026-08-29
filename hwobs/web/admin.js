@@ -1,6 +1,10 @@
-/* 管理页 v1：只读展示。
+/* 管理页。
  * 数据来源与叠加层完全一致，避免"管理页说一套、叠加层显示另一套"。
  * /api/aida/status 会起 PowerShell，约 2 秒，所以只在进页面和点刷新时调，自动刷新只拉 /hw.json。
+ *
+ * 编辑器 v2：直接编辑 draft.widgets 部件数组。
+ * 版式树"哪些路径被用到"不在这里重算 —— 服务端校验响应里的 referenced 是唯一事实
+ * （历史上前端自己数过一遍，键集合和服务端不一致，就是 e2e567e 那类 bug 的温床）。
  */
 
 const $ = sel => document.querySelector(sel);
@@ -95,6 +99,7 @@ function renderObs() {
   dl.append(el('dt', null, '内容预估高'));
   dl.append(el('dd', c.est_height > c.canvas_h ? 'bad' : 'ok', `${c.est_height} px`));
   body.append(dl, el('div', 'dim', 'OBS → 添加"浏览器"源 → 取消勾选"本地文件" → 填上面的 URL 和尺寸。'));
+  sizePreview(c.canvas_w, c.canvas_h);
 }
 
 function renderCheck() {
@@ -268,7 +273,7 @@ async function loadPlan() {
   renderWizard();
 }
 
-/* ---------- 编辑器 ---------- */
+/* ---------- 编辑器：部件数组直编 ---------- */
 
 let CFG = null;        // 磁盘上的版本
 let draft = null;      // 正在改的版本
@@ -276,19 +281,14 @@ let dirty = false;
 let debounce = null;
 
 const clone = o => JSON.parse(JSON.stringify(o));
-const chipsRow = () => draft.rows.find(r => r.type === 'chips');
-const cardsRow = () => draft.rows.find(r => r.type === 'cards');
-
-function pathsUsedByCards() {
-  const used = new Set();
-  for (const c of (cardsRow()?.items || [])) {
-    if (c.bar) used.add(c.bar);
-    if (c.spark) used.add(c.spark);
-    for (const m of (c.value?.metrics || [])) used.add(typeof m === 'string' ? m : m.metric);
-    for (const m of (c.sub?.metrics || [])) used.add(typeof m === 'string' ? m : m.metric);
-  }
-  return used;
-}
+const outPaths = () => (METRICS?.metrics || []).filter(m => m.out).map(m => m.out);
+const usedPaths = () => new Set(state.check?.referenced || []);
+const nextKey = () => {
+  const keys = new Set((draft.widgets || []).flatMap(w => (w.items || []).map(c => c.key)));
+  let i = 1;
+  while (keys.has('card' + i)) i += 1;
+  return 'card' + i;
+};
 
 async function postJSON(url, body) {
   const r = await fetch(url, { method: 'POST', body: JSON.stringify(body),
@@ -296,42 +296,195 @@ async function postJSON(url, body) {
   return { status: r.status, data: await r.json() };
 }
 
-function buildEditor() {
-  $('#e-w').value = draft.canvas.w;
-  $('#e-h').value = draft.canvas.h;
-  $('#e-cols').value = cardsRow()?.cols ?? 4;
+function metricSelect(value, onchange) {
+  const sel = el('select');
+  const cur = el('option', null, value || '(无)');
+  cur.value = value || '';
+  sel.append(cur);
+  for (const p of outPaths()) {
+    if (p === value) continue;
+    const o = el('option', null, p);
+    o.value = p;
+    sel.append(o);
+  }
+  sel.addEventListener('change', () => onchange(sel.value));
+  return sel;
+}
 
-  const labels = $('#e-labels');
-  labels.replaceChildren(...(cardsRow()?.items || []).map((c, i) => {
-    const inp = el('input');
-    inp.type = 'text'; inp.value = c.label; inp.size = 22;
-    inp.addEventListener('input', () => { c.label = inp.value; onChange(); });
-    return el('label', null, [el('span', 'src', `卡${i + 1} 标题`), inp]);
-  }));
+/* 槽位（value/sub）里的一个条目行。字符串引用就地改写；
+ * pair/diff 这类复合对象只显示与删除，不提供内部编辑（要改就删了重加）。 */
+function slotRow(arr, i, rebuild) {
+  const item = arr[i];
+  const row = el('div', 'slot-row');
+  if (typeof item === 'string') {
+    const sel = metricSelect(item, v => { arr[i] = v; onChange(); });
+    const label = el('input'); label.type = 'text'; label.placeholder = '前缀标签（可空）';
+    label.value = ''; label.size = 8; label.title = '字符串引用没有标签字段；填标签会把它升级成对象';
+    label.addEventListener('change', () => {
+      if (label.value) { arr[i] = { metric: arr[i], label: label.value }; rebuild(); }
+    });
+    row.append(sel, label);
+  } else if (item?.metric) {
+    const sel = metricSelect(item.metric, v => { item.metric = v; onChange(); });
+    const label = el('input'); label.type = 'text'; label.placeholder = '前缀标签（可空）';
+    label.value = item.label ?? ''; label.size = 8;
+    label.addEventListener('input', () => { item.label = label.value || undefined; onChange(); });
+    row.append(sel, label);
+  } else if (item?.pair || item?.diff) {
+    const pair = item.pair || item.diff;
+    row.append(el('span', 'path', `${item.pair ? 'pair' : 'diff'}: ${pair.join(' / ')}`));
+  } else {
+    row.append(el('span', 'path', JSON.stringify(item)));
+  }
+  const del = el('button', 'mini'); del.textContent = '✕';
+  del.title = '移除这一项';
+  del.addEventListener('click', () => { arr.splice(i, 1); rebuild(); onChange(); });
+  row.append(del);
+  return row;
+}
 
-  const inChips = new Set(chipsRow()?.items || []);
-  const usedByCards = pathsUsedByCards();
-  const box = $('#e-chips');
-  box.replaceChildren(...METRICS.metrics.filter(m => m.out).map(m => {
+function slotEditor(card, defKey, title) {
+  const box = el('div', 'slot');
+  box.append(el('span', 'src', title));
+  const rebuild = () => fillSlot(box, card, defKey, title, rebuild);
+  fillSlot(box, card, defKey, title, rebuild);
+  return box;
+}
+
+function fillSlot(box, card, defKey, title, rebuild) {
+  const def = card[defKey];
+  const list = def?.metrics ?? [];
+  box.querySelectorAll('.slot-row, .slot-add').forEach(n => n.remove());
+  list.forEach((_, i) => box.append(slotRow(list, i, rebuild)));
+  const add = el('button', 'mini slot-add'); add.textContent = '+ 加指标';
+  add.addEventListener('click', () => {
+    const first = outPaths()[0];
+    if (def) def.metrics.push(first);
+    else card[defKey] = { metrics: [first] };
+    rebuild(); onChange();
+  });
+  box.append(add);
+}
+
+function cardEditor(w, c, i, rebuildCards) {
+  const fs = el('fieldset', 'card-edit');
+  const legend = el('legend', null, `卡 ${i + 1}`);
+  const delCard = el('button', 'mini'); delCard.textContent = '删卡';
+  delCard.addEventListener('click', () => { w.items.splice(i, 1); rebuildCards(); onChange(); });
+  legend.append(delCard);
+  fs.append(legend);
+
+  const label = el('input'); label.type = 'text'; label.value = c.label ?? ''; label.size = 24;
+  label.addEventListener('input', () => { c.label = label.value; onChange(); });
+  fs.append(el('label', null, [el('span', 'src', '标题'), label]));
+
+  fs.append(el('div', 'form', [
+    el('label', null, [el('span', 'src', '进度条'),
+      metricSelect(c.bar, v => { v ? c.bar = v : delete c.bar; onChange(); })]),
+    el('label', null, [el('span', 'src', '曲线'),
+      metricSelect(c.spark, v => { v ? c.spark = v : delete c.spark; onChange(); })]),
+  ]));
+
+  fs.append(slotEditor(c, 'value', '主值'));
+  fs.append(slotEditor(c, 'sub', '次要行'));
+  return fs;
+}
+
+function buildCardsEditor(w, host) {
+  const addCard = el('button', 'mini'); addCard.textContent = '+ 卡片';
+  const rebuildCards = () => {
+    host.replaceChildren();
+    (w.items || []).forEach((c, i) => host.append(cardEditor(w, c, i, rebuildCards)));
+    host.append(addCard);
+  };
+  addCard.addEventListener('click', () => {
+    const first = outPaths()[0];
+    w.items = w.items || [];
+    w.items.push({ key: nextKey(), label: '新卡片', bar: first,
+                   value: { metrics: [first] }, sub: { sep: ' · ', metrics: [] } });
+    rebuildCards(); onChange();
+  });
+  rebuildCards();
+}
+
+function buildChipsEditor(w, host) {
+  const form = el('div', 'form');
+  const font = el('input'); font.type = 'number'; font.value = w.font ?? 15; font.min = 8; font.max = 40;
+  font.addEventListener('change', () => { w.font = +font.value; onChange(); });
+  form.append(el('label', null, [el('span', 'src', '字号'), font]));
+  host.append(form);
+
+  const inChips = new Set(w.items || []);
+  const box = el('div', 'chips-edit');
+  box.replaceChildren(...outPaths().map(p => {
+    const m = METRICS.metrics.find(x => x.out === p);
     const cb = el('input');
-    cb.type = 'checkbox'; cb.checked = inChips.has(m.out);
+    cb.type = 'checkbox'; cb.checked = inChips.has(p);
     cb.addEventListener('change', () => {
-      const items = chipsRow().items.filter(x => x !== m.out);
-      if (cb.checked) items.push(m.out);
-      chipsRow().items = items;
+      w.items = (w.items || []).filter(x => x !== p);
+      if (cb.checked) w.items.push(p);
       onChange();
     });
     return el('label', null, [cb, el('span', null, m.name),
-      el('span', 'path', m.out), usedByCards.has(m.out) ? el('span', 'inuse', '卡片在用') : null]
+      el('span', 'path', p), usedPaths().has(p) && !cb.checked ? el('span', 'inuse', '版式别处在用') : null]
       .filter(Boolean));
   }));
+  host.append(box);
+}
 
-  ['e-w', 'e-h', 'e-cols'].forEach(id => $('#' + id).addEventListener('change', () => {
+function buildTextEditor(w, host) {
+  const form = el('div', 'form');
+  const text = el('input'); text.type = 'text'; text.value = w.text ?? ''; text.size = 60;
+  text.addEventListener('input', () => { w.text = text.value; onChange(); });
+  const size = el('input'); size.type = 'number'; size.value = w.size ?? 19; size.min = 8; size.max = 60;
+  size.addEventListener('change', () => { w.size = +size.value; onChange(); });
+  form.append(
+    el('label', null, [el('span', 'src', '正文'), text]),
+    el('label', null, [el('span', 'src', '字号'), size]));
+  host.append(form, el('div', 'src', '正文里用 {cpu.usage} 这类占位符插入指标值，缺失时显示 --。'));
+}
+
+const WIDGET_EDITORS = { cards: buildCardsEditor, chips: buildChipsEditor, text: buildTextEditor };
+
+function buildEditor() {
+  $('#e-w').value = draft.canvas.w;
+  $('#e-h').value = draft.canvas.h;
+  ['e-w', 'e-h'].forEach(id => $('#' + id).addEventListener('change', () => {
     draft.canvas.w = +$('#e-w').value;
     draft.canvas.h = +$('#e-h').value;
-    cardsRow().cols = +$('#e-cols').value;
     onChange();
   }));
+
+  const host = $('#e-widgets');
+  host.replaceChildren();
+  (draft.widgets || []).forEach((w, i) => {
+    const box = el('div', 'widget-edit');
+    const del = el('button', 'mini'); del.textContent = '删部件';
+    del.addEventListener('click', () => { draft.widgets.splice(i, 1); buildEditor(); onChange(); });
+    const meta = { cards: '卡片网格', chips: '底部小指标', text: '自定义文本行' }[w.type] ?? w.type;
+    box.append(el('div', 'w-head', [el('b', null, `部件 ${i + 1} · ${meta}`), del]));
+    const inner = el('div', 'w-body');
+    box.append(inner);
+    (WIDGET_EDITORS[w.type] ?? (() => inner.append(el('div', 'src', `不认识的类型 ${w.type}，只能整体删除`))))(w, inner);
+    host.append(box);
+  });
+
+  const addbar = el('div', 'addbar');
+  const addText = el('button'); addText.textContent = '+ 文本行';
+  addText.addEventListener('click', () => {
+    draft.widgets.push({ type: 'text', text: `CPU {cpu.usage}% · {cpu.temp}°C`, size: 19, margin_top: 6 });
+    buildEditor(); onChange();
+  });
+  const addCards = el('button'); addCards.textContent = '+ 卡片行';
+  addCards.addEventListener('click', () => {
+    const first = outPaths()[0];
+    draft.widgets.push({ type: 'cards', items: [
+      { key: nextKey(), label: '新卡片', bar: first,
+        value: { metrics: [first] }, sub: { sep: ' · ', metrics: [] } }] });
+    buildEditor(); onChange();
+  });
+  addbar.append(addCards, addText);
+  host.append(addbar);
 }
 
 function setMsg(text, cls) {
@@ -357,18 +510,37 @@ async function onChange() {
     state.check = data;
     renderBudget();
     renderCheck();
+    renderObs();
   }, 350);
 }
 
 async function onSave() {
   const r = await fetch('/api/config', { method: 'PUT', body: JSON.stringify(draft),
-                                         headers: { 'Content-Type': 'application/json' } });
+                                        headers: { 'Content-Type': 'application/json' } });
   const rep = await r.json();
   if (!rep.saved) return setMsg(`✗ 保存失败：${(rep.errors || []).join('；')}`, 'bad');
   CFG = clone(draft);
-  await onChange();
+  dirty = false;
+  $('#e-save').disabled = true;
   reloadPreview();
   setMsg('✓ 已保存。OBS 里若没变化，点浏览器源的"刷新缓存"。', 'ok');
+  // 静默刷新校验/预算面板；不能走 onChange，它会把这条确认消息盖成"没有改动"
+  const { data } = await postJSON('/api/layout-check', draft);
+  state.check = data;
+  renderBudget();
+  renderCheck();
+  renderObs();
+}
+
+function sizePreview(cw, ch) {
+  const pv = $('#pv'), wrap = $('#pv-wrap');
+  if (!pv || !cw || !ch) return;
+  const s = 0.45;
+  pv.style.width = cw + 'px';
+  pv.style.height = ch + 'px';
+  pv.style.transform = `scale(${s})`;
+  wrap.style.height = Math.ceil(ch * s) + 'px';
+  $('#pv-note').textContent = `预览按 ${Math.round(s * 100)}% 缩放，真实尺寸 ${cw}×${ch}。`;
 }
 
 function reloadPreview() {

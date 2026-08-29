@@ -75,7 +75,7 @@ h3 { font-size: 12px; color: var(--muted); font-weight: 400; margin: 14px 0 8px;
 .form label { display: flex; align-items: center; gap: 6px; color: var(--dim); font-size: 13px; }
 .form input[type=number] { width: 76px; }
 .form input[type=text] { width: 260px; }
-.form input {
+.form input, .slot-row select {
   font: inherit; background: #191b21; color: var(--text);
   border: 1px solid var(--line); border-radius: 3px; padding: 3px 6px;
 }
@@ -91,6 +91,23 @@ h3 { font-size: 12px; color: var(--muted); font-weight: 400; margin: 14px 0 8px;
 button:disabled { opacity: .4; cursor: not-allowed; }
 .pv-wrap { width: 100%; height: 90px; overflow: hidden; background: var(--bg); border: 1px solid var(--line); }
 .pv-wrap iframe { width: 2000px; height: 200px; border: 0; transform: scale(.45); transform-origin: 0 0; }
+
+/* 部件编辑器 v2 */
+.widget-edit { border: 1px solid var(--line); border-radius: 4px; margin: 10px 0; }
+.widget-edit > .w-head {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 6px 10px; background: #191b21; border-bottom: 1px solid var(--line);
+}
+.widget-edit > .w-body { padding: 8px 10px; }
+button.mini { font-size: 12px; padding: 1px 8px; }
+.addbar { display: flex; gap: 10px; margin: 10px 0; }
+.card-edit { border: 1px solid #2b2f38; border-radius: 4px; margin: 8px 0; }
+.card-edit legend { font-size: 12px; color: var(--muted); padding: 0 6px; display: flex; gap: 8px; align-items: center; }
+.card-edit .slot { display: flex; align-items: flex-start; gap: 8px; margin: 6px 0; }
+.card-edit .slot > .src { flex: 0 0 44px; line-height: 26px; }
+.slot-row { display: flex; align-items: center; gap: 4px; margin: 2px 0; }
+.slot-row .path { color: var(--muted); font-size: 12px; }
+.slot-row input[type=text] { width: 90px; }
 
 /* 首启向导 */
 .steps { margin: 0; padding-left: 22px; }
