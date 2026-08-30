@@ -529,12 +529,18 @@
         if (!make) { console.warn('未知部件类型：' + w.type); continue; }
         instances.push(make(w));
         if (free) {
-          // 各工厂都把根节点 append 到 body 末尾，拿出来打上定位
+          // 各工厂都把根节点 append 到 body 末尾，拿出来打上定位。
+          // cards/chips/text 没写 w 时从 x 拉到右缘（通栏，和流式的观感衔接）；
+          // margin_top 已折算进 y，这里清零避免双重偏移。
           const host = document.body.lastElementChild;
           host.style.left = (w.x || 0) + 'px';
           host.style.top = (w.y || 0) + 'px';
           if (w.w) host.style.width = w.w + 'px';
           if (w.h) host.style.height = w.h + 'px';
+          if (!w.w && (w.type === 'cards' || w.type === 'chips' || w.type === 'text')) {
+            host.style.right = '0px';
+          }
+          host.style.marginTop = '0px';
         }
       }
       document.body.appendChild(probe);

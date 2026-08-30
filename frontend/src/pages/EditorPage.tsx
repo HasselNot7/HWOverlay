@@ -8,7 +8,7 @@ import type {
 import type { Shared } from "../App";
 import { CARD_CLS, FieldLabel, Hint, Page, Section, SubTitle } from "../ui";
 import { CardsEditor, ChipsEditor, HtmlEditor, ProgressEditor, StatEditor, TextEditor } from "./editors";
-import FreeCanvas from "./FreeCanvas";
+import FreeCanvas, { estHeight } from "./FreeCanvas";
 
 const WIDGET_LABEL: Record<string, string> = {
   cards: "指标卡片", chips: "底部小指标行", text: "自定义文字",
@@ -214,12 +214,18 @@ export default function EditorPage({ shared }: { shared: Shared }) {
             onSelectionChange={k => {
               if (k === "free") {
                 draft.canvas.mode = "free";
-                // 流式转自由的部件先自动铺一组错开的位置，拖走即可，不至一进来就满屏报错
-                draft.widgets.forEach((w, i) => {
+                // 流式转自由：按真实高度在原内边距处竖排一遍（和流式观感一致），
+                // 用户再拖走；margin_top 已折算进 y。
+                const pad = draft.canvas.padding || [12, 24];
+                let y = pad[0];
+                if (draft.prompt) y += Math.round((draft.prompt.size ?? 19) * 1.2) + 10;
+                const x0 = pad[1];
+                draft.widgets.forEach(w => {
                   const p = w as FreePos;
                   if (p.x === undefined || p.y === undefined) {
-                    p.x = 64 + (i % 4) * 48;
-                    p.y = 32 + (i % 4) * 36;
+                    p.x = x0;
+                    p.y = y;
+                    y += estHeight(w) + 8;
                   }
                 });
               } else {
@@ -344,10 +350,35 @@ export default function EditorPage({ shared }: { shared: Shared }) {
                     <SubTitle>{WIDGET_LABEL[w.type] ?? w.type} 参数</SubTitle>
                     {numInput("X", "x", pos.x)}
                     {numInput("Y", "y", pos.y)}
-                    {numInput("宽", "w", pos.w)}
-                    {numInput("高", "h", pos.h)}
+                    {(w.type === "html" || w.type === "progress" || w.type === "stat") && numInput("宽", "w", pos.w)}
+                    {w.type === "html" && numInput("高", "h", pos.h)}
                     <span className="flex-1" />
                     <Button size="sm" variant="light" className="h-7 min-w-0 px-2 text-xs text-default-400"
+                      title="后加的部件盖在前面之上" onPress={() => {
+                        const [m] = draft.widgets.splice(selected, 1);
+                        draft.widgets.push(m);
+                        setSelected(draft.widgets.length - 1);
+                        onChange();
+                      }}>置顶</Button>
+                    <Button size="sm" variant="light" className="h-7 min-w-0 px-2 text-xs text-default-400"
+                      title="与上面一个部件交换层级" onPress={() => {
+                        if (selected > 0) {
+                          [draft.widgets[selected - 1], draft.widgets[selected]] =
+                            [draft.widgets[selected], draft.widgets[selected - 1]];
+                          setSelected(selected - 1);
+                          onChange();
+                        }
+                      }}>上移一层</Button>
+                    <Button size="sm" variant="light" className="h-7 min-w-0 px-2 text-xs text-default-400"
+                      title="与下面一个部件交换层级" onPress={() => {
+                        if (selected < draft.widgets.length - 1) {
+                          [draft.widgets[selected + 1], draft.widgets[selected]] =
+                            [draft.widgets[selected], draft.widgets[selected + 1]];
+                          setSelected(selected + 1);
+                          onChange();
+                        }
+                      }}>下移一层</Button>
+                    <Button size="sm" variant="light" className="h-7 min-w-0 px-2 text-xs text-danger-400"
                       onPress={() => { draft.widgets.splice(selected, 1); setSelected(null); onChange(); }}>
                       删除这个部件
                     </Button>
