@@ -1,6 +1,6 @@
-import { addToast, Button, Checkbox, Chip, Input } from "@heroui/react";
+import { addToast, Button, Checkbox, Input } from "@heroui/react";
 import { useCallback, useEffect, useState } from "react";
-import { Wand2 } from "lucide-react";
+import { Wand2, X } from "lucide-react";
 import { api } from "../api";
 import type { Metric, UnknownSensor } from "../types";
 import type { Shared } from "../App";
@@ -65,20 +65,18 @@ export default function CustomMetricsPage({ shared }: { shared: Shared }) {
         }>
         {customs.length > 0 && (
           <div className="mt-3 flex flex-wrap items-center gap-2">
-            <span className="text-xs text-color-desc">已注册的自定义指标：</span>
+            <span className="text-xs text-color-desc">已注册 {customs.length} 个：</span>
             {customs.map((m: Metric) => (
-              <Chip key={m.id} size="sm" variant="bordered"
-                endContent={
-                  <button
-                    className="text-xs text-default-400 transition-colors hover:text-danger"
-                    title="删除这个自定义指标" onClick={() => remove(m.id)}
-                  >删</button>
-                }
-              >
-                <span className="text-sm">{m.name}
-                  <span className="ml-1.5 font-poppins text-xs text-default-500">{m.out}</span>
-                </span>
-              </Chip>
+              <div key={m.id}
+                className="flex items-center gap-2 rounded-full border border-white/10 bg-[#1a1a1d] py-1 pl-3 pr-1.5">
+                <span className="text-sm text-default-700">{m.name}</span>
+                <span className="font-poppins text-xs text-default-500">{m.out}</span>
+                <button
+                  className="grid h-5 w-5 place-items-center rounded-full text-default-500 transition-colors hover:bg-danger/20 hover:text-danger"
+                  title="删除这个自定义指标" onClick={() => remove(m.id)}>
+                  <X size={13} />
+                </button>
+              </div>
             ))}
           </div>
         )}
