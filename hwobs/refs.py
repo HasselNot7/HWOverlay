@@ -25,7 +25,7 @@ def widget_list(cfg):
 
 
 def iter_refs(node, out=None):
-    """收集版式树里引用的全部输出路径（含 text 部件 {路径} 插值）。
+    """收集版式树里引用的全部输出路径（含 text/html 部件 {路径} 插值）。
 
     裸字符串（items/metrics 列表里）与 metric/bar/spark 键都算引用；
     pair/diff 是路径数组，走 list 分支自然收进来。
@@ -36,6 +36,8 @@ def iter_refs(node, out=None):
     elif isinstance(node, dict):
         if node.get("type") == "text" and isinstance(node.get("text"), str):
             out.extend(TEXT_REF_RX.findall(node["text"]))
+        if node.get("type") == "html" and isinstance(node.get("html"), str):
+            out.extend(TEXT_REF_RX.findall(node["html"]))
         for k in REF_KEYS:
             if isinstance(node.get(k), str):
                 out.append(node[k])

@@ -1,12 +1,15 @@
 import {
-  Accordion, AccordionItem, Button, Checkbox, Input, Select, SelectItem, Switch,
+  Accordion, AccordionItem, Button, Checkbox, Input, Select, SelectItem, Switch, Textarea,
 } from "@heroui/react";
 /** 版式编辑器的子组件：指标选择器、槽位编辑、卡片/chips/text 部件编辑器。
  * 控件一律用 HeroUI，样式学 Now Playing（淡蓝字段标签、flat 控件、卡片底）。
  * 草稿对象直接原地改，改完调 onChange() 触发上层重渲染 + 防抖校验。 */
 
 import { useState } from "react";
-import type { CardItem, CardsWidget, ChipsWidget, GroupDef, Metric, TextWidget } from "../types";
+import type {
+  CardItem, CardsWidget, ChipsWidget, GroupDef, HtmlWidget, Metric,
+  ProgressWidget, StatWidget, TextWidget,
+} from "../types";
 import { CARD_CLS, FieldLabel, Hint } from "../ui";
 
 const GROUP_TITLES: Record<string, string> = {
@@ -392,6 +395,70 @@ export function TextEditor({ w, metrics, onChange }: { w: TextWidget; metrics: M
           })}
         </div>
       </div>
+    </div>
+  );
+}
+
+// --- 自由画布部件的参数面板 ---------------------------------------------------
+
+export function StatEditor({ w, metrics, onChange }: { w: StatWidget; metrics: Metric[]; onChange: () => void }) {
+  return (
+    <div className="flex flex-col gap-2">
+      <div className="flex items-center gap-2.5">
+        <span className="w-[64px] flex-none text-xs text-color-desc">指标</span>
+        <MetricSelect metrics={metrics} value={w.metric} allowEmpty={false}
+          onChange={v => { if (v) { w.metric = v; onChange(); } }} />
+      </div>
+      <div className="flex items-center gap-2.5">
+        <span className="w-[64px] flex-none text-xs text-color-desc">名字</span>
+        <Input size="sm" variant="flat" className="w-56 font-poppins" placeholder="可空"
+          defaultValue={w.label ?? ""}
+          onValueChange={v => { w.label = v || undefined; onChange(); }} />
+      </div>
+      <div className="flex items-center gap-2.5">
+        <span className="w-[64px] flex-none text-xs text-color-desc">字号</span>
+        <Input type="number" size="sm" variant="flat" className="w-24 font-poppins"
+          defaultValue={String(w.size ?? 26)}
+          onValueChange={v => { w.size = +v || 26; onChange(); }} />
+      </div>
+    </div>
+  );
+}
+
+export function ProgressEditor({ w, metrics, onChange }: { w: ProgressWidget; metrics: Metric[]; onChange: () => void }) {
+  return (
+    <div className="flex flex-col gap-2">
+      <div className="flex items-center gap-2.5">
+        <span className="w-[64px] flex-none text-xs text-color-desc">指标</span>
+        <MetricSelect metrics={metrics} value={w.metric} allowEmpty={false}
+          onChange={v => { if (v) { w.metric = v; onChange(); } }} />
+      </div>
+      <div className="flex items-center gap-2.5">
+        <span className="w-[64px] flex-none text-xs text-color-desc">宽度</span>
+        <Input type="number" size="sm" variant="flat" className="w-24 font-poppins"
+          defaultValue={String(w.w ?? 260)}
+          onValueChange={v => { w.w = +v || 260; onChange(); }} />
+      </div>
+      <div className="flex items-center gap-2.5">
+        <span className="w-[64px] flex-none text-xs text-color-desc">条高</span>
+        <Input type="number" size="sm" variant="flat" className="w-24 font-poppins"
+          defaultValue={String(w.height ?? 10)}
+          onValueChange={v => { w.height = +v || 10; onChange(); }} />
+      </div>
+    </div>
+  );
+}
+
+export function HtmlEditor({ w, onChange }: { w: HtmlWidget; onChange: () => void }) {
+  return (
+    <div className="flex flex-col gap-2">
+      <Textarea
+        aria-label="自定义 HTML" variant="flat" className="font-poppins text-xs" minRows={5}
+        defaultValue={w.html}
+        onValueChange={v => { w.html = v; onChange(); }} />
+      <Hint className="text-xs">
+        {"{cpu.usage}"} 这类占位符会替换成实时值；&lt;script&gt; 不会执行，只支持无状态的 HTML/CSS。
+      </Hint>
     </div>
   );
 }

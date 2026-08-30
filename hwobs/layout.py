@@ -44,14 +44,20 @@ def _prompt_check(cfg, errors):
 
 
 def check(cfg, reg=None, plan=None):
-    """返回 {"errors": [...], "warnings": [...], "est_height": px}。errors 非空表示会被裁切。"""
+    """返回 {"errors": [...], "warnings": [...], "est_height": px}。errors 非空表示会被裁切。
+
+    canvas.mode=free（自由画布）时不做纵向堆叠预算，改为检查每个部件的
+    x/y 定位与画布边界；流式模式维持原有堆叠高度预算。
+    """
     if reg is None:
         from . import registry
         reg = registry.load()
     errors, warnings = [], []
 
-    width, height, used = _canvas_check(cfg, errors)
-    used += _prompt_check(cfg, errors)
+    width, height, pad_v = _canvas_check(cfg, errors)
+    free = isinstance(cfg.get("canvas"), dict) and cfg["canvas"].get("mode") == "free"
+    used = 0 if free else pad_v
+    used += 0 if free else _prompt_check(cfg, errors)
     known = _known_paths(reg)
     referenced = []
 
@@ -66,8 +72,23 @@ def check(cfg, reg=None, plan=None):
         entry["validate"](w, w_errors, w_warnings)
         errors += [f"第 {i+1} 个部件（{w.get('type')}）：{e}" for e in w_errors]
         warnings += [f"第 {i+1} 个部件（{w.get('type')}）：{e}" for e in w_warnings]
-        used += entry["height"](w)
+        if not free:
+            used += entry["height"](w)
         referenced += refs.iter_refs(w)
+
+        if free:
+            x, y = w.get("x"), w.get("y")
+            if not isinstance(x, int) or not isinstance(y, int) or x < 0 or y < 0:
+                errors.append(f"第 {i+1} 个部件（{w.get('type')}）：自由画布需要非负整数 x / y"
+                              f"（现在是 {x!r}, {y!r}）")
+                continue
+            ww = w.get("w")
+            if width and x >= width:
+                errors.append(f"第 {i+1} 个部件（{w.get('type')}）：x={x} 在画布宽 {width} 之外")
+            elif width and isinstance(ww, int) and x + ww > width:
+                warnings.append(f"第 {i+1} 个部件（{w.get('type')}）：右缘 {x + ww} 超出画布宽 {width}")
+            if height and y >= height:
+                errors.append(f"第 {i+1} 个部件（{w.get('type')}）：y={y} 在画布高 {height} 之外")
 
     for node in refs.iter_composites(refs.widget_list(cfg)):
         warnings.append(f"{node} 没有 unit，会显示成裸数字（没有单位）")
@@ -76,7 +97,7 @@ def check(cfg, reg=None, plan=None):
     if unknown:
         errors.append("版式引用了注册表里不存在的路径：" + ", ".join(unknown))
 
-    if height and used > height:
+    if not free and height and used > height:
         errors.append(f"内容预估高 {used}px 超过 canvas.h {height}px，"
                       f"底部会被裁掉约 {used - height}px（body 是 overflow:hidden）")
 

@@ -1,10 +1,14 @@
-import { addToast, Button, Input, Switch } from "@heroui/react";
+import { addToast, Button, Input, Switch, Tab, Tabs } from "@heroui/react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { api, clone, outPaths } from "../api";
-import type { CardsWidget, ChipsWidget, OverlayConfig, TextWidget } from "../types";
+import type {
+  CardsWidget, ChipsWidget, FreePos, HtmlWidget, OverlayConfig,
+  ProgressWidget, StatWidget, TextWidget, Widget,
+} from "../types";
 import type { Shared } from "../App";
 import { CARD_CLS, FieldLabel, Hint, Page, Section, SubTitle } from "../ui";
-import { CardsEditor, ChipsEditor, TextEditor } from "./editors";
+import { CardsEditor, ChipsEditor, HtmlEditor, ProgressEditor, StatEditor, TextEditor } from "./editors";
+import FreeCanvas from "./FreeCanvas";
 
 const WIDGET_LABEL: Record<string, string> = {
   cards: "指标卡片", chips: "底部小指标行", text: "自定义文字",
@@ -19,6 +23,7 @@ export default function EditorPage({ shared }: { shared: Shared }) {
   const [check, setCheck] = useState<{ errors: string[]; warnings: string[] } | null>(null);
   const [pvKey, setPvKey] = useState(0);
   const [pvScale, setPvScale] = useState(0.45);
+  const [selected, setSelected] = useState<number | null>(null);
   const wrapRef = useRef<HTMLDivElement>(null);
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -109,6 +114,32 @@ export default function EditorPage({ shared }: { shared: Shared }) {
     onChange();
   };
 
+  /** 自由画布：按预设类型在空位落一个新部件并选中它 */
+  const addFree = (type: string) => {
+    if (!draft || !metrics) return;
+    const first = outPaths(metrics)[0];
+    const n = draft.widgets.length;
+    const base: Record<string, unknown> = { x: 48 + (n % 4) * 32, y: 40 + (n % 4) * 28 };
+    if (type === "stat") Object.assign(base, { type: "stat", metric: first, size: 26, w: 300 });
+    if (type === "progress") Object.assign(base, { type: "progress", metric: first, w: 260, height: 10 });
+    if (type === "html") Object.assign(base, {
+      type: "html",
+      html: '<div style="font-size:22px;font-weight:700">CPU {cpu.usage} · {cpu.temp}</div>',
+      w: 340, h: 64,
+    });
+    if (type === "cards") Object.assign(base, {
+      type: "cards", cols: 2, gap: 24,
+      items: [{ key: `card${Date.now() % 10000}`, label: "卡片", bar: first,
+        value: { metrics: [first] }, sub: { sep: " · ", metrics: [] } }],
+    });
+    if (type === "chips") Object.assign(base, { type: "chips", items: [] });
+    if (type === "text") Object.assign(base, { type: "text", text: "{cpu.usage}%", size: 19 });
+    draft.widgets.push(base as unknown as Widget);
+    setDraft({ ...draft });
+    setSelected(n);
+    onChange();
+  };
+
   const removeWidget = (i: number) => {
     if (!draft) return;
     draft.widgets.splice(i, 1);
@@ -177,7 +208,36 @@ export default function EditorPage({ shared }: { shared: Shared }) {
       </Section>
 
       <Section title="编辑器">
-        <Hint>部件从上往下排；保存后在 OBS 浏览器源里点"刷新缓存"生效。</Hint>
+        <div className="flex flex-wrap items-center gap-4">
+          <Tabs size="sm" radius="lg"
+            selectedKey={draft.canvas.mode === "free" ? "free" : "flow"}
+            onSelectionChange={k => {
+              if (k === "free") {
+                draft.canvas.mode = "free";
+                // 流式转自由的部件先自动铺一组错开的位置，拖走即可，不至一进来就满屏报错
+                draft.widgets.forEach((w, i) => {
+                  const p = w as FreePos;
+                  if (p.x === undefined || p.y === undefined) {
+                    p.x = 64 + (i % 4) * 48;
+                    p.y = 32 + (i % 4) * 36;
+                  }
+                });
+              } else {
+                delete draft.canvas.mode;
+              }
+              setSelected(null);
+              setDraft({ ...draft });
+              onChange();
+            }}>
+            <Tab key="flow" title="流式" />
+            <Tab key="free" title="自由画布" />
+          </Tabs>
+          <Hint>
+            {draft.canvas.mode === "free"
+              ? "拖部件摆位置，右下角改大小；选中后在下方改参数。"
+              : "部件从上往下排；保存后在 OBS 浏览器源里点“刷新缓存”生效。"}
+          </Hint>
+        </div>
 
         <div className="mt-2 flex flex-wrap items-end gap-5">
           <div className="flex flex-col gap-2">
@@ -251,6 +311,61 @@ export default function EditorPage({ shared }: { shared: Shared }) {
           )}
         </div>
 
+        {draft.canvas.mode === "free" ? (
+          <>
+            <div className="mt-3 flex flex-wrap gap-2">
+              {([["stat", "大数字"], ["progress", "进度条"], ["html", "自定义 HTML"],
+                 ["cards", "指标卡"], ["chips", "小指标行"], ["text", "文本"]] as const).map(([t, label]) => (
+                <Button key={t} size="sm" variant="flat" className="bg-[#27272a]"
+                  onPress={() => addFree(t)}>+ {label}</Button>
+              ))}
+            </div>
+            <div className="mt-3">
+              <FreeCanvas draft={draft} selected={selected} onSelect={setSelected} onChange={onChange} />
+            </div>
+            {selected != null && draft.widgets[selected] && (() => {
+              const w = draft.widgets[selected]!;
+              const pos = w as FreePos;
+              const numInput = (label: string, key: "x" | "y" | "w" | "h", val?: number) => (
+                <div className="flex flex-col gap-2">
+                  <FieldLabel>{label}</FieldLabel>
+                  <Input type="number" size="sm" variant="flat" className="w-20 font-poppins"
+                    value={String(val ?? 0)}
+                    onValueChange={v => {
+                      (pos as unknown as Record<string, number>)[key] = +v || 0;
+                      setDraft({ ...draft });
+                      onChange();
+                    }} />
+                </div>
+              );
+              return (
+                <div className={`${CARD_CLS} mt-3 p-4`}>
+                  <div className="flex flex-wrap items-center gap-4">
+                    <SubTitle>{WIDGET_LABEL[w.type] ?? w.type} 参数</SubTitle>
+                    {numInput("X", "x", pos.x)}
+                    {numInput("Y", "y", pos.y)}
+                    {numInput("宽", "w", pos.w)}
+                    {numInput("高", "h", pos.h)}
+                    <span className="flex-1" />
+                    <Button size="sm" variant="light" className="h-7 min-w-0 px-2 text-xs text-default-400"
+                      onPress={() => { draft.widgets.splice(selected, 1); setSelected(null); onChange(); }}>
+                      删除这个部件
+                    </Button>
+                  </div>
+                  <div className="mt-3">
+                    {w.type === "stat" && <StatEditor w={w as StatWidget} metrics={metrics} onChange={onChange} />}
+                    {w.type === "progress" && <ProgressEditor w={w as ProgressWidget} metrics={metrics} onChange={onChange} />}
+                    {w.type === "html" && <HtmlEditor w={w as HtmlWidget} onChange={onChange} />}
+                    {w.type === "cards" && <CardsEditor w={w as CardsWidget} metrics={metrics} onChange={onChange} />}
+                    {w.type === "chips" && <ChipsEditor w={w as ChipsWidget} metrics={metrics} onChange={onChange} />}
+                    {w.type === "text" && <TextEditor w={w as TextWidget} metrics={metrics} onChange={onChange} />}
+                  </div>
+                </div>
+              );
+            })()}
+          </>
+        ) : (
+          <>
         <div className="mt-4 flex flex-col gap-3">
           {draft.widgets.map((w, i) => {
             const meta = WIDGET_LABEL[w.type] ?? w.type;
@@ -285,6 +400,8 @@ export default function EditorPage({ shared }: { shared: Shared }) {
             addWidget({ type: "text", text: "CPU {cpu.usage}% · {cpu.temp}°C", size: 19, margin_top: 6 });
           }}>+ 加一行自定义文字</Button>
         </div>
+          </>
+        )}
       </Section>
 
       <Section title="预览" divider={false}>

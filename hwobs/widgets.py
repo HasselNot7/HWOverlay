@@ -93,6 +93,36 @@ def text_validate(w, errors, warnings):
         errors.append("text 部件必须有非空的 text 字符串")
 
 
+# --- stat / progress / html：自由画布部件 ------------------------------------
+# 只在 canvas.mode=free 下有意义（x/y 定位）；height() 仅在流式兜底用。
+
+def stat_height(w):
+    return _line_h(_int_in(w, "size", 26, 8, 80))
+
+
+def stat_validate(w, errors, warnings):
+    if not isinstance(w.get("metric"), str) or not w.get("metric"):
+        errors.append("stat 部件必须有 metric")
+
+
+def progress_height(w):
+    return _int_in(w, "height", 10, 4, 100)
+
+
+def progress_validate(w, errors, warnings):
+    if not isinstance(w.get("metric"), str) or not w.get("metric"):
+        errors.append("progress 部件必须有 metric")
+
+
+def html_height(w):
+    return _int_in(w, "h", 60, 10, 2000)
+
+
+def html_validate(w, errors, warnings):
+    if not isinstance(w.get("html"), str) or not w.get("html"):
+        errors.append("html 部件必须有非空的 html")
+
+
 WIDGETS = {
     "cards": {
         "summary": "指标卡片网格：标题 + 进度条 + 次要行 + 迷你曲线",
@@ -111,6 +141,24 @@ WIDGETS = {
         "defaults": {"size": 19, "margin_top": 0},
         "height": text_height,
         "validate": text_validate,
+    },
+    "stat": {
+        "summary": "自由画布：单指标大数字，可带名字",
+        "defaults": {"size": 26},
+        "height": stat_height,
+        "validate": stat_validate,
+    },
+    "progress": {
+        "summary": "自由画布：单指标进度条（按指标量程定标）",
+        "defaults": {"w": 260, "height": 10},
+        "height": progress_height,
+        "validate": progress_validate,
+    },
+    "html": {
+        "summary": "自由画布：自定义 HTML 片段，{cpu.usage} 这类占位符替换成指标值",
+        "defaults": {"w": 300, "h": 60},
+        "height": html_height,
+        "validate": html_validate,
     },
 }
 

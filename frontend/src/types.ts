@@ -1,6 +1,6 @@
 /** 与 FastAPI 端点一一对应的类型定义。字段以 hwobs 各模块的返回为准。 */
 
-export type Widget = CardsWidget | ChipsWidget | TextWidget;
+export type Widget = CardsWidget | ChipsWidget | TextWidget | StatWidget | ProgressWidget | HtmlWidget;
 
 export interface MetricRef {
   metric: string;
@@ -57,11 +57,41 @@ export interface TextWidget {
   margin_top?: number;
 }
 
+/** 自由画布部件的定位字段：mode=free 时生效 */
+export interface FreePos {
+  x?: number;
+  y?: number;
+  w?: number;
+  h?: number;
+}
+
+export interface StatWidget extends FreePos {
+  type: "stat";
+  metric: string;
+  label?: string;
+  size?: number;
+}
+
+export interface ProgressWidget extends FreePos {
+  type: "progress";
+  metric: string;
+  w?: number;
+  height?: number;
+}
+
+export interface HtmlWidget extends FreePos {
+  type: "html";
+  html: string;
+}
+
+
 export interface Canvas {
   w: number;
   h: number;
   theme?: string;
   padding?: [number, number];
+  /** flow=自上而下堆叠（默认）；free=部件按 x/y 绝对定位 */
+  mode?: "flow" | "free";
 }
 
 export interface OverlayConfig {

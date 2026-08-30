@@ -83,6 +83,19 @@
       gap: 32px;
     }
 
+    /* 自由画布（canvas.mode=free）：部件按 x/y 绝对定位 */
+    body.free { display: block; }
+    body.free > * { position: absolute; margin: 0; }
+
+    .free-stat { font-weight: 700; white-space: nowrap; }
+    .free-stat .tmiss { color: var(--subtext-color); }
+    .free-progress .fp-track { background: var(--bar-bg); border-radius: 4px; overflow: hidden; }
+    .free-progress .fp-fill { height: 100%; width: 0%; background: var(--bar-fill); }
+    .free-progress.high .fp-fill { background: var(--bar-high); }
+    .free-html { line-height: 1.3; }
+    .free-html .tmiss { color: var(--subtext-color); }
+
+
     .metric-card {
       display: flex;
       flex-direction: column;
@@ -256,11 +269,13 @@
     // 几何内联应用：CSS 里的值只是无配置时的兜底，校验器算的是同一份配置数
     function applyCanvas(canvas) {
       if (!canvas) return;
+      const free = canvas.mode === 'free';
+      document.body.classList.toggle('free', free);
       document.body.style.width = canvas.w + 'px';
       document.body.style.height = canvas.h + 'px';
-      if (canvas.padding) {
-        document.body.style.padding = `${canvas.padding[0]}px ${canvas.padding[1]}px`;
-      }
+      // 自由画布下部件用 x/y 定位，body 内边距没有意义
+      document.body.style.padding =
+        free ? '0' : (canvas.padding ? `${canvas.padding[0]}px ${canvas.padding[1]}px` : '');
     }
 
     function buildPrompt(p) {
@@ -413,16 +428,114 @@
       };
     }
 
-    const WIDGET_TYPES = { cards: makeCards, chips: makeChips, text: makeText };
+    // --- stat：单指标大数字（自由画布） ----------------------------------------
+
+    function makeStat(w) {
+      const host = el('div', 'free-stat');
+      host.style.fontSize = (w.size ?? 26) + 'px';
+      if (w.align) host.style.textAlign = w.align;
+      document.body.appendChild(host);
+      return {
+        update() {
+          const v = HW ? dig(HW, w.metric) : null;
+          const mt = meta({ metric: w.metric });
+          host.replaceChildren(
+            ...(w.label ? [text(w.label + ' ')] : []),
+            el('span', v == null ? 'tmiss' : 'tv', [text(txt(v, mt))]),
+          );
+        },
+      };
+    }
+
+    // --- progress：单指标进度条，按指标量程定标（自由画布） ----------------------
+
+    function makeProgress(w) {
+      const host = el('div', 'free-progress');
+      if (w.w) host.style.width = w.w + 'px';
+      const track = el('div', 'fp-track');
+      track.style.height = (w.height ?? 10) + 'px';
+      const fill = el('div', 'fp-fill');
+      track.appendChild(fill);
+      host.appendChild(track);
+      document.body.appendChild(host);
+      return {
+        update() {
+          const v = HW ? dig(HW, w.metric) : null;
+          const mt = meta({ metric: w.metric });
+          let pct = 0;
+          if (v != null) {
+            const lo = (mt.range && mt.range[0]) || 0;
+            const hi = (mt.range && mt.range[1]) || 100;
+            pct = Math.max(0, Math.min(100, (v - lo) / (hi - lo) * 100));
+          }
+          fill.style.width = pct + '%';
+          host.classList.toggle('high', isHigh(v, mt.warn));
+        },
+      };
+    }
+
+    // --- html：自定义 HTML 片段，{路径} 占位符替换成格式化值（自由画布） ----------
+    // 片段经 innerHTML 注入：<script> 不会执行（浏览器对 innerHTML 的脚本一律
+    // 惰性），只支持无状态的 HTML/CSS —— 这是能力边界，刻意如此。
+
+    function makeHtml(w) {
+      const host = el('div', 'free-html');
+      if (w.w) host.style.width = w.w + 'px';
+      if (w.h) { host.style.height = w.h + 'px'; host.style.overflow = 'hidden'; }
+      document.body.appendChild(host);
+      const src = w.html || '';
+      const parts = [];
+      let last = 0;
+      for (const m of src.matchAll(TEXT_REF_RX)) {
+        if (m.index > last) parts.push({ lit: src.slice(last, m.index) });
+        parts.push({ ref: m[1] });
+        last = m.index + m[0].length;
+      }
+      if (last < src.length) parts.push({ lit: src.slice(last) });
+      return {
+        update() {
+          let out = '';
+          for (const p of parts) {
+            if (p.lit !== undefined) { out += p.lit; continue; }
+            const v = HW ? dig(HW, p.ref) : null;
+            out += txt(v, meta({ metric: p.ref }));
+          }
+          host.innerHTML = out;
+        },
+      };
+    }
+
+    const WIDGET_TYPES = {
+      cards: makeCards, chips: makeChips, text: makeText,
+      stat: makeStat, progress: makeProgress, html: makeHtml,
+    };
 
     function build(layout) {
       applyCanvas(layout.canvas);
-      if (layout.prompt) buildPrompt(layout.prompt);
+      const free = layout.canvas && layout.canvas.mode === 'free';
+      if (layout.prompt) {
+        buildPrompt(layout.prompt);
+        if (free) {
+          // 自由画布下装饰命令行也按内边距定位
+          const pad = layout.canvas.padding || [12, 24];
+          const pl = document.body.querySelector('.prompt-line');
+          pl.style.left = pad[1] + 'px';
+          pl.style.top = pad[0] + 'px';
+        }
+      }
       instances = [];
       for (const w of layout.widgets || []) {
         const make = WIDGET_TYPES[w.type];
         if (!make) { console.warn('未知部件类型：' + w.type); continue; }
         instances.push(make(w));
+        if (free) {
+          // 各工厂都把根节点 append 到 body 末尾，拿出来打上定位
+          const host = document.body.lastElementChild;
+          host.style.left = (w.x || 0) + 'px';
+          host.style.top = (w.y || 0) + 'px';
+          if (w.w) host.style.width = w.w + 'px';
+          if (w.h) host.style.height = w.h + 'px';
+        }
       }
       document.body.appendChild(probe);
     }
