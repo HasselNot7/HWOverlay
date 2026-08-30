@@ -1,7 +1,15 @@
 {
   "version": 2,
   "name": "monitor",
-  "canvas": { "w": 2000, "h": 200, "theme": "nord-console", "padding": [12, 24] },
+  "canvas": {
+    "w": 2000,
+    "h": 200,
+    "theme": "nord-console",
+    "padding": [
+      12,
+      24
+    ]
+  },
   "prompt": {
     "user": "HasselNot@system",
     "cmd": "./sysmon --source=aida64 --interval=1s",
@@ -16,50 +24,126 @@
       "items": [
         {
           "key": "cpu",
-          "label": "[CPU] i9-13900KF",
+          "label": "[CPU] Intel Core i9-13900KF",
           "bar": "cpu.usage",
-          "value": { "metrics": ["cpu.usage", "cpu.temp"], "sep": " | ", "unit_policy": "all" },
-          "sub": { "sep": " · ", "metrics": ["cpu.clock_mhz", "cpu.power_w", "cpu.volt"] },
+          "value": {
+            "metrics": [
+              "cpu.usage",
+              "cpu.temp"
+            ],
+            "sep": " | ",
+            "unit_policy": "all"
+          },
+          "sub": {
+            "sep": " · ",
+            "metrics": [
+              "cpu.clock_mhz",
+              "cpu.power_w",
+              "cpu.volt"
+            ]
+          },
           "spark": "cpu.usage"
         },
         {
           "key": "gpu",
-          "label": "[GPU] RTX 3080",
+          "label": "[GPU] NVIDIA GEFORCE RTX 3080",
           "bar": "gpu.usage",
-          "value": { "metrics": ["gpu.usage", "gpu.temp"], "sep": " | ", "unit_policy": "all" },
+          "value": {
+            "metrics": [
+              "gpu.usage",
+              "gpu.temp"
+            ],
+            "sep": " | ",
+            "unit_policy": "all"
+          },
           "sub": {
             "sep": " · ",
             "metrics": [
-              { "pair": ["gpu.mem_used_mb", "gpu.mem_total_mb"], "divide": 1024,
-                "unit": "GB", "digits": 1, "digits2": 0, "label": "显存" },
-              { "metric": "gpu.clock_mhz", "label": "核心" },
-              { "metric": "gpu.mem_clock_mhz", "label": "显存频率" }
+              {
+                "pair": [
+                  "gpu.mem_used_mb",
+                  "gpu.mem_total_mb"
+                ],
+                "divide": 1024,
+                "unit": "GB",
+                "digits": 1,
+                "digits2": 0,
+                "label": "显存"
+              },
+              {
+                "metric": "gpu.clock_mhz",
+                "label": "核心"
+              },
+              {
+                "metric": "gpu.mem_clock_mhz",
+                "label": "显存频率"
+              }
             ]
           },
           "spark": "gpu.usage"
         },
         {
           "key": "ram",
-          "label": "[RAM] DDR5",
+          "label": "[RAM] UniWhen DDR5 6000Mhz",
           "bar": "ram.pct",
-          "value": { "metrics": ["ram.used", "ram.total"], "sep": " / ", "unit_policy": "last" },
+          "value": {
+            "metrics": [
+              "ram.used",
+              "ram.total"
+            ],
+            "sep": " / ",
+            "unit_policy": "last"
+          },
           "sub": {
             "sep": " · ",
             "metrics": [
-              { "diff": ["ram.total", "ram.used"], "unit": "GB 可用", "digits": 1 },
-              { "metric": "ram.pct", "unit": "%", "digits": 0 }
+              {
+                "diff": [
+                  "ram.total",
+                  "ram.used"
+                ],
+                "unit": "GB 可用",
+                "digits": 1
+              },
+              {
+                "metric": "ram.pct",
+                "unit": "%",
+                "digits": 0
+              }
             ]
           },
           "spark": "ram.pct"
         },
         {
           "key": "net",
-          "label": "[NET] Uplink",
+          "label": "[NET] WiFi6E AX411",
           "bar": "net.up_mbps",
           "bar_full": 20,
-          "value": { "metrics": ["net.up_mbps", "net.down_mbps"], "sep": " ↑ | ",
-                     "unit_policy": "last", "unit": "Mbps", "digits": 2 },
-          "sub": { "sep": " · ", "metrics": [{ "metric": "net.wifi_dbm", "label": "WiFi" }] },
+          "value": {
+            "metrics": [
+              {
+                "metric": "net.up_mbps"
+              },
+              "net.down_mbps"
+            ],
+            "sep": " ↑ | ↓ ",
+            "unit_policy": "last",
+            "unit": "Mbps",
+            "digits": 2
+          },
+          "sub": {
+            "sep": " · ",
+            "metrics": [
+              {
+                "metric": "net.wifi_dbm",
+                "label": "WiFi"
+              },
+              {
+                "metric": "net.link_mbps",
+                "label": "链路"
+              }
+            ]
+          },
           "spark": "net.up_mbps"
         }
       ]
@@ -68,9 +152,19 @@
       "type": "chips",
       "fit": "shrink",
       "items": [
-        "cpu.socket_temp", "cpu.clock_mhz", "cpu.power_w", "cpu.fan_rpm", "cpu.volt",
-        "gpu.hotspot", "gpu.power_w", "gpu.mem_temp", "gpu.tdp_pct",
-        "misc.mobo_temp", "misc.dimm_max", "misc.dimm1", "misc.dimm3"
+        "cpu.socket_temp",
+        "cpu.clock_mhz",
+        "cpu.power_w",
+        "cpu.fan_rpm",
+        "cpu.volt",
+        "gpu.hotspot",
+        "gpu.power_w",
+        "gpu.mem_temp",
+        "gpu.tdp_pct",
+        "misc.mobo_temp",
+        "misc.dimm_max",
+        "misc.dimm1",
+        "misc.dimm3"
       ]
     }
   ]

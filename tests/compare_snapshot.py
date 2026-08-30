@@ -49,7 +49,7 @@ def main():
     # 有意新增的字段。sources 是一棵子树，按顶层名放行；
     # 单个新增字段必须写全路径，免得顺手放行掉以后冒出来的同类字段。
     ALLOWED_PREFIX = {"degraded", "sources"}
-    ALLOWED_EXACT = {"misc.dimm_max"}
+    ALLOWED_EXACT = {"misc.dimm_max", "net.link_mbps"}
     only_a = sorted(set(la) - set(lb))
     only_b_all = sorted(set(lb) - set(la))
     top = lambda k: k.split(".")[0].split("[")[0]

@@ -113,6 +113,9 @@
 
     { "id": "wifi_rssi", "out": "net.wifi_dbm", "name": "WiFi 信号", "kind": "gauge",
       "unit": "dBm", "digits": 0, "agg": "regex_max", "regex": "^SNIC(\\d+)WLANRSSI$",
-      "warn": { "op": "<=", "value": -70 } }
+      "warn": { "op": "<=", "value": -70 } },
+
+    { "id": "net_linkspeed", "out": "net.link_mbps", "name": "WiFi 链接速度", "kind": "gauge",
+      "unit": "Mbps", "digits": 0, "agg": "regex_max", "regex": "^SNIC(\\d+)CONNSPD$" }
   ]
 }
