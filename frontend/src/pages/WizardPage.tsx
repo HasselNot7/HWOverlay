@@ -1,25 +1,28 @@
-import { Button, Checkbox } from "@heroui/react";
+import { Button, Checkbox, Chip, Divider } from "@heroui/react";
 import { useCallback, useEffect, useState } from "react";
 import { api } from "../api";
 import type { AidaPlan, ApplyResult } from "../types";
 import type { Shared } from "../App";
+import { Hint, Page, Section, SubTitle } from "../ui";
 
+type StepKind = "done" | "todo" | "bad";
+
+const KIND_CHIP = { done: "success", todo: "warning", bad: "danger" } as const;
+const KIND_TEXT = { done: "已完成", todo: "待办", bad: "有问题" } as const;
+
+/** 单个步骤：小节标题 + 状态点 Chip，正文用灰色说明。 */
 function Step({ kind, title, children }: {
-  kind: "done" | "todo" | "bad";
+  kind: StepKind;
   title: string;
   children?: React.ReactNode;
 }) {
-  const dot = kind === "done" ? "bg-primary border-primary"
-    : kind === "bad" ? "bg-[#d0777f] border-[#d0777f]"
-      : "bg-background border-warning";
-  const titleColor = kind === "done" ? "text-primary" : kind === "bad" ? "text-[#d0777f]" : "text-warning";
   return (
-    <li className="relative pb-4 pl-8 before:absolute before:left-2 before:top-1 before:h-3 before:w-3 before:rounded-full before:border-2 before:bg-inherit after:absolute after:left-[15px] after:top-6 after:bottom-1 after:w-px after:bg-divider last:after:hidden"
-      style={{ ["--tw-before-bg" as string]: "transparent" }}>
-      <span className={`absolute left-2 top-1 h-3 w-3 rounded-full border-2 ${dot}`} />
-      <div className={`font-bold ${titleColor}`}>{title}</div>
-      <div className="mt-1 text-[13px] text-default-400">{children}</div>
-    </li>
+    <div className="flex flex-col gap-3">
+      <SubTitle right={
+        <Chip size="sm" variant="dot" color={KIND_CHIP[kind]}>{KIND_TEXT[kind]}</Chip>
+      }>{title}</SubTitle>
+      {children}
+    </div>
   );
 }
 
@@ -27,8 +30,10 @@ const DiffChips = ({ ids, kind }: { ids: string[]; kind: "add" | "del" }) => (
   <div className="mt-1.5 flex flex-wrap gap-1.5">
     {ids.map(id => (
       <span key={id}
-        className={`rounded border bg-background px-1.5 py-0.5 text-xs ${
-          kind === "add" ? "border-[#3f5d43] text-primary" : "border-divider text-default-500 line-through"
+        className={`rounded-lg border px-1.5 py-0.5 text-xs font-poppins ${
+          kind === "add"
+            ? "border-default-100 bg-default-100/50 text-primary"
+            : "border-default-100 text-default-500 line-through"
         }`}>
         {id}
       </span>
@@ -74,70 +79,90 @@ export default function WizardPage({ shared }: { shared: Shared }) {
   };
 
   const step2 = () => {
-    if (!plan) return <Step kind="todo" title="② 读取导出清单…"><span /></Step>;
+    if (!plan) return <Step kind="todo" title="② 读取导出清单…" />;
     if (plan.unchanged) {
-      return <Step kind="done" title="② 导出清单与版式一致"><span /></Step>;
+      return <Step kind="done" title="② 导出清单与版式一致" />;
     }
     if (!plan.fits) {
       return (
         <Step kind="bad" title="② 版式需要的传感器超出 4096 预算">
-          最坏 {plan.budget_new.worst_bytes} 字节 &gt; 可用 {plan.budget_new.usable}，
-          从第 {(plan.budget_new.truncated_at ?? 0) + 1} 个起会被截断。回编辑器去掉几个小指标。
+          <Hint>
+            最坏 {plan.budget_new.worst_bytes} 字节 &gt; 可用 {plan.budget_new.usable}，
+            从第 {(plan.budget_new.truncated_at ?? 0) + 1} 个起会被截断。回编辑器去掉几个小指标。
+          </Hint>
         </Step>
       );
     }
     return (
       <Step kind="todo" title={`② 导出清单需要调整（加 ${plan.to_add.length} / 减 ${plan.to_remove.length}）`}>
-        {plan.to_add.length > 0 && <div>需增加 {plan.to_add.length} 个<DiffChips ids={plan.to_add} kind="add" /></div>}
-        {plan.to_remove.length > 0 && <div className="mt-2">可移除 {plan.to_remove.length} 个<DiffChips ids={plan.to_remove} kind="del" /></div>}
-        <div className="mt-2">预算 {plan.budget_now.worst_bytes} → {plan.budget_new.worst_bytes} / {plan.budget_new.usable} 字节</div>
-        <div className="mt-3 flex items-center gap-3">
-          <Checkbox isSelected={confirmed} onValueChange={setConfirmed} size="sm">
-            <span className="text-[13px] text-default-400">
-              我确认：这会关闭并重启 AIDA64，期间 OSD / 信息板会断流
-            </span>
-          </Checkbox>
-          <Button
-            color="primary" size="sm" isDisabled={!confirmed || busy} isLoading={busy}
-            onPress={apply} className="font-bold"
-          >
-            应用并重启 AIDA64
-          </Button>
+        <div className="flex flex-col gap-2 text-sm">
+          {plan.to_add.length > 0 && (
+            <div>需增加 {plan.to_add.length} 个<DiffChips ids={plan.to_add} kind="add" /></div>
+          )}
+          {plan.to_remove.length > 0 && (
+            <div>可移除 {plan.to_remove.length} 个<DiffChips ids={plan.to_remove} kind="del" /></div>
+          )}
+          <div className="text-color-desc">
+            预算 {plan.budget_now.worst_bytes} → {plan.budget_new.worst_bytes} / {plan.budget_new.usable} 字节
+          </div>
+          <div className="mt-2 flex items-center gap-4">
+            <Checkbox isSelected={confirmed} onValueChange={setConfirmed}>
+              <span className="text-sm text-color-desc">
+                我确认：这会关闭并重启 AIDA64，期间 OSD / 信息板会断流
+              </span>
+            </Checkbox>
+            <Button
+              color="primary" size="lg" className="px-7"
+              isDisabled={!confirmed || busy} isLoading={busy} onPress={apply}
+            >
+              应用并重启 AIDA64
+            </Button>
+          </div>
+          <div className="text-color-desc">
+            原理：AIDA64 只把 HWMonExtAppItems 列出的传感器写进共享内存，且退出时才回写 ini。
+          </div>
         </div>
-        <div className="mt-2">原理：AIDA64 只把 HWMonExtAppItems 列出的传感器写进共享内存，且退出时才回写 ini。</div>
       </Step>
     );
   };
 
   const step1 = !status ? (
-    <Step kind="todo" title="① 连接 AIDA64"><span>检测中…</span></Step>
+    <Step kind="todo" title="① 连接 AIDA64"><Hint>检测中…</Hint></Step>
   ) : !status.running || !status.ini ? (
     <Step kind="bad" title="① 连接 AIDA64">
-      <div>{status.running ? "AIDA64 在跑，但共享内存读不到" : "AIDA64 没在运行"}</div>
-      <div className="mt-1">{status.install || "没找到安装目录（绿色版请先启动一次 AIDA64）"}</div>
+      <Hint>
+        {status.running ? "AIDA64 在跑，但共享内存读不到" : "AIDA64 没在运行"}
+        <br />
+        {status.install || "没找到安装目录（绿色版请先启动一次 AIDA64）"}
+      </Hint>
     </Step>
   ) : (
     <Step kind="done" title="① AIDA64 已连接">
-      导出 {status.exported_ids.length} 个传感器 · 共享内存 {status.shm_bytes}/{status.shm_limit} 字节 = {status.shm_pct}%
+      <Hint>
+        导出 {status.exported_ids.length} 个传感器 · 共享内存 {status.shm_bytes}/{status.shm_limit} 字节 = {status.shm_pct}%
+      </Hint>
     </Step>
   );
 
-  const msgColor = msg?.kind === "ok" ? "text-primary" : msg?.kind === "bad" ? "text-[#d0777f]" : "text-warning";
-
   return (
-    <>
-      <h1 className="mb-5 text-[21px] font-bold">开始使用</h1>
-      <div className="rounded-2xl border border-divider bg-content1 p-6 shadow-lg">
-        <ol className="m-0 list-none p-0">
-          {step1}
-          {step2()}
-          <Step kind="done" title="③ 在 OBS 里添加“浏览器”源">
-            <div>URL {location.origin}/　宽 {shared.check?.canvas_w ?? "—"}　高 {shared.check?.canvas_h ?? "—"}</div>
-            <div className="mt-1">改过版式后要在浏览器源属性里点“刷新缓存”，否则 OBS 还是旧页面。</div>
-          </Step>
-        </ol>
-        {msg && <div className={`mt-2 text-[13px] ${msgColor}`}>{msg.text}</div>}
-      </div>
-    </>
+    <Page title="开始使用">
+      <Section title="准备 AIDA64">{step1}</Section>
+      <Section title="对齐导出清单">{step2()}</Section>
+      <Section title="放进 OBS" divider={false}>
+        <Step kind="done" title="③ 在 OBS 里添加“浏览器”源">
+          <Hint>
+            URL {location.origin}/　宽 {shared.check?.canvas_w ?? "—"}　高 {shared.check?.canvas_h ?? "—"}
+            <br />
+            改过版式后要在浏览器源属性里点“刷新缓存”，否则 OBS 还是旧页面。
+          </Hint>
+        </Step>
+      </Section>
+      {msg && (
+        <div className={`text-sm ${
+          msg.kind === "ok" ? "text-primary"
+            : msg.kind === "bad" ? "text-danger" : "text-warning"
+        }`}>{msg.text}</div>
+      )}
+    </Page>
   );
 }

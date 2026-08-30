@@ -3,6 +3,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { api, clone, outPaths } from "../api";
 import type { CardsWidget, ChipsWidget, OverlayConfig, TextWidget } from "../types";
 import type { Shared } from "../App";
+import { CARD_CLS, FieldLabel, Hint, Page, Section, SubTitle } from "../ui";
 import { CardsEditor, ChipsEditor, TextEditor } from "./editors";
 
 const WIDGET_LABEL: Record<string, string> = {
@@ -116,74 +117,68 @@ export default function EditorPage({ shared }: { shared: Shared }) {
   };
 
   const msgColor = msg.kind === "ok" ? "text-primary"
-    : msg.kind === "bad" ? "text-[#d0777f]"
-      : msg.kind === "warn" ? "text-warning" : "";
+    : msg.kind === "bad" ? "text-danger"
+      : msg.kind === "warn" ? "text-warning" : "text-color-desc";
 
   if (!draft || !metrics) {
     return (
-      <>
-        <h1 className="mb-5 text-[21px] font-bold">版式编辑</h1>
-        <div className="rounded-2xl border border-divider bg-content1 p-6 text-sm text-default-500">载入中…</div>
-      </>
+      <Page title="版式编辑">
+        <Section title="编辑器" divider={false}><Hint>载入中…</Hint></Section>
+      </Page>
     );
   }
 
   const scalePct = Math.round(pvScale * 100);
 
   return (
-    <>
-      <h1 className="mb-5 text-[21px] font-bold">版式编辑</h1>
-
-      {/* 版式校验 */}
-      <div className="mb-4 rounded-2xl border border-divider bg-content1 p-5 shadow-lg">
-        <h2 className="mb-3 text-sm font-bold before:mr-1.5 before:text-primary before:content-['▍']">版式校验</h2>
+    <Page title="版式编辑">
+      <Section title="版式校验">
         {check && !check.errors.length && !check.warnings.length && (
-          <div className="text-[13px] text-primary">✓ 版式无错误、无提醒</div>
+          <Hint><span className="text-success">✓ 版式无错误、无提醒</span></Hint>
         )}
         {check?.errors.map((e, i) => (
-          <div key={i} className="text-[13px] text-[#d0777f]">✗ {e}</div>
+          <div key={i} className="text-sm text-danger">✗ {e}</div>
         ))}
         {check?.warnings.map((w, i) => (
-          <div key={i} className="text-[13px] text-warning">▲ {w}</div>
+          <div key={i} className="text-sm text-warning">▲ {w}</div>
         ))}
-      </div>
+      </Section>
 
-      {/* 编辑器 */}
-      <div className="mb-4 rounded-2xl border border-divider bg-content1 p-5 shadow-lg">
-        <h2 className="mb-3 text-sm font-bold before:mr-1.5 before:text-primary before:content-['▍']">编辑器</h2>
-        <p className="hint rounded-lg border border-divider bg-[#17171a] p-2 text-xs text-default-500">
-          <b className="font-normal text-primary">怎么玩</b>：部件从上往下排，就是叠加层从上到下的样子。
-          点 <b className="font-normal text-primary">保存</b> 后下面的预览会刷新；
+      <Section title="编辑器">
+        <Hint>
+          部件从上往下排，就是叠加层从上到下的样子。点保存后下面的预览会刷新；
           确认效果后，再到 OBS 浏览器源里点一次“刷新缓存”即可生效。
-        </p>
+        </Hint>
 
-        <div className="my-3 flex flex-wrap items-center gap-5">
-          <div className="flex items-center gap-2.5">
-            <span className="text-xs text-default-500">叠加层宽</span>
+        <div className="mt-2 flex flex-wrap items-end gap-5">
+          <div className="flex flex-col gap-2">
+            <FieldLabel>叠加层宽</FieldLabel>
             <Input
-              aria-label="叠加层宽" type="number" size="sm" variant="flat"
-              defaultValue={String(draft.canvas.w)} className="w-32"
+              aria-label="叠加层宽" type="number" size="lg" variant="flat"
+              classNames={{ inputWrapper: "px-4" }}
+              defaultValue={String(draft.canvas.w)} className="w-36 font-poppins"
               onValueChange={v => { draft.canvas.w = +v || draft.canvas.w; setDraft({ ...draft }); onChange(); }}
             />
           </div>
-          <div className="flex items-center gap-2.5">
-            <span className="text-xs text-default-500">叠加层高</span>
+          <div className="flex flex-col gap-2">
+            <FieldLabel>叠加层高</FieldLabel>
             <Input
-              aria-label="叠加层高" type="number" size="sm" variant="flat"
-              defaultValue={String(draft.canvas.h)} className="w-32"
+              aria-label="叠加层高" type="number" size="lg" variant="flat"
+              classNames={{ inputWrapper: "px-4" }}
+              defaultValue={String(draft.canvas.h)} className="w-36 font-poppins"
               onValueChange={v => { draft.canvas.h = +v || draft.canvas.h; setDraft({ ...draft }); onChange(); }}
             />
           </div>
-          <span className="text-xs text-default-500">这两个数要和 OBS 浏览器源里填的宽高一致。</span>
+          <Hint className="pb-3">要和 OBS 浏览器源里填的宽高一致。</Hint>
         </div>
 
-        <div className="flex flex-col gap-3">
+        <div className="mt-4 flex flex-col gap-3">
           {draft.widgets.map((w, i) => {
             const meta = WIDGET_LABEL[w.type] ?? w.type;
             return (
-              <div key={i} className="overflow-hidden rounded-2xl border border-divider bg-content2">
-                <div className="flex items-center justify-between border-b border-divider bg-[#17171a] px-4 py-2.5">
-                  <b className="text-[13px] font-bold text-primary">部件 {i + 1} · {meta}</b>
+              <div key={i} className={CARD_CLS}>
+                <div className="flex items-center justify-between border-b border-white/[0.04] px-4 py-3">
+                  <b className="text-sm font-bold text-default-800">部件 {i + 1} · {meta}</b>
                   <Button size="sm" variant="light" className="h-7 min-w-0 px-2 text-xs text-default-400"
                     onPress={() => removeWidget(i)}>删除这一部件</Button>
                 </div>
@@ -197,8 +192,8 @@ export default function EditorPage({ shared }: { shared: Shared }) {
           })}
         </div>
 
-        <div className="mb-12 mt-3.5 flex gap-2.5">
-          <Button size="sm" variant="flat" onPress={() => {
+        <div className="mb-14 mt-3 grid grid-cols-2 gap-2">
+          <Button variant="flat" size="lg" className="bg-[#27272a]" disableRipple onPress={() => {
             const first = outPaths(metrics)[0];
             addWidget({
               type: "cards", items: [{
@@ -207,26 +202,14 @@ export default function EditorPage({ shared }: { shared: Shared }) {
               }],
             });
           }}>+ 加一行指标卡片</Button>
-          <Button size="sm" variant="flat" onPress={() => {
+          <Button variant="flat" size="lg" className="bg-[#27272a]" disableRipple onPress={() => {
             addWidget({ type: "text", text: "CPU {cpu.usage}% · {cpu.temp}°C", size: 19, margin_top: 6 });
           }}>+ 加一行自定义文字</Button>
         </div>
+      </Section>
 
-        <div
-          className="sticky bottom-0 z-[5] flex items-center gap-3 rounded-xl border border-divider bg-content2 px-3.5 py-2.5"
-        >
-          <Button color="primary" size="sm" isDisabled={!dirty} onPress={save} className="font-bold">保存</Button>
-          <Button size="sm" variant="flat" onPress={undo}>还原上一版</Button>
-          {dirty && <span className="text-xs text-warning">● 有未保存的改动</span>}
-          <span className="flex-1" />
-          <span className={`text-[13px] ${msgColor}`}>{msg.text}</span>
-        </div>
-      </div>
-
-      {/* 预览 */}
-      <div className="rounded-2xl border border-divider bg-content1 p-5 shadow-lg">
-        <h2 className="mb-3 text-sm font-bold before:mr-1.5 before:text-primary before:content-['▍']">预览</h2>
-        <div ref={wrapRef} className="w-full overflow-hidden rounded-lg border border-divider bg-[#17171a]"
+      <Section title="预览" divider={false}>
+        <div ref={wrapRef} className={`w-full overflow-hidden ${CARD_CLS}`}
           style={{ height: Math.ceil((draft.canvas.h || 200) * pvScale) }}>
           <iframe
             key={pvKey}
@@ -239,10 +222,20 @@ export default function EditorPage({ shared }: { shared: Shared }) {
             }}
           />
         </div>
-        <div className="mt-1.5 text-xs text-default-500">
+        <Hint className="mt-2">
           预览按 {scalePct}% 缩放，真实尺寸 {draft.canvas.w}×{draft.canvas.h}。
-        </div>
+        </Hint>
+      </Section>
+
+      {/* 吸底保存条：Now Playing 卡片同款底色，按钮用主色大号 */}
+      <div className={`sticky bottom-4 z-10 flex items-center gap-3 ${CARD_CLS} px-4 py-3 shadow-lg`}>
+        <SubTitle>版式</SubTitle>
+        <Button color="primary" size="lg" className="px-7" isDisabled={!dirty} onPress={save}>保存</Button>
+        <Button size="lg" variant="flat" className="bg-[#27272a]" onPress={undo}>还原上一版</Button>
+        {dirty && <span className="text-sm text-warning">● 有未保存的改动</span>}
+        <span className="flex-1" />
+        <span className={`text-sm ${msgColor}`}>{msg.text}</span>
       </div>
-    </>
+    </Page>
   );
 }

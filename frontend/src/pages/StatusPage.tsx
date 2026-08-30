@@ -1,102 +1,98 @@
 import { Chip, Progress } from "@heroui/react";
 import type { Shared } from "../App";
+import { Hint, Page, Section } from "../ui";
 
-const Pill = ({ text, kind }: { text: string; kind: "ok" | "warn" | "bad" | "" }) => (
-  <Chip size="sm" variant="bordered"
-    color={kind === "ok" ? "success" : kind === "warn" ? "warning" : kind === "bad" ? "danger" : "default"}>
+const StateChip = ({ text, kind }: { text: string; kind: "ok" | "warn" | "bad" }) => (
+  <Chip size="sm" variant="dot"
+    color={kind === "ok" ? "success" : kind === "warn" ? "warning" : "danger"}>
     {text}
   </Chip>
 );
 
-function Panel({ title, children }: { title: string; children: React.ReactNode }) {
-  return (
-    <div className="rounded-2xl border border-divider bg-content1 p-5 shadow-lg">
-      <h2 className="mb-3.5 text-sm font-bold before:mr-1.5 before:text-primary before:content-['▍']">{title}</h2>
-      {children}
+/** 单行信息：左边名称，右边数值（Now Playing 开关行的那套左右结构）。 */
+const Row = ({ k, v, sub }: { k: string; v: React.ReactNode; sub?: string }) => (
+  <div className="flex w-full items-center justify-between gap-4 py-1.5">
+    <div className="flex flex-col gap-[2px]">
+      <span className="text-base">{k}</span>
+      {sub && <span className="text-sm text-color-desc">{sub}</span>}
     </div>
-  );
-}
-
-const Kv = ({ k, v, cls }: { k: string; v: React.ReactNode; cls?: string }) => (
-  <>
-    <dt className="whitespace-nowrap text-default-500">{k}</dt>
-    <dd className={`m-0 break-all ${cls ?? ""}`}>{v}</dd>
-  </>
+    <span className="text-right text-base font-poppins">{v}</span>
+  </div>
 );
 
 export default function StatusPage({ shared }: { shared: Shared }) {
   const { status: st, hw, check } = shared;
   if (!st) {
     return (
-      <>
-        <h1 className="mb-5 text-[21px] font-bold">状态总览</h1>
-        <Panel title="数据源"><span className="text-xs text-default-500">读取中…</span></Panel>
-      </>
+      <Page title="状态总览">
+        <Section title="数据源" divider={false}>
+          <Hint>读取中…</Hint>
+        </Section>
+      </Page>
     );
   }
-  const shmColor = st.shm_pct > 90 ? "text-[#d0777f]" : st.shm_pct > 75 ? "text-warning" : "text-primary";
+  const shmColor = st.shm_pct > 90 ? "text-danger" : st.shm_pct > 75 ? "text-warning" : "text-primary";
   const s = st.windows_net_sampler;
 
   return (
-    <>
-      <h1 className="mb-5 text-[21px] font-bold">状态总览</h1>
-      <div className="mb-4 grid grid-cols-1 gap-4 xl:grid-cols-2">
-        <Panel title="数据源">
-          <dl className="grid grid-cols-[auto_1fr] gap-x-3.5 gap-y-1 text-[13px]">
-            <Kv k="AIDA64" v={st.running ? <Pill text="运行中" kind="ok" /> : <Pill text="未运行" kind="bad" />} />
-            <Kv k="安装目录" v={st.install || <Pill text="未找到" kind="bad" />} />
-            <Kv k="ini" v={st.ini || <Pill text="未找到" kind="bad" />} />
-            <Kv k="已导出传感器" v={`${st.exported_ids.length} 个`} />
-            <Kv k="共享内存" cls={shmColor}
-              v={`${st.shm_bytes} / ${st.shm_limit} 字节 = ${st.shm_pct}%`} />
-            <Kv k="安全预算" v={`${st.usable_bytes} 字节（留 15% 余量）`} />
-            <Kv k="网卡采样" v={s?.sampling
-              ? <Pill text="运行中" kind="warn" />
-              : <span className="text-xs text-default-500">未启动（AIDA64 在位时不需要）</span>} />
-            {hw?.degraded && <Kv k="降级原因" v={hw.degraded} cls="text-warning" />}
-            {hw?.missing?.length ? (
-              <Kv k="AIDA64 缺这些" v={hw.missing.join(", ")} cls="text-[#d0777f]" />
-            ) : null}
-          </dl>
-          <Progress
-            aria-label="共享内存占用" size="sm" className="mt-2.5"
-            value={Math.min(100, st.shm_pct)}
-            color={st.shm_pct > 90 ? "danger" : st.shm_pct > 75 ? "warning" : "primary"}
-          />
-        </Panel>
-
-        <Panel title="导出预算">
-          {check?.budget ? (
-            <>
-              <dl className="grid grid-cols-[auto_1fr] gap-x-3.5 gap-y-1 text-[13px]">
-                <Kv k="版式需要" v={`${check.budget.count} 个传感器`} />
-                <Kv k="最坏占用"
-                  cls={check.budget.worst_bytes > check.budget.usable ? "text-[#d0777f]" : "text-primary"}
-                  v={`${check.budget.worst_bytes} / ${check.budget.usable} 字节 = ${Math.round(check.budget.worst_bytes / check.budget.usable * 100)}%`} />
-                <Kv k="典型占用" v={`${check.budget.typical_bytes} 字节（按真实 label 长度算）`} />
-                <Kv k="截断风险" v={check.budget.fits ? "无" :
-                  `从第 ${(check.budget.truncated_at ?? 0) + 1} 个起会被 AIDA64 静默截断`} />
-              </dl>
-              <Progress
-                aria-label="预算占用" size="sm" className="mt-2.5"
-                value={Math.min(100, check.budget.worst_bytes / check.budget.usable * 100)}
-                color={check.budget.worst_bytes > check.budget.usable ? "danger" : "primary"}
-              />
-            </>
-          ) : <span className="text-xs text-default-500">载入中…</span>}
-        </Panel>
-      </div>
-
-      <Panel title="OBS 里怎么填">
-        <dl className="grid grid-cols-[auto_1fr] gap-x-3.5 gap-y-1 text-[13px]">
-          <Kv k="URL" v={<code className="rounded bg-[#17171a] px-1.5 py-0.5 text-xs">{location.origin}/</code>} />
-          <Kv k="宽 × 高" v={`${check?.canvas_w ?? "—"} × ${check?.canvas_h ?? "—"}`} />
-          <Kv k="内容预估高" v={`${check?.est_height ?? "—"} px`} />
-        </dl>
-        <div className="mt-2 text-[13px] text-default-400">
-          OBS → 添加“浏览器”源 → 取消勾选“本地文件” → 填上面的 URL 和尺寸。
+    <Page title="状态总览">
+      <Section title="数据源">
+        <div className="flex flex-col">
+          <Row k="AIDA64" v={st.running
+            ? <StateChip text="运行中" kind="ok" />
+            : <StateChip text="未运行" kind="bad" />} />
+          <Row k="安装目录" v={<span className="text-sm text-color-desc">{st.install || "未找到"}</span>} />
+          <Row k="ini" v={<span className="break-all text-sm font-poppins text-color-desc">{st.ini || "未找到"}</span>} />
+          <Row k="已导出传感器" v={`${st.exported_ids.length} 个`} />
+          <Row k="共享内存" sub={`安全预算 ${st.usable_bytes} 字节（留 15% 余量）`}
+            v={<span className={shmColor}>{st.shm_bytes} / {st.shm_limit} 字节 = {st.shm_pct}%</span>} />
+          <Row k="网卡采样" v={s?.sampling
+            ? <StateChip text="运行中" kind="warn" />
+            : <span className="text-sm text-color-desc">未启动（AIDA64 在位时不需要）</span>} />
+          {hw?.degraded && <Row k="降级原因" v={<span className="text-sm text-warning">{hw.degraded}</span>} />}
+          {hw?.missing?.length ? (
+            <Row k="AIDA64 缺这些" v={<span className="text-sm font-poppins text-danger">{hw.missing.join(", ")}</span>} />
+          ) : null}
         </div>
-      </Panel>
-    </>
+        <Progress
+          aria-label="共享内存占用" size="sm" className="mt-3"
+          value={Math.min(100, st.shm_pct)}
+          color={st.shm_pct > 90 ? "danger" : st.shm_pct > 75 ? "warning" : "primary"}
+        />
+      </Section>
+
+      <Section title="导出预算">
+        {check?.budget ? (
+          <>
+            <div className="flex flex-col">
+              <Row k="版式需要" v={`${check.budget.count} 个传感器`} />
+              <Row k="最坏占用" sub="按 label 最长的情况估算"
+                v={<span className={check.budget.worst_bytes > check.budget.usable ? "text-danger" : "text-primary"}>
+                  {check.budget.worst_bytes} / {check.budget.usable} 字节 = {Math.round(check.budget.worst_bytes / check.budget.usable * 100)}%
+                </span>} />
+              <Row k="典型占用" sub="按真实 label 长度算" v={`${check.budget.typical_bytes} 字节`} />
+              <Row k="截断风险" v={check.budget.fits ? <StateChip text="无" kind="ok" />
+                : <span className="text-sm text-warning">从第 {(check.budget.truncated_at ?? 0) + 1} 个起会被 AIDA64 静默截断</span>} />
+            </div>
+            <Progress
+              aria-label="预算占用" size="sm" className="mt-3"
+              value={Math.min(100, check.budget.worst_bytes / check.budget.usable * 100)}
+              color={check.budget.worst_bytes > check.budget.usable ? "danger" : "primary"}
+            />
+          </>
+        ) : <Hint>载入中…</Hint>}
+      </Section>
+
+      <Section title="OBS 里怎么填" divider={false}>
+        <div className="flex flex-col">
+          <Row k="URL" v={<code className="rounded-md bg-default-100 px-2 py-1 text-sm font-poppins">{location.origin}/</code>} />
+          <Row k="宽 × 高" v={`${check?.canvas_w ?? "—"} × ${check?.canvas_h ?? "—"}`} />
+          <Row k="内容预估高" v={`${check?.est_height ?? "—"} px`} />
+        </div>
+        <Hint className="mt-2">
+          OBS → 添加“浏览器”源 → 取消勾选“本地文件” → 填上面的 URL 和尺寸。
+        </Hint>
+      </Section>
+    </Page>
   );
 }

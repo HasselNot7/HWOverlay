@@ -2,6 +2,16 @@
 @plugin "./hero.ts";
 @custom-variant dark (&:is(.dark *));
 
+/* v4 自动扫描跳过 node_modules，HeroUI 组件内部用到的工具类（Switch 轨道宽度、
+   Tabs 光标显隐等）必须显式纳入，否则组件半残 —— Now Playing 的 config 同款一行。 */
+@source "../node_modules/@heroui/theme/dist/**/*.{js,ts,jsx,tsx}";
+
+/* 字体学 Now Playing：正文交给系统 sans-serif（中文落微软雅黑），
+   表单控件用 Poppins（@fontsource 打进包里，离线可用）。 */
+@theme {
+  --font-poppins: "Poppins", sans-serif;
+}
+
 :root {
   color-scheme: dark;
 }
@@ -16,11 +26,35 @@ body {
   margin: 0;
   background: var(--heroui-background);
   color: var(--heroui-foreground);
-  font-family: ui-sans-serif, system-ui, "Segoe UI", "PingFang SC",
-    "Noto Sans SC", "Microsoft YaHei", sans-serif;
+  font-family: sans-serif;
 }
 
-code,
-code * {
-  font-family: "JetBrains Mono", "Cascadia Mono", Consolas, monospace;
+.text-color-desc {
+  color: #8c8c92;
+}
+
+[data-toast="true"] {
+  font-family: "Poppins", sans-serif;
+}
+
+/* 滚动条学它的 overlayscrollbars：圆头短轨，悬停提亮 */
+::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #3d3d45;
+  border-radius: 9999px;
+  border: 2px solid transparent;
+  background-clip: padding-box;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #52525b;
+  background-clip: padding-box;
 }

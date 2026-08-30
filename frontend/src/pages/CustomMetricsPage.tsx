@@ -1,8 +1,9 @@
-import { Button, Checkbox, Input } from "@heroui/react";
+import { Button, Checkbox, Chip, Input } from "@heroui/react";
 import { useCallback, useEffect, useState } from "react";
 import { api } from "../api";
 import type { Metric, UnknownSensor } from "../types";
 import type { Shared } from "../App";
+import { CARD_CLS, Hint, Page, Section } from "../ui";
 
 /** "未知传感器"一键做成指标 + 自定义指标管理。 */
 export default function CustomMetricsPage({ shared }: { shared: Shared }) {
@@ -29,69 +30,75 @@ export default function CustomMetricsPage({ shared }: { shared: Shared }) {
   const customs = (shared.metrics || []).filter(m => m.custom);
 
   return (
-    <>
-      <h1 className="mb-5 text-[21px] font-bold">自定义指标</h1>
-      <div className="rounded-2xl border border-divider bg-content1 p-5 shadow-lg">
-        <h2 className="mb-3 text-sm font-bold before:mr-1.5 before:text-primary before:content-['▍']">未知传感器</h2>
-        <p className="mb-3 rounded-lg border border-divider bg-[#17171a] p-2 text-xs text-default-500">
+    <Page title="自定义指标">
+      <Section title="未知传感器">
+        <Hint>
           AIDA64 在导出、但还没注册成指标的传感器。注册后编辑器的下拉和
           勾选列表里就能选它，叠加层才能显示 —— 这一步不用改任何文件。
-        </p>
+        </Hint>
 
         {customs.length > 0 && (
-          <div className="mb-3">
-            <div className="mb-1.5 text-xs text-default-500">已注册的自定义指标：</div>
-            <div className="flex flex-wrap gap-2">
-              {customs.map((m: Metric) => (
-                <span key={m.id}
-                  className="flex items-center gap-2 rounded-lg border border-divider bg-content2 px-2.5 py-1 text-xs">
-                  {m.name}
-                  <span className="text-[11px] text-default-500">{m.out}</span>
-                  <Button size="sm" variant="light" className="h-6 min-w-0 px-1.5 text-xs text-default-400"
-                    title="删除这个自定义指标" onPress={() => remove(m.id)}>删</Button>
+          <div className="mt-3 flex flex-wrap items-center gap-2">
+            <span className="text-xs text-color-desc">已注册的自定义指标：</span>
+            {customs.map((m: Metric) => (
+              <Chip key={m.id} size="sm" variant="bordered"
+                endContent={
+                  <button
+                    className="text-xs text-default-400 transition-colors hover:text-danger"
+                    title="删除这个自定义指标" onClick={() => remove(m.id)}
+                  >删</button>
+                }
+              >
+                <span className="text-sm">{m.name}
+                  <span className="ml-1.5 font-poppins text-[11px] text-default-500">{m.out}</span>
                 </span>
-              ))}
-            </div>
+              </Chip>
+            ))}
           </div>
         )}
 
-        {!unknown ? (
-          <span className="text-xs text-default-500">载入中…</span>
-        ) : !unknown.ok ? (
-          <div className="text-[13px] text-[#d0777f]">{unknown.error}</div>
-        ) : unknown.unknown.length === 0 ? (
-          <div className="text-[13px] text-primary">✓ 没有未知传感器 —— AIDA64 导出的都有归属。</div>
-        ) : (
-          <table className="w-full text-[13px]">
-            <thead>
-              <tr>
-                {["传感器", "AIDA64 名称", "当前值", ""].map(h => (
-                  <th key={h} className="border-b border-divider px-2 py-1.5 text-left text-xs font-normal text-default-500">{h}</th>
-                ))}
-              </tr>
-            </thead>
-            <tbody>
-              {unknown.unknown.map(s => (
-                <tr key={s.id} className="border-b border-divider">
-                  <td className="px-2 py-1.5"><code className="rounded bg-[#17171a] px-1.5 py-0.5 text-xs">{s.id}</code></td>
-                  <td className="px-2 py-1.5">{s.label}</td>
-                  <td className="px-2 py-1.5 text-right tabular-nums">{s.value}</td>
-                  <td className="px-2 py-1.5">
-                    {openForm === s.id
-                      ? <UnknownForm sensor={s} onDone={() => { setOpenForm(null); setErr(""); afterChange(); }} />
-                      : (
-                        <Button size="sm" variant="flat" title="起个名字、填个单位，注册成可以在版式里用的指标"
-                          onPress={() => { setOpenForm(s.id); setErr(""); }}>做成指标</Button>
-                      )}
-                  </td>
+        <div className={`mt-3 ${CARD_CLS} px-4 py-2`}>
+          {!unknown ? (
+            <Hint>载入中…</Hint>
+          ) : !unknown.ok ? (
+            <div className="py-1 text-sm text-danger">{unknown.error}</div>
+          ) : unknown.unknown.length === 0 ? (
+            <div className="py-1 text-sm text-success">✓ 没有未知传感器 —— AIDA64 导出的都有归属。</div>
+          ) : (
+            <table className="w-full text-sm">
+              <thead>
+                <tr>
+                  {["传感器", "AIDA64 名称", "当前值", ""].map(h => (
+                    <th key={h}
+                      className="border-b border-white/[0.04] px-2 py-2 text-left text-xs font-normal text-default-500">{h}</th>
+                  ))}
                 </tr>
-              ))}
-            </tbody>
-          </table>
-        )}
-        {err && <div className="mt-2 text-[13px] text-[#d0777f]">{err}</div>}
-      </div>
-    </>
+              </thead>
+              <tbody>
+                {unknown.unknown.map(s => (
+                  <tr key={s.id} className="border-b border-white/[0.04] last:border-0">
+                    <td className="px-2 py-2">
+                      <code className="rounded-md bg-default-100 px-1.5 py-0.5 font-poppins text-xs">{s.id}</code>
+                    </td>
+                    <td className="px-2 py-2">{s.label}</td>
+                    <td className="px-2 py-2 text-right font-poppins tabular-nums">{s.value}</td>
+                    <td className="px-2 py-2">
+                      {openForm === s.id
+                        ? <UnknownForm sensor={s} onDone={() => { setOpenForm(null); setErr(""); afterChange(); }} />
+                        : (
+                          <Button size="sm" variant="flat" title="起个名字、填个单位，注册成可以在版式里用的指标"
+                            onPress={() => { setOpenForm(s.id); setErr(""); }}>做成指标</Button>
+                        )}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          )}
+        </div>
+        {err && <div className="mt-2 text-sm text-danger">{err}</div>}
+      </Section>
+    </Page>
   );
 }
 
@@ -121,14 +128,14 @@ function UnknownForm({ sensor, onDone }: { sensor: UnknownSensor; onDone: () => 
 
   return (
     <span className="inline-flex flex-wrap items-center gap-2">
-      <Input size="sm" variant="flat" className="w-40" placeholder="名字"
+      <Input size="sm" variant="flat" className="w-40 font-poppins" placeholder="名字"
         value={name} onValueChange={setName} />
-      <Input size="sm" variant="flat" className="w-28" placeholder="单位，如 °C"
+      <Input size="sm" variant="flat" className="w-28 font-poppins" placeholder="单位，如 °C"
         value={unit} onValueChange={setUnit} />
-      <Input size="sm" variant="flat" type="number" className="w-20" placeholder="小数位"
+      <Input size="sm" variant="flat" type="number" className="w-20 font-poppins" placeholder="小数位"
         value={digits} onValueChange={setDigits} />
       <Checkbox size="sm" isSelected={naZero} onValueChange={setNaZero}>
-        <span className="text-xs text-default-500">0 当无数据</span>
+        <span className="text-xs text-color-desc">0 当无数据</span>
       </Checkbox>
       <Button size="sm" color="primary" isDisabled={busy} onPress={submit}>加入</Button>
       <Button size="sm" variant="light" onPress={onDone}>取消</Button>

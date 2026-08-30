@@ -1,6 +1,10 @@
 import { Button, Switch } from "@heroui/react";
 import { useCallback, useEffect, useRef, useState } from "react";
-import { House, Activity, LayoutGrid, FlaskConical, Table2, RefreshCw, ExternalLink } from "lucide-react";
+import {
+  House, Activity, LayoutGrid, FlaskConical, Table2, RefreshCw,
+  ExternalLink, AudioLines,
+} from "lucide-react";
+import type { LucideIcon } from "lucide-react";
 import { api } from "./api";
 import type { AidaStatus, HW, LayoutCheck, Metric } from "./types";
 import WizardPage from "./pages/WizardPage";
@@ -24,6 +28,28 @@ export interface Shared {
   status: AidaStatus | null;
   reloadMetrics: () => Promise<Metric[]>;
   refreshAll: () => Promise<void>;
+}
+
+/** 导航项：Now Playing 同款 —— min-h-12 圆角药丸，激活 bg-default-100，图标 24px。 */
+function NavBtn({ active, label, Icon, onClick }: {
+  active: boolean;
+  label: string;
+  Icon: LucideIcon;
+  onClick: () => void;
+}) {
+  return (
+    <button
+      onClick={onClick}
+      className={`group flex w-full min-h-12 cursor-pointer items-center gap-[0.55rem] rounded-xl px-3 py-1.5 text-left text-base font-medium transition-all duration-150 ${
+        active
+          ? "bg-default-100 text-foreground"
+          : "text-default-500 hover:bg-default/40 hover:text-default-foreground"
+      }`}
+    >
+      <span className="shrink-0"><Icon size={24} strokeWidth={1.75} /></span>
+      <span className="flex-1 truncate">{label}</span>
+    </button>
+  );
 }
 
 export default function App() {
@@ -72,55 +98,46 @@ export default function App() {
   const shared: Shared = { metrics, hw, check, status, reloadMetrics, refreshAll };
 
   return (
-    <div className="flex h-full">
-      <aside className="fixed inset-y-0 left-0 z-10 flex w-60 flex-col border-r border-divider bg-[#151516] px-3.5 py-6">
-        <div className="px-2.5 pb-6">
-          <div className="text-lg font-bold before:mr-1 before:text-primary before:content-['▍']">
-            HWOverlay
+    <div className="dark bg-background font-sans text-foreground antialiased">
+      {/* 侧栏：w-72 + 分隔线 + p-6，与 Now Playing 逐像素同款 */}
+      <aside className="fixed inset-y-0 left-0 z-20 h-screen w-72 border-r border-divider bg-background">
+        <div className="flex h-full flex-col p-6">
+          <div className="mb-14 mt-4 flex items-center gap-2 px-3">
+            <AudioLines size={24} strokeWidth={2.25} className="shrink-0 text-primary" />
+            <span className="text-[19px] font-bold tracking-tight">HWOverlay</span>
           </div>
-          <div className="mt-0.5 text-xs text-default-500">直播硬件叠加层</div>
-        </div>
 
-        <nav className="flex flex-col gap-1">
-          {NAV.map(item => (
-            <button
-              key={item.id}
-              onClick={() => switchView(item.id)}
-              className={`flex h-11 w-full items-center gap-3 rounded-xl px-3.5 text-left text-sm transition-colors ${
-                view === item.id
-                  ? "bg-content3 text-foreground"
-                  : "text-default-400 hover:bg-content2 hover:text-foreground"
-              }`}
-            >
-              <item.Icon
-                className={`h-[18px] w-[18px] flex-none ${view === item.id ? "text-primary" : ""}`}
-                size={18}
-              />
-              {item.label}
-            </button>
-          ))}
-        </nav>
+          <nav className="flex flex-col gap-0.5">
+            {NAV.map(item => (
+              <NavBtn key={item.id} label={item.label} Icon={item.Icon}
+                active={view === item.id} onClick={() => switchView(item.id)} />
+            ))}
+          </nav>
 
-        <div className="mt-auto flex flex-col gap-3 px-1.5">
-          <Switch size="sm" isSelected={auto} onValueChange={setAuto}>
-            <span className="text-xs text-default-500">自动刷新</span>
-          </Switch>
-          <Button size="sm" variant="flat" startContent={<RefreshCw size={14} />}
-            onPress={() => refreshAll()}>刷新数据</Button>
-          <Button size="sm" variant="flat"
-            startContent={<ExternalLink size={14} />}
-            onPress={() => window.open("/", "_blank")}
-          >打开叠加层</Button>
+          <div className="flex-grow" />
+
+          <nav className="flex flex-col gap-0.5">
+            <div className="flex min-h-12 items-center justify-between px-3 py-1.5">
+              <span className="text-base font-medium text-default-500">自动刷新</span>
+              <Switch size="sm" isSelected={auto} onValueChange={setAuto} aria-label="自动刷新" />
+            </div>
+            <NavBtn label="刷新数据" Icon={RefreshCw} active={false} onClick={() => refreshAll()} />
+            <NavBtn label="打开叠加层" Icon={ExternalLink} active={false}
+              onClick={() => window.open("/", "_blank")} />
+          </nav>
         </div>
       </aside>
 
-      <main className="ml-60 flex-1 px-11 py-9">
-        <div className="mx-auto max-w-[960px]">
-          {view === "start" && <WizardPage shared={shared} />}
-          {view === "status" && <StatusPage shared={shared} />}
-          {view === "editor" && <EditorPage shared={shared} />}
-          {view === "custom" && <CustomMetricsPage shared={shared} />}
-          {view === "metrics" && <MetricsTablePage shared={shared} />}
+      {/* 主体：居中 800px 列，py-6 px-10 gap-6，Now Playing 设置页的原版容器 */}
+      <main className="relative ml-72 min-h-screen">
+        <div className="flex justify-center">
+          <div className="flex w-full max-w-[800px] flex-col gap-6 px-10 py-6">
+            {view === "start" && <WizardPage shared={shared} />}
+            {view === "status" && <StatusPage shared={shared} />}
+            {view === "editor" && <EditorPage shared={shared} />}
+            {view === "custom" && <CustomMetricsPage shared={shared} />}
+            {view === "metrics" && <MetricsTablePage shared={shared} />}
+          </div>
         </div>
       </main>
     </div>

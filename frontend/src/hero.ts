@@ -1,17 +1,14 @@
 import { heroui } from "@heroui/theme";
 
-/** HeroUI 主题：主色保持默认蓝（和参考应用同款），暗色底学它的近黑 + 灰阶分层。 */
+/** 主题与 Now Playing 完全同款：HeroUI 默认 dark 主题，只把底色钉在 #121212。
+ * 其余 token（default-100 #27272a、divider 白 15%、foreground #ECEDEE）全是原生值，不再自造灰阶。 */
 export default heroui({
+  defaultTheme: "dark",
+  defaultExtendTheme: "dark",
   themes: {
     dark: {
       colors: {
         background: "#121212",
-        foreground: "#eceef0",
-        divider: "#2e2e32",
-        content1: "#1b1b1e",
-        content2: "#27272a",
-        content3: "#323236",
-        focus: "#006fee",
       },
     },
   },
