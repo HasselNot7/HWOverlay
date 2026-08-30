@@ -86,6 +86,9 @@ check("引用不存在的路径被拒", not saved and any("does_not_exist" in e 
 check("文件仍未改动", p.read_text(encoding="utf-8") == before)
 
 too_tall = json.loads(json.dumps(cfg))
+# 裁切判定只在流式下做纵向预算（自由画布没有堆叠高度），用户的实盘版式
+# 可能是 free，这里强制流式让断言盯校验器而不是用户选的模式
+too_tall["canvas"]["mode"] = "flow"
 too_tall["widgets"][0]["cols"] = 3     # 4 张卡塞 3 列 -> 换行 -> 底部被裁
 saved, rep = config.save(too_tall, path=p)
 check("会导致裁切的版式被拒", not saved and any("裁" in e for e in rep["errors"]), str(rep["errors"]))
