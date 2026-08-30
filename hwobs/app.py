@@ -30,7 +30,7 @@ def print_banner(port):
         print("  !! 共享内存快满了：AIDA64 会静默截断最后的条目，请去掉几个传感器")
     if s["missing"]:
         print(f"  缺少: {', '.join(s['missing'])}")
-        print("  请到 AIDA64 -> 首选项 -> 硬件监视工具 -> 外部程序 里勾选，或用管理页的向导一键写入")
+        print("  请自己在 AIDA64 里把传感器加进共享内存导出清单（管理页「开始使用」里有对照表和可复制的补全清单）")
     else:
         print("  所需传感器齐全")
 
