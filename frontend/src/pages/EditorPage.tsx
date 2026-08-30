@@ -1,6 +1,7 @@
 import { addToast, Button, Input } from "@heroui/react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { api, clone, outPaths } from "../api";
+import { clearDraft, loadDraft, saveDraft } from "../draftStore";
 import type { CardsWidget, ChipsWidget, OverlayConfig, TextWidget } from "../types";
 import type { Shared } from "../App";
 import { CARD_CLS, FieldLabel, Hint, Page, Section, SubTitle } from "../ui";
@@ -31,16 +32,28 @@ export default function EditorPage({ shared }: { shared: Shared }) {
 
   const loadConfig = useCallback(async () => {
     const c = await api.overlay();
-    const d = clone(c);
+    // 上次没保存的草稿还在（切过页面/刷新过浏览器）就接着用
+    const stored = loadDraft("flow");
+    let d = clone(c);
+    let restored = false;
+    if (stored) {
+      try {
+        const s = JSON.parse(stored) as OverlayConfig;
+        if (JSON.stringify(s) !== JSON.stringify(c)) { d = s; restored = true; }
+        else clearDraft("flow");
+      } catch { clearDraft("flow"); }
+    }
     const wasFree = d.canvas.mode === "free";
     delete d.canvas.mode;   // 流式页一律按流式预览/保存
     setCfg(c);
     setDraft(d);
     const isDirty = JSON.stringify(d) !== JSON.stringify(c);
     setDirty(isDirty);
-    setMsg(isDirty
-      ? { text: wasFree ? "已切回流式排版（还没保存）" : "有未保存的改动", kind: "warn" }
-      : { text: "", kind: "" });
+    setMsg(restored
+      ? { text: "已恢复上次没保存的排版（不要就点「放弃改动」）", kind: "warn" }
+      : isDirty
+        ? { text: wasFree ? "已切回流式排版（还没保存）" : "有未保存的改动", kind: "warn" }
+        : { text: "", kind: "" });
     try { setCheck(await api.layoutCheck()); } catch { /* 校验面板留空 */ }
   }, []);
 
@@ -53,6 +66,9 @@ export default function EditorPage({ shared }: { shared: Shared }) {
     if (!d || !c) return;
     setDraft({ ...d });
     const isDirty = JSON.stringify(d) !== JSON.stringify(c);
+    // 有改动就暂存：切页面、刷新浏览器都还在；回到和已保存一致就清掉
+    if (isDirty) saveDraft("flow", d);
+    else clearDraft("flow");
     setDirty(isDirty);
     setMsg(isDirty ? { text: "校验中…", kind: "" } : { text: "", kind: "" });
     if (debounceRef.current) clearTimeout(debounceRef.current);
@@ -104,6 +120,7 @@ export default function EditorPage({ shared }: { shared: Shared }) {
     }
     setCfg(clone(draft));
     setDirty(false);
+    clearDraft("flow");
     setPvKey(k => k + 1);
     setMsg({ text: "✓ 已保存", kind: "ok" });
     addToast({ title: "已保存", description: "OBS 里没变化就点「刷新缓存」", color: "success" });
@@ -120,11 +137,19 @@ export default function EditorPage({ shared }: { shared: Shared }) {
       setMsg({ text: `✗ ${(rep.errors || []).join("；")}`, kind: "bad" });
       return;
     }
+    clearDraft("flow");
     await loadConfig();
     setPvKey(k => k + 1);
     setMsg({ text: "✓ 已还原到上一版", kind: "ok" });
-    addToast({ title: "已还原到上一版", color: "success" });
   };
+
+  /** 丢掉没保存的草稿，回到已保存的版式 */
+  const discardDraft = useCallback(async () => {
+    clearDraft("flow");
+    await loadConfig();
+    addToast({ title: "已放弃未保存的改动", color: "default" });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [loadConfig]);
 
   // 预览缩放：盯容器本身，窗口变化/面板展开都重算
   useEffect(() => {
@@ -289,6 +314,8 @@ export default function EditorPage({ shared }: { shared: Shared }) {
         <SubTitle>流式版式</SubTitle>
         <Button color="primary" size="lg" className="px-7" isDisabled={!dirty} onPress={save}>保存</Button>
         <Button size="lg" variant="flat" className="bg-[#27272a]" onPress={undo}>还原上一版</Button>
+        <Button size="lg" variant="flat" className="bg-[#27272a]" isDisabled={!dirty} onPress={discardDraft}
+          title="丢掉没保存的改动，回到已保存的版式">放弃改动</Button>
         {dirty && <span className="text-sm text-warning">● 有未保存的改动</span>}
         <span className="flex-1" />
         <span className={`text-sm ${msgColor}`}>{msg.text}</span>

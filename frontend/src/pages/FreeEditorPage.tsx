@@ -8,6 +8,7 @@ import type {
 } from "../types";
 import type { Shared } from "../App";
 import { CARD_CLS, FieldLabel, Hint, SubTitle } from "../ui";
+import { clearDraft, loadDraft, saveDraft } from "../draftStore";
 import {
   CanvasFields, CardsEditor, ChipsEditor, HtmlEditor, PromptBar,
   ProgressEditor, StatEditor, TextEditor,
@@ -126,7 +127,17 @@ export default function FreeEditorPage({ shared }: { shared: Shared }) {
 
   const loadConfig = useCallback(async () => {
     const c = await api.overlay();
-    const d = clone(c);
+    // 上次没保存的草稿还在（切过页面/刷新过浏览器）就接着用
+    const stored = loadDraft("free");
+    let d = clone(c);
+    let restored = false;
+    if (stored) {
+      try {
+        const s = JSON.parse(stored) as OverlayConfig;
+        if (JSON.stringify(s) !== JSON.stringify(c)) { d = s; restored = true; }
+        else clearDraft("free");
+      } catch { clearDraft("free"); }
+    }
     const wasFlow = d.canvas.mode !== "free";
     toFree(d);
     setCfg(c);
@@ -137,9 +148,11 @@ export default function FreeEditorPage({ shared }: { shared: Shared }) {
     histRef.current = [];
     const isDirty = JSON.stringify(d) !== JSON.stringify(c);
     setDirty(isDirty);
-    setMsg(isDirty
-      ? { text: wasFlow ? "已把版式切到自由画布（还没保存）" : "有未保存的改动", kind: "warn" }
-      : { text: "", kind: "" });
+    setMsg(restored
+      ? { text: "已恢复上次没保存的排版（不要就点「放弃改动」）", kind: "warn" }
+      : isDirty
+        ? { text: wasFlow ? "已把版式切到自由画布（还没保存）" : "有未保存的改动", kind: "warn" }
+        : { text: "", kind: "" });
     try { setCheck(await api.layoutCheck()); } catch { /* 校验面板留空 */ }
   }, []);
 
@@ -165,6 +178,9 @@ export default function FreeEditorPage({ shared }: { shared: Shared }) {
     if (!d || !c) return;
     setDraft({ ...d });
     const isDirty = JSON.stringify(d) !== JSON.stringify(c);
+    // 有改动就暂存：切页面、刷新浏览器都还在；回到和已保存一致就清掉
+    if (isDirty) saveDraft("free", d);
+    else clearDraft("free");
     setDirty(isDirty);
     setMsg(isDirty ? { text: "校验中…", kind: "" } : { text: "", kind: "" });
     if (debounceRef.current) clearTimeout(debounceRef.current);
@@ -259,6 +275,7 @@ export default function FreeEditorPage({ shared }: { shared: Shared }) {
     }
     setCfg(clone(d));
     setDirty(false);
+    clearDraft("free");
     setPvKey(k => k + 1);
     setMsg({ text: "✓ 已保存", kind: "ok" });
     addToast({ title: "已保存", description: "OBS 里没变化就点「刷新缓存」", color: "success" });
@@ -275,11 +292,20 @@ export default function FreeEditorPage({ shared }: { shared: Shared }) {
       setMsg({ text: `✗ ${(rep.errors || []).join("；")}`, kind: "bad" });
       return;
     }
+    clearDraft("free");
     await loadConfig();
     setPvKey(k => k + 1);
     setMsg({ text: "✓ 已还原到上一版", kind: "ok" });
     addToast({ title: "已还原到上一版", color: "success" });
   };
+
+  /** 丢掉没保存的草稿，回到已保存的版式 */
+  const discardDraft = useCallback(async () => {
+    clearDraft("free");
+    await loadConfig();
+    addToast({ title: "已放弃未保存的改动", color: "default" });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [loadConfig]);
 
   /** 在空位落一个新部件并选中它 */
   const addFree = (type: string) => {
@@ -410,10 +436,12 @@ export default function FreeEditorPage({ shared }: { shared: Shared }) {
       const dy = Math.round((e.clientY - d.sy) / scale);
       const W = cur.canvas.w, H = cur.canvas.h;
       const t = cur.widgets[d.i]?.type;
-      let nx = Math.max(0, Math.min(d.ox + dx, W - 24));
-      let ny = Math.max(0, Math.min(d.oy + dy, H - 8));
-      const nw = Math.max(40, Math.min(d.ow + dx, W - nx));
-      const nh = Math.max(12, Math.min(d.oh + dy, H - ny));
+      // 左上角：只有拖动才动；改大小把它钉死，不然组件会跟着手一起跑
+      const fx = d.mode === "move" ? Math.max(0, Math.min(d.ox + dx, W - 24)) : d.ox;
+      const fy = d.mode === "move" ? Math.max(0, Math.min(d.oy + dy, H - 8)) : d.oy;
+      let nx = fx, ny = fy;
+      let nw = Math.max(40, Math.min(d.ow + dx, W - fx));
+      let nh = Math.max(12, Math.min(d.oh + dy, H - fy));
       let snX: number | null = null;
       let snY: number | null = null;
       if (snapRef.current) {
@@ -434,17 +462,27 @@ export default function FreeEditorPage({ shared }: { shared: Shared }) {
         }
         const bw = d.mode === "move" ? (d.stretch ? W - nx : d.ow) : nw;
         const bh = d.mode === "move" ? d.oh : (t && heightEditable(t) ? nh : d.oh);
-        // 通栏部件右边缘恒等于画布右缘，当吸附候选会永远零差值匹配（参考线常驻噪音）
-        const xCands = d.mode === "move" && d.stretch
-          ? [nx, Math.round(nx + bw / 2)]
-          : [nx, nx + bw, Math.round(nx + bw / 2)];
-        const bx = snapAxis(xCands, xs);
-        if (bx) { nx = Math.max(0, Math.min(nx + bx.adj, W - 24)); snX = bx.t; }
-        const by = snapAxis([ny, ny + bh, Math.round(ny + bh / 2)], ys);
-        if (by) { ny = Math.max(0, Math.min(ny + by.adj, H - 8)); snY = by.t; }
+        if (d.mode === "move") {
+          // 通栏部件右边缘恒等于画布右缘，当吸附候选会永远零差值匹配（参考线常驻噪音）
+          const xCands = d.stretch
+            ? [nx, Math.round(nx + bw / 2)]
+            : [nx, nx + bw, Math.round(nx + bw / 2)];
+          const bx = snapAxis(xCands, xs);
+          if (bx) { nx = Math.max(0, Math.min(nx + bx.adj, W - 24)); snX = bx.t; }
+          const by = snapAxis([ny, ny + bh, Math.round(ny + bh / 2)], ys);
+          if (by) { ny = Math.max(0, Math.min(ny + by.adj, H - 8)); snY = by.t; }
+        } else {
+          // 改大小：左上角不动，只让右缘/下缘去贴目标
+          const bx = snapAxis([nx + bw], xs);
+          if (bx) { nw = Math.max(40, Math.min(nw + bx.adj, W - fx)); snX = bx.t; }
+          if (t && heightEditable(t)) {
+            const by = snapAxis([ny + bh], ys);
+            if (by) { nh = Math.max(12, Math.min(nh + by.adj, H - fy)); snY = by.t; }
+          }
+        }
       }
       // 网格兜底：部件对齐没命中时，位置就近吸附到网格线（网格开且吸附开才生效）
-      if (gridRef.current && snapRef.current) {
+      if (gridRef.current && snapRef.current && d.mode === "move") {
         const gx = Math.round(nx / GRID_PX) * GRID_PX;
         const gy = Math.round(ny / GRID_PX) * GRID_PX;
         if (snX == null && gx !== nx) { nx = Math.max(0, Math.min(gx, W - 24)); }
@@ -453,8 +491,8 @@ export default function FreeEditorPage({ shared }: { shared: Shared }) {
       d.nx = nx; d.ny = ny; d.nw = nw; d.nh = nh;
       const host = frameRef.current?.contentDocument?.querySelector(`[data-wi="${d.i}"]`) as HTMLElement | null;
       if (host) {
-        host.style.left = nx + "px";
-        host.style.top = ny + "px";
+        host.style.left = fx + "px";
+        host.style.top = fy + "px";
         if (d.mode === "resize") {
           host.style.right = "";
           host.style.width = nw + "px";
@@ -463,8 +501,8 @@ export default function FreeEditorPage({ shared }: { shared: Shared }) {
       }
       const node = boxRefs.current.get(d.i);
       if (node) {
-        node.style.left = nx * scale + "px";
-        node.style.top = ny * scale + "px";
+        node.style.left = fx * scale + "px";
+        node.style.top = fy * scale + "px";
         node.style.width = (d.mode === "resize" || d.stretch ? (d.mode === "resize" ? nw : W - nx) : d.ow) * scale + "px";
         if (d.mode === "resize" && t && heightEditable(t)) node.style.height = nh * scale + "px";
       }
@@ -764,6 +802,8 @@ export default function FreeEditorPage({ shared }: { shared: Shared }) {
         <Button size="lg" variant="flat" className="bg-[#27272a]" onPress={undoEdit}
           title="Ctrl+Z：回退上一步拖动/增删">撤销</Button>
         <Button size="lg" variant="flat" className="bg-[#27272a]" onPress={undoSaved}>还原上一版</Button>
+        <Button size="lg" variant="flat" className="bg-[#27272a]" isDisabled={!dirty} onPress={discardDraft}
+          title="丢掉没保存的改动，回到已保存的版式">放弃改动</Button>
         {dirty && <span className="text-sm text-warning">● 有未保存的改动</span>}
         <span className="flex-1" />
         <span className={`text-sm ${msgColor}`}>{msg.text}</span>

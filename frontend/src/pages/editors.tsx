@@ -7,7 +7,7 @@ import {
 
 import { useState } from "react";
 import type {
-  CardItem, CardsWidget, ChipsWidget, GroupDef, HtmlWidget, Metric,
+  CardItem, CardsWidget, ChipsWidget, GroupDef, HtmlWidget, Metric, MetricRef,
   OverlayConfig, ProgressWidget, StatWidget, TextWidget,
 } from "../types";
 import { CARD_CLS, FieldLabel, Hint } from "../ui";
@@ -166,12 +166,61 @@ function SlotRow({ arr, i, total, unitAll, allowLabel, metrics, onChange, rebuil
       </div>
     );
   }
-  if (item && ("pair" in item || "diff" in item)) {
-    const pair = (item.pair || item.diff)!;
+  if (item && "pair" in item) {
+    const vals = item.pair!;
+    const numField = (text: string, key: "divide" | "digits" | "digits2", val?: number) => (
+      <label className="flex items-center gap-1.5 text-xs text-default-500">
+        {text}
+        <Input type="number" size="sm" variant="flat" aria-label={`${text}`}
+          className="w-16 font-poppins" value={String(val ?? "")}
+          onValueChange={v => {
+            (item as unknown as Record<string, number | undefined>)[key] = v === "" ? undefined : +v;
+            onChange();
+          }} />
+      </label>
+    );
+    const sel = (which: 0 | 1) => (
+      <MetricSelect metrics={metrics} value={vals[which]} allowEmpty={false} compact={compact}
+        onChange={v => { if (!v) return; vals[which] = v; onChange(); }} />
+    );
+    return (
+      <div className={`my-1 flex gap-2 rounded-lg border border-white/[0.06] p-2 ${compact ? "flex-col" : "flex-wrap items-center"}`}>
+        <div className="flex min-w-0 flex-1 items-center gap-1.5">
+          <span className="flex-none font-poppins text-xs text-default-500" title="两个指标相除">比值</span>
+          <div className="min-w-0 flex-1">{sel(0)}</div>
+          <span className="flex-none text-default-500">/</span>
+          <div className="min-w-0 flex-1">{sel(1)}</div>
+          {del}
+        </div>
+        <div className={`flex flex-wrap items-center gap-3 ${compact ? "" : "ml-auto"}`}>
+          {numField("除以", "divide", item.divide)}
+          <label className="flex items-center gap-1.5 text-xs text-default-500">
+            单位
+            <Input size="sm" variant="flat" aria-label="单位" className="w-16 font-poppins"
+              value={item.unit ?? ""}
+              onValueChange={v => { item.unit = v || undefined; onChange(); }} />
+          </label>
+          {numField("小数", "digits", item.digits)}
+          {numField("分母小数", "digits2", item.digits2)}
+          {allowLabel && (
+            <label className="flex items-center gap-1.5 text-xs text-default-500">
+              前缀
+              <Input size="sm" variant="flat" aria-label="前缀" className="w-20 font-poppins"
+                defaultValue={item.label ?? ""}
+                onBlur={e => { item.label = e.target.value || undefined; onChange(); }} />
+            </label>
+          )}
+          {!allowLabel && <Switch size="sm" aria-label="这个值带单位" title="显示单位"
+            isSelected={unitOn} onValueChange={setUnit} />}
+        </div>
+      </div>
+    );
+  }
+  if (item && ("diff" in item)) {
     return (
       <div className="my-1 flex items-center gap-1.5">
         <span className="text-xs font-poppins text-default-500">
-          {item.pair ? "pair" : "diff"}: {pair.join(" / ")}
+          diff: {(item.diff || []).join(" − ")}
         </span>
         {del}
       </div>
@@ -212,13 +261,23 @@ export function SlotEditor({ card, defKey, title, allowLabel, metrics, onChange,
     onChange();
   };
 
+  /** 比值（a/b）：比如 显存 已用 ÷1024 / 总量 ÷1024 → 3.2/10GB */
+  const addPair = () => {
+    const ps = outPaths(metrics);
+    const item = { pair: [ps[0], ps[1] ?? ps[0]], digits: 1, digits2: 0 } as MetricRef;
+    if (def) def.metrics.push(item);
+    else (card[defKey] as GroupDef) = { metrics: [item] };
+    onChange();
+  };
+
   return (
     <div className={compact ? "my-2 flex flex-col gap-1.5" : "my-2.5 flex items-start gap-3"}>
       <span className={compact ? "" : "w-[110px] flex-none pt-2"}><FieldLabel>{title}</FieldLabel></span>
       <div className="min-w-0 flex-1">
         {rows}
-        <div className="mt-1">
+        <div className="mt-1 flex gap-2">
           <MiniBtn title={allowLabel ? "这一行再加一个值" : "这一格再加一个值"} onClick={addItem}>+ 加指标</MiniBtn>
+          <MiniBtn title="两个指标相除，比如 显存 已用/总量" onClick={addPair}>+ 加比值</MiniBtn>
         </div>
         {!allowLabel && <div className="mt-1 text-xs text-color-desc">只显示数值；要加前缀字，放小字行</div>}
       </div>
