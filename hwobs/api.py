@@ -159,6 +159,18 @@ def create_app() -> FastAPI:
             return JSONResponse({"removed": False, "error": "没有这个自定义指标"}, status_code=404)
         return {"removed": True, "id": id}
 
+    # ---------- 退出程序：windowed 打包没有控制台，停服务得有个正经入口 ----------
+
+    @app.post("/api/app/shutdown")
+    def app_shutdown(request: Request, body: dict = Body(default={})):
+        if not (isinstance(body, dict) and body.get("confirm") is True):
+            return {"quitting": False, "reason": "需要 confirm=true：这会停掉本机服务，OBS 叠加层会变空白"}
+        server = getattr(request.app.state, "uvicorn_server", None)
+        if server is None:
+            return {"quitting": False, "reason": "当前环境没有可退出的服务实例（开发/测试）"}
+        server.should_exit = True          # uvicorn 优雅退出：发完响应、收完连接再停
+        return {"quitting": True}
+
     # ---------- 管理页：React 构建产物；没构建过就提示构建命令 ----------
 
     if (FRONTEND_DIST / "index.html").is_file():

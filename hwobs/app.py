@@ -79,7 +79,10 @@ def main():
         print(f"  !! 注意：默认端口 {PORT} 被占用，本次实际用 {port}，OBS 里的 URL 要跟着改")
     if paths.FROZEN or "--open" in sys.argv:
         webbrowser.open(f"http://127.0.0.1:{port}/admin")
-    uvicorn.run(create_app(), host="127.0.0.1", port=port, log_level="warning")
+    app = create_app()
+    server = uvicorn.Server(uvicorn.Config(app, host="127.0.0.1", port=port, log_level="warning"))
+    app.state.uvicorn_server = server    # 管理页的"退出程序"按钮优雅停服用
+    server.run()
 
 
 if __name__ == "__main__":

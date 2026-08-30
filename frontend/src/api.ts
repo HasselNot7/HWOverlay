@@ -49,6 +49,8 @@ export const api = {
     const r = await fetch(`/api/metrics/custom?id=${encodeURIComponent(id)}`, { method: "DELETE" });
     return r.json() as Promise<{ removed: boolean; error?: string }>;
   },
+  shutdownApp: () =>
+    sendJSON<{ quitting: boolean; reason?: string }>("/api/app/shutdown", "POST", { confirm: true }),
 };
 
 export const outPaths = (metrics: Metric[]): string[] =>

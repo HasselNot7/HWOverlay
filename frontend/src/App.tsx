@@ -1,8 +1,8 @@
-import { Button, Switch } from "@heroui/react";
+import { addToast, Button, Modal, ModalBody, ModalContent, ModalFooter, ModalHeader, Switch } from "@heroui/react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import {
   House, Activity, LayoutGrid, FlaskConical, Table2, RefreshCw,
-  ExternalLink, AudioLines,
+  ExternalLink, AudioLines, Power,
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import { api } from "./api";
@@ -31,11 +31,12 @@ export interface Shared {
 }
 
 /** 导航项：Now Playing 同款 —— min-h-12 圆角药丸，激活 bg-default-100，图标 24px。 */
-function NavBtn({ active, label, Icon, onClick }: {
+function NavBtn({ active, label, Icon, onClick, danger = false }: {
   active: boolean;
   label: string;
   Icon: LucideIcon;
   onClick: () => void;
+  danger?: boolean;
 }) {
   return (
     <button
@@ -43,7 +44,9 @@ function NavBtn({ active, label, Icon, onClick }: {
       className={`group flex w-full min-h-12 cursor-pointer items-center gap-[0.55rem] rounded-xl px-3 py-1.5 text-left text-base font-medium transition-all duration-150 ${
         active
           ? "bg-default-100 text-foreground"
-          : "text-default-500 hover:bg-default/40 hover:text-default-foreground"
+          : danger
+            ? "text-default-500 hover:bg-danger/15 hover:text-danger"
+            : "text-default-500 hover:bg-default/40 hover:text-default-foreground"
       }`}
     >
       <span className="shrink-0"><Icon size={24} strokeWidth={1.75} /></span>
@@ -60,6 +63,8 @@ export default function App() {
   const [check, setCheck] = useState<LayoutCheck | null>(null);
   const [status, setStatus] = useState<AidaStatus | null>(null);
   const [auto, setAuto] = useState(true);
+  const [confirmQuit, setConfirmQuit] = useState(false);
+  const [quitDone, setQuitDone] = useState(false);
   const autoRef = useRef(auto);
   autoRef.current = auto;
 
@@ -95,6 +100,33 @@ export default function App() {
     localStorage.setItem("hwoverlay.view", v);
   };
 
+  /** 退出：服务停掉后本页面还在浏览器里活着，切到告别页。请求失败多半是
+   * 服务正在关闭、连接先断了 —— 也按退出成功处理。 */
+  const doQuit = async () => {
+    try {
+      const rep = await api.shutdownApp();
+      if (!rep.quitting) {
+        addToast({ title: "没能退出", description: rep.reason, color: "danger" });
+        return;
+      }
+    } catch { /* 连接断了 = 正在关 */ }
+    setQuitDone(true);
+  };
+
+  if (quitDone) {
+    return (
+      <div className="flex h-screen items-center justify-center bg-background">
+        <div className="max-w-md px-6 text-center">
+          <Power size={40} strokeWidth={1.5} className="mx-auto mb-4 text-default-400" />
+          <h1 className="text-3xl font-bold leading-9 text-white">HWOverlay 已退出</h1>
+          <p className="mt-3 text-sm leading-7 text-color-desc">
+            服务已停止，OBS 里的叠加层会变空白。要再次启动，双击 HWOverlay.exe 即可；本页面现在可以关掉了。
+          </p>
+        </div>
+      </div>
+    );
+  }
+
   const shared: Shared = { metrics, hw, check, status, reloadMetrics, refreshAll };
 
   return (
@@ -124,9 +156,32 @@ export default function App() {
             <NavBtn label="刷新数据" Icon={RefreshCw} active={false} onClick={() => refreshAll()} />
             <NavBtn label="打开叠加层" Icon={ExternalLink} active={false}
               onClick={() => window.open("/", "_blank")} />
+            <NavBtn label="退出程序" Icon={Power} active={false} danger
+              onClick={() => setConfirmQuit(true)} />
           </nav>
         </div>
       </aside>
+
+      {/* 退出确认：停服务会连累 OBS 叠加层，让用户带着预期点下去 */}
+      <Modal isOpen={confirmQuit} onOpenChange={setConfirmQuit} size="sm">
+        <ModalContent>
+          {(onClose) => (
+            <>
+              <ModalHeader className="flex-col gap-1">退出 HWOverlay？</ModalHeader>
+              <ModalBody>
+                <p className="text-sm leading-6 text-color-desc">
+                  服务停止后，OBS 里的叠加层会变空白，管理页也读不到新数据。
+                  要再启动，双击 HWOverlay.exe 即可。
+                </p>
+              </ModalBody>
+              <ModalFooter>
+                <Button variant="flat" className="bg-[#27272a]" onPress={onClose}>取消</Button>
+                <Button color="danger" onPress={() => { onClose(); doQuit(); }}>退出</Button>
+              </ModalFooter>
+            </>
+          )}
+        </ModalContent>
+      </Modal>
 
       {/* 主体：居中列。表单类页保持 NP 的 800px；表格/编辑器这类数据密集页放宽到 1200px */}
       <main className="relative ml-72 min-h-screen">
