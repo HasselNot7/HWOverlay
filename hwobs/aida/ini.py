@@ -8,7 +8,6 @@ HWMonExtAppItems 列着它写进共享内存的传感器，OSD、看板等其他
 """
 
 import locale
-import subprocess
 from pathlib import Path
 
 ENCODING = "utf-16"

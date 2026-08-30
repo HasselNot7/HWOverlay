@@ -21,6 +21,9 @@ from ..sources import aida64
 from . import ini
 
 PS_TIMEOUT = 10.0
+# windowed 打包的 exe 起 powershell.exe 这类控制台子进程会闪出终端窗口
+# （Win11 上是 Windows Terminal），CREATE_NO_WINDOW 压掉
+_NO_WINDOW = getattr(subprocess, "CREATE_NO_WINDOW", 0)
 
 
 def _ps(command):
@@ -29,8 +32,8 @@ def _ps(command):
     （否则管理页永远停在"检测中"）。"""
     try:
         return subprocess.run(["powershell", "-NoProfile", "-Command", command],
-                              capture_output=True, text=True,
-                              timeout=PS_TIMEOUT).stdout.strip()
+                              capture_output=True, text=True, timeout=PS_TIMEOUT,
+                              creationflags=_NO_WINDOW).stdout.strip()
     except (OSError, subprocess.TimeoutExpired):
         return ""
 

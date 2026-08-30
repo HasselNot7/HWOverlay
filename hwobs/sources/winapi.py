@@ -15,6 +15,10 @@ import time
 
 _k32 = ctypes.windll.kernel32
 
+# windowed 打包的 exe 起 powershell.exe 会闪出终端窗口（Win11 上是
+# Windows Terminal），采样线程每 3 秒一次闪得尤其明显 —— CREATE_NO_WINDOW 压掉
+_NO_WINDOW = getattr(subprocess, "CREATE_NO_WINDOW", 0)
+
 NET_SAMPLE_INTERVAL = 3.0
 _POWERSHELL = (
     "(Get-NetAdapterStatistics|Measure-Object -Property SentBytes -Sum).Sum;"
@@ -51,7 +55,8 @@ def windows_ram():
 def net_bytes_total():
     """所有网卡累计 (发送字节, 接收字节)。取不到时抛 RuntimeError。"""
     out = subprocess.run(["powershell", "-NoProfile", "-Command", _POWERSHELL],
-                         capture_output=True, text=True).stdout.split()
+                         capture_output=True, text=True,
+                         creationflags=_NO_WINDOW).stdout.split()
     if len(out) < 2:
         raise RuntimeError(f"取不到网卡计数：{out!r}")
     return int(float(out[0])), int(float(out[1]))
