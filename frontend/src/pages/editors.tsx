@@ -383,7 +383,6 @@ export function ChipsEditor({ w, metrics, onChange }: { w: ChipsWidget; metrics:
   }
   return (
     <div>
-      <Hint className="mb-2">勾谁谁出现，放不下自动缩小一号。</Hint>
       <div className="flex items-center gap-2.5">
         <span className="text-xs text-color-desc">字号</span>
         <Input

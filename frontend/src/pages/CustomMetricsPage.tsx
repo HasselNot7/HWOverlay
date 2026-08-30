@@ -63,11 +63,6 @@ export default function CustomMetricsPage({ shared }: { shared: Shared }) {
             一键注册默认指标集
           </Button>
         }>
-        <Hint>
-          AIDA64 导出了但还没注册的传感器。挑着注册，或一键加载默认指标集；
-          注册后编辑器和总表立即可见。
-        </Hint>
-
         {customs.length > 0 && (
           <div className="mt-3 flex flex-wrap items-center gap-2">
             <span className="text-xs text-color-desc">已注册的自定义指标：</span>

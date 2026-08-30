@@ -802,7 +802,6 @@ export default function FreeEditorPage({ shared }: { shared: Shared }) {
           })() : (
             <div className="flex flex-col gap-3">
               <SubTitle>画布设置</SubTitle>
-              <Hint className="text-xs">没选中部件时这里是画布设置；点画布上的部件改它的参数。</Hint>
               <CanvasFields draft={draft} onChange={onChange} />
               <div className="border-t border-white/[0.06] pt-3">
                 <PromptBar draft={draft} onChange={onChange} compact />

@@ -116,9 +116,6 @@ export default function StatusPage({ shared }: { shared: Shared }) {
         <Row k="URL" v={<code className="rounded-md bg-default-100 px-2 py-1 font-poppins">{location.origin}/</code>} />
         <Row k="宽 × 高" v={`${check?.canvas_w ?? "—"} × ${check?.canvas_h ?? "—"}`} />
         <Row k="内容预估高" v={`${check?.est_height ?? "—"} px`} />
-        <Hint className="mt-2">
-          OBS中填入上面的 URL 和尺寸。
-        </Hint>
       </DetailCard>
     </Page>
   );
