@@ -128,10 +128,13 @@ export default function App() {
         </div>
       </aside>
 
-      {/* 主体：居中 800px 列，py-6 px-10 gap-6，Now Playing 设置页的原版容器 */}
+      {/* 主体：居中列。表单类页保持 NP 的 800px；表格/编辑器这类数据密集页放宽到 1100px */}
       <main className="relative ml-72 min-h-screen">
         <div className="flex justify-center">
-          <div className="flex w-full max-w-[800px] flex-col gap-6 px-10 py-6">
+          <div className={`flex w-full flex-col gap-6 px-10 py-6 ${
+            view === "editor" || view === "metrics" || view === "custom"
+              ? "max-w-[1100px]" : "max-w-[800px]"
+          }`}>
             {view === "start" && <WizardPage shared={shared} />}
             {view === "status" && <StatusPage shared={shared} />}
             {view === "editor" && <EditorPage shared={shared} />}
