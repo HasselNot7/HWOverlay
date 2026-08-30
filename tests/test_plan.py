@@ -83,8 +83,11 @@ check("按此计划删完后，版式引用的指标没有一个变成空值",
 print("\n[两条曾经漏收的路径]")
 check("sum_of 依赖被保留（显存总量要的是 SFREEVMEM）",
       "SFREEVMEM" in needed, "被漏收就会被删")
-check("agg 正则匹配的 ID 被保留（WiFi 信号要的是 SNIC5WLANRSSI）",
-      "SNIC5WLANRSSI" in needed, "agg 指标没有 sources.aida64，只能靠正则")
+# 网卡编号因机器/重连而异（SNIC4/5/6 都见过），按实采的 WLANRSSI 判定
+wlan = [s for s in sensors if s.endswith("WLANRSSI")]
+check("agg 正则匹配的 ID 被保留（WiFi 信号要的是当前网卡的 WLANRSSI）",
+      not wlan or all(s in needed for s in wlan),
+      f"实采 {wlan or '无'}，needed 缺 {[s for s in wlan if s not in needed]}")
 
 print("\n[计划不是'什么都别删']")
 p = controller.plan_export(cfg, sensors=sensors)
