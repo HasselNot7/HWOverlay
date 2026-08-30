@@ -1,5 +1,5 @@
 import {
-  Accordion, AccordionItem, Button, Checkbox, Input, Select, SelectItem, Tab, Tabs,
+  Accordion, AccordionItem, Button, Checkbox, Input, Select, SelectItem, Switch,
 } from "@heroui/react";
 /** 版式编辑器的子组件：指标选择器、槽位编辑、卡片/chips/text 部件编辑器。
  * 控件一律用 HeroUI，样式学 Now Playing（淡蓝字段标签、flat 控件、卡片底）。
@@ -63,10 +63,13 @@ const MiniBtn = ({ onClick, title, children }: {
   </Button>
 );
 
-/** 槽位（value/sub）的条目行：字符串引用就地改；复合对象只读 + 可删。 */
-function SlotRow({ arr, i, allowLabel, metrics, onChange, rebuild }: {
+/** 槽位（value/sub）的条目行：字符串引用就地改；复合对象只读 + 可删。
+ * value 槽位每行带"带单位"开关：写进条目的 unit_on，没动过的行沿用组级策略。 */
+function SlotRow({ arr, i, total, unitAll, allowLabel, metrics, onChange, rebuild }: {
   arr: (string | GroupDef["metrics"][number])[];
   i: number;
+  total: number;
+  unitAll: boolean;
   allowLabel: boolean;
   metrics: Metric[];
   onChange: () => void;
@@ -80,11 +83,38 @@ function SlotRow({ arr, i, allowLabel, metrics, onChange, rebuild }: {
     </Button>
   );
 
+  // 带单位与否：条目写了 unit_on 听条目的，没写按组级策略推（last 策略只给最后一行）
+  const unitOn = typeof item === "object" && item !== null && "unit_on" in item
+    ? !!(item as { unit_on?: boolean }).unit_on
+    : unitAll || i === total - 1;
+  const setUnit = (next: boolean) => {
+    if (typeof item === "object" && item !== null) {
+      (item as { unit_on?: boolean }).unit_on = next;
+    } else {
+      arr[i] = { metric: arr[i] as string, unit_on: next };
+    }
+    rebuild();
+    onChange();
+  };
+
+  const metricSel = (
+    <MetricSelect metrics={metrics}
+      value={typeof item === "string" ? item : (item && "metric" in item ? item.metric : undefined)}
+      allowEmpty={false}
+      onChange={v => {
+        if (!v) return;
+        if (typeof item === "object" && item !== null) item.metric = v;
+        else arr[i] = v;
+        onChange();
+      }} />
+  );
+
   if (typeof item === "string") {
     return (
       <div className="my-1 flex items-center gap-1.5">
-        <MetricSelect metrics={metrics} value={item} allowEmpty={false}
-          onChange={v => { if (v) { arr[i] = v; onChange(); } }} />
+        {metricSel}
+        {!allowLabel && <Switch size="sm" aria-label="这个值带单位" title="显示单位"
+          isSelected={unitOn} onValueChange={setUnit} />}
         {allowLabel && (
           <Input
             aria-label="前缀文字" size="sm" variant="flat" placeholder="前缀"
@@ -101,8 +131,9 @@ function SlotRow({ arr, i, allowLabel, metrics, onChange, rebuild }: {
   if (item && "metric" in item && item.metric) {
     return (
       <div className="my-1 flex items-center gap-1.5">
-        <MetricSelect metrics={metrics} value={item.metric} allowEmpty={false}
-          onChange={v => { if (v) { item.metric = v; onChange(); } }} />
+        {metricSel}
+        {!allowLabel && <Switch size="sm" aria-label="这个值带单位" title="显示单位"
+          isSelected={unitOn} onValueChange={setUnit} />}
         {allowLabel && (
           <Input
             aria-label="前缀文字" size="sm" variant="flat" placeholder="前缀"
@@ -145,8 +176,9 @@ export function SlotEditor({ card, defKey, title, allowLabel, metrics, onChange 
 }) {
   const def: GroupDef | undefined = card[defKey];
   const list = (def?.metrics ?? []) as (string | GroupDef["metrics"][number])[];
+  const unitAll = def?.unit_policy === "all";
   const rows = list.map((_, i) => (
-    <SlotRow key={i} arr={list} i={i}
+    <SlotRow key={i} arr={list} i={i} total={list.length} unitAll={unitAll}
       allowLabel={allowLabel} metrics={metrics} onChange={onChange}
       rebuild={() => onChange()} />
   ));
@@ -173,6 +205,7 @@ export function SlotEditor({ card, defKey, title, allowLabel, metrics, onChange 
 }
 
 /** 大数字格的组级设置：分隔符 + 单位显示策略（分段选择器学它的 Tabs 药丸样式）。 */
+/** 大数字格的组级设置：只剩分隔符 —— 单位改成每行自己的开关了。 */
 export function ValueGroupEditor({ card, onChange }: { card: CardItem; onChange: () => void }) {
   const ensure = (): GroupDef => {
     if (!card.value) card.value = { metrics: [] };
@@ -180,31 +213,14 @@ export function ValueGroupEditor({ card, onChange }: { card: CardItem; onChange:
   };
   return (
     <div className="my-2.5 flex items-start gap-3">
-      <span className="w-[110px] flex-none pt-2"><FieldLabel>分隔符 / 单位</FieldLabel></span>
-      <div className="flex flex-wrap items-center gap-5">
-        <div className="flex items-center gap-2.5">
-          <span className="text-xs text-color-desc">分隔符</span>
-          <Input
-            aria-label="分隔符" size="sm" variant="flat"
-            defaultValue={card.value?.sep ?? " · "} className="w-32 font-poppins"
-            onValueChange={v => { ensure().sep = v; onChange(); }}
-          />
-        </div>
-        <div className="flex items-center gap-2.5">
-          <span className="text-xs text-color-desc">单位</span>
-          <Tabs
-            size="sm" radius="lg"
-            classNames={{ tabList: "p-1", tab: "h-8", tabContent: "text-xs text-default-600" }}
-            selectedKey={card.value?.unit_policy ?? "last"}
-            onSelectionChange={k => {
-              ensure().unit_policy = (k === "all" ? "all" : "last");
-              onChange();
-            }}
-          >
-            <Tab key="last" title="只最后一个值带单位" />
-            <Tab key="all" title="每个值都带单位" />
-          </Tabs>
-        </div>
+      <span className="w-[110px] flex-none pt-2"><FieldLabel>分隔符</FieldLabel></span>
+      <div className="flex items-center gap-2.5">
+        <Input
+          aria-label="分隔符" size="sm" variant="flat"
+          defaultValue={card.value?.sep ?? " · "} className="w-32 font-poppins"
+          onValueChange={v => { ensure().sep = v; onChange(); }}
+        />
+        <span className="text-xs text-color-desc">每个值的单位在它自己的行上开关</span>
       </div>
     </div>
   );

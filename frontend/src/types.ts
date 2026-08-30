@@ -6,6 +6,8 @@ export interface MetricRef {
   metric: string;
   label?: string;
   unit?: string;
+  /** 大数字槽位专用：这个值带不带单位（不写则沿用组级 unit_policy） */
+  unit_on?: boolean;
   digits?: number;
   divide?: number;
   digits2?: number;

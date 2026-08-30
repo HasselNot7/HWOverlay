@@ -231,7 +231,10 @@
         const o = { ...base, ...asRef(raw) };
         if (o.pair) return pairText(o);
         if (o.diff) return diffText(o);
-        return one(o, def.unit_policy !== 'last' || i === last, showLabel);
+        // 条目自己的 unit_on 优先；没写再退回组级策略（last 只给最后一个带单位）
+        const withUnit = o.unit_on !== undefined ? !!o.unit_on
+          : (def.unit_policy !== 'last' || i === last);
+        return one(o, withUnit, showLabel);
       });
       const kept = parts.filter(s => s && s !== '--');
       return kept.length ? kept.join(def.sep || ' · ') : null;
