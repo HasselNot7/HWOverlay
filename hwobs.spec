@@ -17,18 +17,38 @@ sys.path.insert(0, SPECPATH)
 from hwobs import __version__          # noqa: E402
 
 ROOT = pathlib.Path(SPECPATH)
+FRONTEND_DIST = ROOT / "frontend" / "dist"
+
+datas = [
+    ('monitor.html', '.'),
+    ('overlays', 'overlays'),
+    ('hwobs/web', 'hwobs/web'),
+    ('hwobs/registry/metrics.json', 'hwobs/registry'),
+]
+if FRONTEND_DIST.is_dir():
+    datas.append(('frontend/dist', 'frontend/dist'))
+
+# uvicorn 的动态导入子模块 PyInstaller 检测不到，必须显式列
+hiddenimports = collect_submodules('hwobs') + [
+    'uvicorn.logging',
+    'uvicorn.loops',
+    'uvicorn.loops.auto',
+    'uvicorn.protocols',
+    'uvicorn.protocols.http',
+    'uvicorn.protocols.http.auto',
+    'uvicorn.protocols.http.h11_impl',
+    'uvicorn.protocols.websockets',
+    'uvicorn.protocols.websockets.auto',
+    'uvicorn.lifespan',
+    'uvicorn.lifespan.on',
+]
 
 a = Analysis(
     ['hw_server.py'],
     pathex=[str(ROOT)],
     binaries=[],
-    datas=[
-        ('monitor.html', '.'),
-        ('overlays', 'overlays'),
-        ('hwobs/web', 'hwobs/web'),
-        ('hwobs/registry/metrics.json', 'hwobs/registry'),
-    ],
-    hiddenimports=collect_submodules('hwobs'),
+    datas=datas,
+    hiddenimports=hiddenimports,
     hookspath=[],
     runtime_hooks=[],
     excludes=['tkinter', 'unittest', 'pydoc', 'pytest'],

@@ -1,9 +1,13 @@
 """命令行入口：`python -m hwobs.app` 或 hw_server.py 的 shim 调用。"""
 
+import socket
 import sys
 import webbrowser
 
-from . import overlay, paths, server
+import uvicorn
+
+from . import config, overlay, paths
+from .api import create_app
 from .sources import aida64
 
 PORT = 8765
@@ -12,7 +16,7 @@ PORT = 8765
 def print_banner(port):
     s = overlay.snapshot()
     print(f"AIDA64 共享内存 -> http://127.0.0.1:{port}/   管理页 /admin   调试 /sensors")
-    rep = server.layout_report()
+    rep = config.validate(config.read())
     for e in rep["errors"]:
         print(f"  !! 版式错误: {e}")
     for w in rep["warnings"]:
@@ -35,10 +39,12 @@ def bind_port(start=PORT, tries=6):
     """端口被占就往后退。OBS 里的 URL 取决于最终端口，所以调用方必须把它显示出来。"""
     for i in range(tries):
         port = start + i
-        try:
-            return server.create_server(port), port
-        except OSError:
-            continue
+        with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as probe:
+            try:
+                probe.bind(("127.0.0.1", port))
+            except OSError:
+                continue
+        return port
     raise SystemExit(f"端口 {start}-{start + tries - 1} 全被占用，服务没起来")
 
 
@@ -58,13 +64,13 @@ def main():
         print("已经有一个 HWOverlay 在跑了，直接打开管理页。")
         webbrowser.open(f"http://127.0.0.1:{PORT}/admin")
         return
-    srv, port = bind_port()
+    port = bind_port()
     print_banner(port)
     if port != PORT:
         print(f"  !! 注意：默认端口 {PORT} 被占用，本次实际用 {port}，OBS 里的 URL 要跟着改")
     if paths.FROZEN or "--open" in sys.argv:
         webbrowser.open(f"http://127.0.0.1:{port}/admin")
-    srv.serve_forever()
+    uvicorn.run(create_app(), host="127.0.0.1", port=port, log_level="warning")
 
 
 if __name__ == "__main__":
