@@ -1,6 +1,7 @@
 @import url("https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@400;500;700&display=swap");
 
 :root {
+  color-scheme: dark;   /* 原生控件（下拉框、滚动条）跟随暗色，选项弹层不再白底 */
   --bg: #171920;
   --panel: #1e212b;
   --panel-2: #232734;
@@ -146,13 +147,16 @@ h3 { font-size: 12px; color: var(--muted); font-weight: 400; margin: 14px 0 8px;
 .form label { display: flex; align-items: center; gap: 7px; color: var(--dim); font-size: 13px; }
 .form input[type=number] { width: 76px; }
 .form input[type=text] { width: 260px; }
-.form input, .slot-row select {
-  font: inherit; background: var(--sunken); color: var(--text);
-  border: 1px solid var(--line); border-radius: 5px; padding: 4px 8px;
+.form input, .form select, .slot-row select, .slot-row input {
+  font: inherit; font-size: 12.5px;
+  background: var(--sunken); color: var(--text);
+  border: 1px solid var(--line); border-radius: 5px; padding: 3px 8px;
 }
-.form input:focus, .slot-row select:focus, .slot-row input:focus {
+.form input:focus, .form select:focus,
+.slot-row select:focus, .slot-row input:focus {
   outline: none; border-color: var(--accent);
 }
+.form select, .slot-row select { cursor: pointer; }
 .form .field { display: flex; flex-direction: column; gap: 3px; }
 .form .field > .src { line-height: 1; }
 
@@ -170,13 +174,15 @@ h3 { font-size: 12px; color: var(--muted); font-weight: 400; margin: 14px 0 8px;
 
 .addbar { display: flex; gap: 10px; margin: 14px 0 56px; }
 
-.card-edit { border: 1px solid var(--line-soft); border-radius: 7px; margin: 10px 0; background: var(--panel); }
+.card-edit { border: 1px solid var(--line-soft); border-radius: 7px; margin: 10px 0; background: var(--panel); padding: 0 12px 10px; }
 .card-edit legend { font-size: 12px; color: var(--muted); padding: 0 8px; display: flex; gap: 8px; align-items: center; }
 .card-edit .slot { display: flex; align-items: flex-start; gap: 10px; margin: 8px 0; }
 .card-edit .slot > .src { flex: 0 0 110px; line-height: 28px; }
-.slot-row { display: flex; align-items: center; gap: 5px; margin: 3px 0; }
+.slot-row { display: flex; align-items: center; gap: 4px; margin: 3px 0; }
 .slot-row .path { color: var(--muted); font-size: 12px; }
-.slot-row input[type=text] { width: 92px; }
+.slot-row select { max-width: 225px; }
+.slot-row input[type=text] { width: 84px; }
+.slot-row button.mini { padding: 2px 7px; }
 
 /* chips 分组 */
 .chip-group { border: 1px solid var(--line-soft); border-radius: 7px; margin: 8px 0; background: var(--panel); }
