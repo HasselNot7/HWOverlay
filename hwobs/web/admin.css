@@ -1,3 +1,5 @@
+@import url("https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@400;500;700&display=swap");
+
 :root {
   --bg: #171920;
   --panel: #1e212b;
@@ -13,7 +15,12 @@
   --ok: #a3be8c;
   --warn: #ebcb8b;
   --bad: #d0777f;
-  --mono: "JetBrains Mono", "Cascadia Mono", Consolas, monospace;
+  /* 拉丁/数字走等宽（控制台风味），中文逐字回落到思源黑体：
+     本机装了 Source Han Sans 就用本机的，没装再下 Noto Sans SC webfont，
+     都没有最终落微软雅黑 —— 离线也不会变回宋体。 */
+  --mono: "JetBrains Mono", "Cascadia Mono", Consolas,
+          "Source Han Sans SC", "Source Han Sans CN", "思源黑体",
+          "Noto Sans SC", "Microsoft YaHei", monospace;
 }
 
 * { box-sizing: border-box; }
