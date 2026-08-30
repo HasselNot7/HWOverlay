@@ -153,10 +153,16 @@ h3 { font-size: 12px; color: var(--muted); font-weight: 400; margin: 14px 0 8px;
   border: 1px solid var(--line); border-radius: 5px; padding: 3px 8px;
 }
 .form input:focus, .form select:focus,
-.slot-row select:focus, .slot-row input:focus {
+.slot-row select:focus, .slot-row input:focus,
+.unknown-form input:focus {
   outline: none; border-color: var(--accent);
 }
 .form select, .slot-row select { cursor: pointer; }
+.unknown-form { display: inline-flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+.unknown-form input[type=text], .unknown-form input[type=number] {
+  font: inherit; font-size: 12.5px; background: var(--sunken); color: var(--text);
+  border: 1px solid var(--line); border-radius: 5px; padding: 3px 8px;
+}
 .form .field { display: flex; flex-direction: column; gap: 3px; }
 .form .field > .src { line-height: 1; }
 

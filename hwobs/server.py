@@ -6,11 +6,11 @@
 
 import json
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
-from urllib.parse import unquote
+from urllib.parse import parse_qs, unquote, urlparse
 
 from . import config, overlay, paths, registry
 from .aida import controller
-from .sources import winapi
+from .sources import aida64, winapi
 
 HTML_FILE = paths.resource("monitor.html")
 OVERLAY_FILE = config.OVERLAY_FILE
@@ -67,6 +67,15 @@ class Handler(BaseHTTPRequestHandler):
             self._json(st)
         elif route == "/api/aida/plan":
             self._json(controller.plan_export())
+        elif route == "/api/sensors/unknown":
+            sensors, _used = aida64.read_sensors()
+            if sensors is None:
+                self._json({"ok": False, "error": "AIDA64 未运行或共享内存读不到", "unknown": []})
+            else:
+                unknown = registry.unclaimed_ids(sensors)
+                self._json({"ok": True, "unknown": [
+                    {"id": sid, "label": sensors[sid][0], "value": sensors[sid][1]}
+                    for sid in unknown]})
         elif route == "/sensors":
             self._json(overlay.debug_dump())
         elif route in ("/", "/index.html", "/" + HTML_FILE.name):
@@ -123,6 +132,18 @@ class Handler(BaseHTTPRequestHandler):
             except Exception as e:      # noqa: BLE001
                 return self._json({"applied": False, "reason": f"执行失败：{e}"}, 500)
             return self._json({**res, "plan_after": controller.plan_export()})
+        if route == "/api/metrics/custom":
+            body, err = self._body_json()
+            if err:
+                return self._json({"saved": False, "error": err}, 400)
+            sensors, _used = aida64.read_sensors()
+            try:
+                entry, problem = registry.save_custom(body or {}, sensors=sensors)
+            except Exception as e:      # noqa: BLE001
+                return self._json({"saved": False, "error": f"服务端处理失败：{e}"}, 500)
+            if problem:
+                return self._json({"saved": False, "error": problem}, 400)
+            return self._json({"saved": True, "entry": entry})
         if route != "/api/config/rollback":
             return self._send(404, b"not found", "text/plain")
         try:
@@ -132,6 +153,19 @@ class Handler(BaseHTTPRequestHandler):
         if not ok:
             return self._json({"restored": False, "errors": ["没有 .bak 可回滚"]}, 409)
         self._json({"restored": True, **rep})
+
+    def do_DELETE(self):
+        route = unquote(urlparse(self.path).path)
+        if route != "/api/metrics/custom":
+            return self._send(404, b"not found", "text/plain")
+        mid = (parse_qs(urlparse(self.path).query).get("id") or [""])[0]
+        try:
+            removed = registry.remove_custom(mid)
+        except Exception as e:      # noqa: BLE001
+            return self._json({"removed": False, "error": f"服务端处理失败：{e}"}, 500)
+        if not removed:
+            return self._json({"removed": False, "error": "没有这个自定义指标"}, 404)
+        self._json({"removed": True, "id": mid})
 
     def _file(self, path, ctype):
         try:

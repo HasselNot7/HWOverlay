@@ -174,6 +174,110 @@ async function refreshAll() {
   renderBudget();
   renderObs();
   renderCheck();
+  await refreshUnknown();
+  renderUnknown();
+}
+
+/* ---------- 未知传感器：把 AIDA64 导出了但没注册的项做成指标 ---------- */
+
+let unknownFormFor = null;   // 当前展开"做成指标"表单的传感器 ID（同时只开一个）
+
+async function refreshUnknown() {
+  try { state.unknown = await getJSON('/api/sensors/unknown'); } catch (e) { state.unknown = null; }
+}
+
+function renderUnknown() {
+  const body = $('#unknown .body');
+  body.replaceChildren();
+  const u = state.unknown;
+  if (!u) return body.append(el('span', 'src', '载入中…'));
+  if (!u.ok) return body.append(el('span', 'bad', u.error || '读不到 AIDA64 共享内存'));
+
+  body.append(el('p', 'hint', 'AIDA64 在导出、但还没注册成指标的传感器。注册后编辑器的下拉和',
+    '勾选列表里就能选它，叠加层才能显示 —— 这一步不用改任何文件。'));
+
+  const customs = (METRICS?.metrics || []).filter(m => m.custom);
+  if (customs.length) {
+    const box = el('div', 'chips-edit');
+    for (const m of customs) {
+      const del = el('button', 'mini'); del.textContent = '删';
+      del.title = '删除这个自定义指标';
+      del.addEventListener('click', async () => {
+        await fetch('/api/metrics/custom?id=' + encodeURIComponent(m.id), { method: 'DELETE' });
+        METRICS = await getJSON('/metrics.json');
+        buildEditor();
+        await refreshUnknown();
+        renderUnknown();
+      });
+      box.append(el('label', null, [el('span', null, m.name), el('span', 'path', m.out), del]));
+    }
+    body.append(el('div', 'src', '已注册的自定义指标：'), box);
+  }
+
+  if (!u.unknown.length) {
+    return body.append(el('div', 'ok', '✓ 没有未知传感器 —— AIDA64 导出的都有归属。'));
+  }
+
+  const table = el('table');
+  const head = el('tr');
+  ['传感器', 'AIDA64 名称', '当前值', ''].forEach(h => head.append(el('th', null, h)));
+  table.append(head);
+  for (const s of u.unknown) {
+    const tr = el('tr');
+    tr.append(el('td', null, el('code', null, s.id)),
+              el('td', null, s.label),
+              el('td', 'num', s.value));
+    const td = el('td');
+    if (unknownFormFor === s.id) td.append(unknownForm(s));
+    else {
+      const btn = el('button', 'mini'); btn.textContent = '做成指标';
+      btn.title = '起个名字、填个单位，注册成可以在版式里用的指标';
+      btn.addEventListener('click', () => { unknownFormFor = s.id; renderUnknown(); });
+      td.append(btn);
+    }
+    tr.append(td);
+    table.append(tr);
+  }
+  body.append(table);
+}
+
+function unknownForm(s) {
+  const wrap = el('span', 'unknown-form');
+  const name = el('input'); name.type = 'text'; name.value = s.label; name.size = 14;
+  name.title = '显示在叠加层上的名字';
+  const unit = el('input'); unit.type = 'text'; unit.placeholder = '单位，如 °C'; unit.size = 7;
+  const digits = el('input'); digits.type = 'number'; digits.value = 0; digits.min = 0; digits.max = 2;
+  digits.title = '小数位数';
+  const nz = el('input'); nz.type = 'checkbox'; nz.id = 'nz-' + s.id;
+  const err = el('span', 'bad');
+
+  const add = el('button', 'mini'); add.textContent = '加入';
+  add.addEventListener('click', async () => {
+    add.disabled = true;
+    err.textContent = '';
+    let rep;
+    try {
+      const r = await fetch('/api/metrics/custom', { method: 'POST', cache: 'no-store',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ sensor_id: s.id, name: name.value, unit: unit.value,
+                               digits: +digits.value, na_zero: nz.checked }) });
+      rep = await r.json();
+    } catch (e) { rep = { saved: false, error: String(e) }; }
+    if (!rep.saved) { err.textContent = rep.error || '加入失败'; add.disabled = false; return; }
+    unknownFormFor = null;
+    METRICS = await getJSON('/metrics.json');
+    buildEditor();
+    await refreshUnknown();
+    renderUnknown();
+  });
+  const cancel = el('button', 'mini'); cancel.textContent = '取消';
+  cancel.addEventListener('click', () => { unknownFormFor = null; renderUnknown(); });
+
+  wrap.append(
+    name, unit, digits,
+    el('label', null, [nz, el('span', 'src', '0 当无数据')]),
+    add, cancel, err);
+  return wrap;
 }
 
 /* ---------- 首启向导 ---------- */
@@ -475,7 +579,7 @@ function buildChipsEditor(w, host) {
     if (!byPrefix.has(prefix)) byPrefix.set(prefix, []);
     byPrefix.get(prefix).push(p);
   }
-  const GROUP_TITLES = { cpu: "CPU", gpu: "显卡", ram: "内存", net: "网络", misc: "主板 / 其他" };
+  const GROUP_TITLES = { cpu: "CPU", gpu: "显卡", ram: "内存", net: "网络", misc: "主板 / 其他", custom: "自定义" };
 
   for (const [prefix, paths] of byPrefix) {
     const title = GROUP_TITLES[prefix] || prefix.toUpperCase();
