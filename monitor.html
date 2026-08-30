@@ -183,6 +183,12 @@
     const history = {};       // 指标路径 -> 采样数组（cards 的迷你曲线用）
     let instances = [];
 
+    // 预览模式（/?preview=1，只有管理页会用）：布局不从 overlay.json 读，
+    // 由父页面 postMessage 推送草稿，改一下推一次 —— OBS 里不带这个参数，不受影响。
+    const PREVIEW = new URLSearchParams(location.search).has('preview');
+    let pendingPreview = null;
+    let booted = false;
+
     const probe = document.createElement('span');
     probe.style.cssText =
       `position:absolute;left:-9999px;visibility:hidden;white-space:nowrap;font-size:${SUB_FONT_PX}px`;
@@ -315,7 +321,7 @@
         states[c.key] = { el: card, value, bar, subText, spark,
                           barMetric: c.bar, barFull: c.bar_full,
                           valueDef: c.value, subDef: c.sub, sparkMetric: c.spark };
-        if (c.spark) history[c.spark] = [];
+        if (c.spark && !history[c.spark]) history[c.spark] = [];
       }
       document.body.appendChild(grid);
 
@@ -552,6 +558,32 @@
       for (const inst of instances) inst.update();
     }
 
+    function clearDom() {
+      // body 里只有本 <script> 是静态的，其余都是 build 出来的节点
+      for (const n of Array.from(document.body.children)) {
+        if (n.tagName === 'SCRIPT') continue;
+        n.remove();
+      }
+      instances = [];
+    }
+
+    function acceptPreview(layout) {
+      pendingPreview = layout;
+      if (!booted) return;
+      clearDom();
+      build(layout);
+      render();
+    }
+
+    if (PREVIEW) {
+      // 同源校验：别处网页就算嵌了这个 iframe 也推不进布局
+      window.addEventListener('message', e => {
+        if (e.origin !== location.origin) return;
+        const d = e.data;
+        if (d && d.type === 'hwobs-preview' && d.layout) acceptPreview(d.layout);
+      });
+    }
+
     async function getJSON(url) {
       const r = await fetch(url, { cache: 'no-store' });
       if (!r.ok) throw new Error(url + ' -> ' + r.status);
@@ -564,11 +596,17 @@
     }
 
     async function boot() {
-      const [layout, metrics] = await Promise.all([getJSON('/overlay.json'), getJSON('/metrics.json')]);
+      const metrics = await getJSON('/metrics.json');
       for (const m of metrics.metrics) if (m.out) byOut.set(m.out, m);
-      build(layout);
+      if (PREVIEW) {
+        // 管理页可能在 metrics 加载完成前就推了第一版草稿，这里补建
+        if (pendingPreview) build(pendingPreview);
+      } else {
+        build(await getJSON('/overlay.json'));
+      }
       await tick();
       setInterval(tick, REFRESH_MS);
+      booted = true;
     }
 
     boot();

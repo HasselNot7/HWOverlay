@@ -25,6 +25,7 @@ export default function EditorPage({ shared }: { shared: Shared }) {
   const [pvScale, setPvScale] = useState(0.45);
   const [selected, setSelected] = useState<number | null>(null);
   const wrapRef = useRef<HTMLDivElement>(null);
+  const frameRef = useRef<HTMLIFrameElement>(null);
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const loadConfig = useCallback(async () => {
@@ -60,6 +61,14 @@ export default function EditorPage({ shared }: { shared: Shared }) {
     }, 350);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [draft, cfg]);
+
+  // 预览实时跟随草稿：iframe 里是 /?preview=1 的 monitor.html，
+  // 它不读 overlay.json，等这边 postMessage 推草稿，推一次重建一次。
+  const pushPreview = useCallback(() => {
+    frameRef.current?.contentWindow?.postMessage(
+      { type: "hwobs-preview", layout: draft }, "*");
+  }, [draft]);
+  useEffect(() => { pushPreview(); }, [pushPreview]);
 
   const save = async () => {
     if (!draft) return;
@@ -241,7 +250,7 @@ export default function EditorPage({ shared }: { shared: Shared }) {
           <Hint>
             {draft.canvas.mode === "free"
               ? "拖部件摆位置，右下角改大小；选中后在下方改参数。"
-              : "部件从上往下排；保存后在 OBS 浏览器源里点“刷新缓存”生效。"}
+              : "部件从上往下排；下方预览实时跟随，保存后在 OBS 里点“刷新缓存”生效。"}
           </Hint>
         </div>
 
@@ -440,8 +449,10 @@ export default function EditorPage({ shared }: { shared: Shared }) {
           style={{ height: Math.ceil((draft.canvas.h || 200) * pvScale) }}>
           <iframe
             key={pvKey}
+            ref={frameRef}
             title="叠加层预览" scrolling="no"
-            src={`/?t=${pvKey}`}
+            src={`/?preview=1&t=${pvKey}`}
+            onLoad={pushPreview}
             className="border-0"
             style={{
               width: draft.canvas.w, height: draft.canvas.h,
@@ -450,7 +461,7 @@ export default function EditorPage({ shared }: { shared: Shared }) {
           />
         </div>
         <Hint className="mt-2">
-          预览按 {scalePct}% 缩放，真实尺寸 {draft.canvas.w}×{draft.canvas.h}。
+          预览实时跟随草稿，按 {scalePct}% 缩放，真实尺寸 {draft.canvas.w}×{draft.canvas.h}。
         </Hint>
       </Section>
 
