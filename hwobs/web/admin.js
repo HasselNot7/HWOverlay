@@ -35,6 +35,8 @@ function bar(pct, cls) {
   return b;
 }
 
+const pill = (text, cls) => el('span', `pill ${cls || ''}`, text);
+
 function renderSources() {
   const { hw, status: st } = state;
   const body = $('#sources .body');
@@ -47,16 +49,17 @@ function renderSources() {
     dl.append(el('dd', cls, v));
   };
 
-  add('AIDA64', st.running ? '运行中' : '未运行', st.running ? 'ok' : 'bad');
-  add('安装目录', st.install || '未找到', st.install ? null : 'bad');
-  add('ini', st.ini || '未找到', st.ini ? null : 'bad');
+  add('AIDA64', st.running ? pill('运行中', 'ok') : pill('未运行', 'bad'));
+  add('安装目录', st.install || pill('未找到', 'bad'));
+  add('ini', st.ini || pill('未找到', 'bad'));
   add('已导出传感器', `${st.exported_ids?.length ?? 0} 个`);
-  add('共享内存占用', `${st.shm_bytes} / ${st.shm_limit} 字节 = ${st.shm_pct}%`,
+  add('共享内存', `${st.shm_bytes} / ${st.shm_limit} 字节 = ${st.shm_pct}% `,
       st.shm_pct > 90 ? 'bad' : st.shm_pct > 75 ? 'warn' : 'ok');
   add('安全预算', `${st.usable_bytes} 字节（留 15% 余量）`);
   const s = st.windows_net_sampler || {};
-  add('Windows 网卡采样', s.sampling ? `运行中，上行 ${s.up_mbps ?? '—'} Mbps` : '未启动（AIDA64 在位时不需要）',
-      s.sampling ? 'warn' : null);
+  add('Windows 网卡采样', s.sampling
+      ? pill('运行中', 'warn')
+      : el('span', 'src', '未启动（AIDA64 在位时不需要）'));
   if (s.error) add('采样错误', s.error, 'bad');
   if (hw?.degraded) add('降级原因', hw.degraded, 'warn');
   if (hw?.missing?.length) add('AIDA64 缺这些', hw.missing.join(', '), 'bad');
@@ -222,7 +225,7 @@ function renderWizard() {
     kids.push(el('div', 'src', `预算 ${PLAN.budget_now.worst_bytes} → ${PLAN.budget_new.worst_bytes} / `
       + `${PLAN.budget_new.usable} 字节`));
     const cb = el('input'); cb.type = 'checkbox'; cb.id = 'w-confirm';
-    const btn = el('button'); btn.textContent = '应用并重启 AIDA64'; btn.disabled = true;
+    const btn = el('button', 'danger'); btn.textContent = '应用并重启 AIDA64'; btn.disabled = true;
     btn.addEventListener('click', () => onApply(btn));
     cb.addEventListener('change', () => { btn.disabled = !cb.checked; });
     kids.push(el('div', 'confirm', [cb,
@@ -282,6 +285,8 @@ let debounce = null;
 
 const clone = o => JSON.parse(JSON.stringify(o));
 const outPaths = () => (METRICS?.metrics || []).filter(m => m.out).map(m => m.out);
+const metricName = p => METRICS?.metrics.find(m => m.out === p)?.name || p;
+const metricOpt = p => `${metricName(p)} · ${p}`;
 const usedPaths = () => new Set(state.check?.referenced || []);
 const nextKey = () => {
   const keys = new Set((draft.widgets || []).flatMap(w => (w.items || []).map(c => c.key)));
@@ -298,12 +303,12 @@ async function postJSON(url, body) {
 
 function metricSelect(value, onchange) {
   const sel = el('select');
-  const cur = el('option', null, value || '(无)');
+  const cur = el('option', null, value ? metricOpt(value) : '(不用)');
   cur.value = value || '';
   sel.append(cur);
   for (const p of outPaths()) {
     if (p === value) continue;
-    const o = el('option', null, p);
+    const o = el('option', null, metricOpt(p));
     o.value = p;
     sel.append(o);
   }
@@ -376,22 +381,24 @@ function cardEditor(w, c, i, rebuildCards) {
 
   const label = el('input'); label.type = 'text'; label.value = c.label ?? ''; label.size = 24;
   label.addEventListener('input', () => { c.label = label.value; onChange(); });
-  fs.append(el('label', null, [el('span', 'src', '标题'), label]));
+  fs.append(el('div', 'form', [el('label', null, [el('span', 'src', '标题（卡片左上）'), label])]));
 
   fs.append(el('div', 'form', [
     el('label', null, [el('span', 'src', '进度条'),
       metricSelect(c.bar, v => { v ? c.bar = v : delete c.bar; onChange(); })]),
-    el('label', null, [el('span', 'src', '曲线'),
+    el('label', null, [el('span', 'src', '迷你曲线'),
       metricSelect(c.spark, v => { v ? c.spark = v : delete c.spark; onChange(); })]),
   ]));
 
-  fs.append(slotEditor(c, 'value', '主值'));
-  fs.append(slotEditor(c, 'sub', '次要行'));
+  fs.append(slotEditor(c, 'value', '大数字（右上）'));
+  fs.append(slotEditor(c, 'sub', '小字（下方一行）'));
   return fs;
 }
 
 function buildCardsEditor(w, host) {
-  const addCard = el('button', 'mini'); addCard.textContent = '+ 卡片';
+  host.append(el('p', 'hint', '每张卡片：左边标题，右上角大数字，中间一条进度条，',
+    '下面一行小字和迷你曲线。哪个格显示什么指标都能换。'));
+  const addCard = el('button', 'mini'); addCard.textContent = '+ 加一张卡';
   const rebuildCards = () => {
     host.replaceChildren();
     (w.items || []).forEach((c, i) => host.append(cardEditor(w, c, i, rebuildCards)));
@@ -408,40 +415,89 @@ function buildCardsEditor(w, host) {
 }
 
 function buildChipsEditor(w, host) {
+  host.append(el('p', 'hint', '叠加层底部那一行小指标。勾谁谁出现，顺序跟着勾的先后走；',
+    '放不下会自动缩小一号。'));
+
   const form = el('div', 'form');
   const font = el('input'); font.type = 'number'; font.value = w.font ?? 15; font.min = 8; font.max = 40;
   font.addEventListener('change', () => { w.font = +font.value; onChange(); });
   form.append(el('label', null, [el('span', 'src', '字号'), font]));
   host.append(form);
 
-  const inChips = new Set(w.items || []);
-  const box = el('div', 'chips-edit');
-  box.replaceChildren(...outPaths().map(p => {
-    const m = METRICS.metrics.find(x => x.out === p);
-    const cb = el('input');
-    cb.type = 'checkbox'; cb.checked = inChips.has(p);
-    cb.addEventListener('change', () => {
-      w.items = (w.items || []).filter(x => x !== p);
-      if (cb.checked) w.items.push(p);
-      onChange();
-    });
-    return el('label', null, [cb, el('span', null, m.name),
-      el('span', 'path', p), usedPaths().has(p) && !cb.checked ? el('span', 'inuse', '版式别处在用') : null]
-      .filter(Boolean));
-  }));
-  host.append(box);
+  // 按输出路径前缀分组（cpu.* / gpu.* / ram.* / net.* / misc.*）
+  const byPrefix = new Map();
+  for (const p of outPaths()) {
+    const prefix = p.split(".")[0];
+    if (!byPrefix.has(prefix)) byPrefix.set(prefix, []);
+    byPrefix.get(prefix).push(p);
+  }
+  const GROUP_TITLES = { cpu: "CPU", gpu: "显卡", ram: "内存", net: "网络", misc: "主板 / 其他" };
+
+  for (const [prefix, paths] of byPrefix) {
+    const title = GROUP_TITLES[prefix] || prefix.toUpperCase();
+    const box = el('div', 'chips-edit');
+    const inChips = new Set(w.items || []);
+    let checkedCount = paths.filter(p => inChips.has(p)).length;
+
+    const labelFor = p => {
+      const m = METRICS.metrics.find(x => x.out === p);
+      const cb = el('input');
+      cb.type = 'checkbox'; cb.checked = inChips.has(p);
+      cb.addEventListener('change', () => {
+        w.items = (w.items || []).filter(x => x !== p);
+        if (cb.checked) w.items.push(p);
+        checkedCount += cb.checked ? 1 : -1;
+        count.textContent = `${checkedCount} 项`;
+        onChange();
+      });
+      return el('label', null, [cb, el('span', null, m.name),
+        el('span', 'path', p), usedPaths().has(p) && !cb.checked ? el('span', 'inuse', '版式别处在用') : null]
+        .filter(Boolean));
+    };
+    paths.forEach(p => box.append(labelFor(p)));
+
+    const count = el('span', 'src', `${checkedCount} 项`);
+    const group = el('details', 'chip-group');
+    const summary = el('summary', null, [el('b', null, title), count]);
+    group.append(summary, box);
+    group.open = checkedCount > 0;
+    host.append(group);
+  }
 }
 
 function buildTextEditor(w, host) {
+  host.append(el('p', 'hint', '想写什么就写什么，指标值用花括号插进去：正文里放 {cpu.usage}，',
+    '直播时它就变成 CPU 使用率的实时数字，没有数据时显示 --。'));
+
   const form = el('div', 'form');
   const text = el('input'); text.type = 'text'; text.value = w.text ?? ''; text.size = 60;
   text.addEventListener('input', () => { w.text = text.value; onChange(); });
   const size = el('input'); size.type = 'number'; size.value = w.size ?? 19; size.min = 8; size.max = 60;
   size.addEventListener('change', () => { w.size = +size.value; onChange(); });
   form.append(
-    el('label', null, [el('span', 'src', '正文'), text]),
-    el('label', null, [el('span', 'src', '字号'), size]));
-  host.append(form, el('div', 'src', '正文里用 {cpu.usage} 这类占位符插入指标值，缺失时显示 --。'));
+    el('div', 'field', [el('span', 'src', '正文'), text]),
+    el('div', 'field', [el('span', 'src', '字号'), size]));
+  host.append(form);
+
+  // 常用指标一键插入 {路径}，插到光标处
+  const QUICK = ["cpu.usage", "cpu.temp", "gpu.usage", "gpu.temp",
+                 "ram.used", "ram.total", "net.up_mbps", "net.down_mbps"];
+  const ins = el('div', 'ins-row');
+  ins.append(el('span', 'src', '点击插入指标：'));
+  for (const p of QUICK) {
+    const btn = el('button', 'mini'); btn.textContent = metricName(p);
+    btn.addEventListener('click', () => {
+      const at = text.selectionStart ?? text.value.length;
+      const piece = `{${p}}`;
+      text.value = text.value.slice(0, at) + piece + text.value.slice(text.selectionEnd ?? at);
+      text.focus();
+      text.setSelectionRange(at + piece.length, at + piece.length);
+      w.text = text.value;
+      onChange();
+    });
+    ins.append(btn);
+  }
+  host.append(ins);
 }
 
 const WIDGET_EDITORS = { cards: buildCardsEditor, chips: buildChipsEditor, text: buildTextEditor };
@@ -459,9 +515,9 @@ function buildEditor() {
   host.replaceChildren();
   (draft.widgets || []).forEach((w, i) => {
     const box = el('div', 'widget-edit');
-    const del = el('button', 'mini'); del.textContent = '删部件';
+    const del = el('button', 'mini'); del.textContent = '删除这一部件';
     del.addEventListener('click', () => { draft.widgets.splice(i, 1); buildEditor(); onChange(); });
-    const meta = { cards: '卡片网格', chips: '底部小指标', text: '自定义文本行' }[w.type] ?? w.type;
+    const meta = { cards: '指标卡片', chips: '底部小指标行', text: '自定义文字' }[w.type] ?? w.type;
     box.append(el('div', 'w-head', [el('b', null, `部件 ${i + 1} · ${meta}`), del]));
     const inner = el('div', 'w-body');
     box.append(inner);
@@ -470,12 +526,12 @@ function buildEditor() {
   });
 
   const addbar = el('div', 'addbar');
-  const addText = el('button'); addText.textContent = '+ 文本行';
+  const addText = el('button'); addText.textContent = '+ 加一行自定义文字';
   addText.addEventListener('click', () => {
     draft.widgets.push({ type: 'text', text: `CPU {cpu.usage}% · {cpu.temp}°C`, size: 19, margin_top: 6 });
     buildEditor(); onChange();
   });
-  const addCards = el('button'); addCards.textContent = '+ 卡片行';
+  const addCards = el('button'); addCards.textContent = '+ 加一行指标卡片';
   addCards.addEventListener('click', () => {
     const first = outPaths()[0];
     draft.widgets.push({ type: 'cards', items: [
@@ -493,8 +549,14 @@ function setMsg(text, cls) {
   m.className = cls || '';
 }
 
+function setDirty(on) {
+  const d = $('#e-dirty');
+  if (d) d.textContent = on ? '● 有未保存的改动' : '';
+}
+
 async function onChange() {
   dirty = JSON.stringify(draft) !== JSON.stringify(CFG);
+  setDirty(dirty);
   clearTimeout(debounce);
   setMsg(dirty ? '校验中…' : '', '');
   debounce = setTimeout(async () => {
@@ -521,6 +583,7 @@ async function onSave() {
   if (!rep.saved) return setMsg(`✗ 保存失败：${(rep.errors || []).join('；')}`, 'bad');
   CFG = clone(draft);
   dirty = false;
+  setDirty(false);
   $('#e-save').disabled = true;
   reloadPreview();
   setMsg('✓ 已保存。OBS 里若没变化，点浏览器源的"刷新缓存"。', 'ok');
@@ -560,6 +623,7 @@ async function loadConfig() {
   draft = clone(CFG);
   buildEditor();
   dirty = false;
+  setDirty(false);
   $('#e-save').disabled = true;
 }
 
