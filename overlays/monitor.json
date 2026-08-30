@@ -8,7 +8,8 @@
     "padding": [
       12,
       24
-    ]
+    ],
+    "mode": "free"
   },
   "prompt": {
     "user": "HasselNot@system",
@@ -37,9 +38,18 @@
           "sub": {
             "sep": " · ",
             "metrics": [
-              "cpu.clock_mhz",
-              "cpu.power_w",
-              "cpu.volt"
+              {
+                "metric": "cpu.clock_mhz",
+                "label": "主频"
+              },
+              {
+                "metric": "cpu.power_w",
+                "label": "功耗"
+              },
+              {
+                "metric": "cpu.volt",
+                "label": "电压"
+              }
             ]
           },
           "spark": "cpu.usage"
@@ -76,7 +86,7 @@
               },
               {
                 "metric": "gpu.mem_clock_mhz",
-                "label": "显存频率"
+                "label": "显存"
               }
             ]
           },
@@ -140,13 +150,15 @@
               },
               {
                 "metric": "net.link_mbps",
-                "label": "链路"
+                "label": "链接速度"
               }
             ]
           },
           "spark": "net.up_mbps"
         }
-      ]
+      ],
+      "x": 20,
+      "y": 12
     },
     {
       "type": "chips",
@@ -165,7 +177,9 @@
         "misc.dimm_max",
         "misc.dimm1",
         "misc.dimm3"
-      ]
+      ],
+      "x": 1258,
+      "y": 82
     }
   ]
 }

@@ -91,7 +91,7 @@ export default function StatusPage({ shared }: { shared: Shared }) {
           <Row k="ini" v={<span className="break-all text-color-desc">{st.ini || "未找到"}</span>} />
           <Row k="网卡采样" v={s?.sampling
             ? <StateChip text="运行中" kind="warn" />
-            : <span className="text-color-desc">未启动（AIDA64 在位时不需要）</span>} />
+            : <span className="text-color-desc">未启动</span>} />
           {hw?.degraded && <Row k="降级原因" v={<span className="text-warning">{hw.degraded}</span>} />}
           {hw?.missing?.length ? (
             <Row k="AIDA64 缺这些" v={<span className="font-poppins text-danger">{hw.missing.join(", ")}</span>} />
@@ -112,12 +112,12 @@ export default function StatusPage({ shared }: { shared: Shared }) {
         </DetailCard>
       </div>
 
-      <DetailCard title="OBS 里怎么填">
+      <DetailCard title="OBS 设置">
         <Row k="URL" v={<code className="rounded-md bg-default-100 px-2 py-1 font-poppins">{location.origin}/</code>} />
         <Row k="宽 × 高" v={`${check?.canvas_w ?? "—"} × ${check?.canvas_h ?? "—"}`} />
         <Row k="内容预估高" v={`${check?.est_height ?? "—"} px`} />
         <Hint className="mt-2">
-          OBS → 浏览器源 → 取消勾选“本地文件” → 填上面的 URL 和尺寸。
+          OBS中填入上面的 URL 和尺寸。
         </Hint>
       </DetailCard>
     </Page>

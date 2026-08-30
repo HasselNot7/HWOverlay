@@ -96,7 +96,7 @@ export default function WizardPage({ shared }: { shared: Shared }) {
         </>
       }>
       <Hint>
-        传感器名因机器而异：先去「自定义指标」注册（新机器可一键加载默认指标集），再来排版。
+        请先在「自定义指标」注册，或一键加载默认指标集。
       </Hint>
     </StepCard>
   );
@@ -110,7 +110,7 @@ export default function WizardPage({ shared }: { shared: Shared }) {
         　宽 {check?.canvas_w ?? "—"} × 高 {check?.canvas_h ?? "—"}
         {!laid && " —— 版式还是空的，先去排版"}
         <br />
-        改过版式后，在浏览器源属性里点“刷新缓存”。
+        修改样式后请刷新
       </Hint>
     </StepCard>
   );
