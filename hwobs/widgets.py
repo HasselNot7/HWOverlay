@@ -123,6 +123,22 @@ def html_validate(w, errors, warnings):
         errors.append("html 部件必须有非空的 html")
 
 
+# --- gauge：环形仪表 ----------------------------------------------------------
+# 高度 = 圆环直径 +（带标签时）标签行 20；与 monitor.html makeGauge 同口径。
+
+def gauge_height(w):
+    size = _int_in(w, "size", 120, 48, 600)
+    return size + (20 if w.get("label") else 0)
+
+
+def gauge_validate(w, errors, warnings):
+    if not isinstance(w.get("metric"), str) or not w.get("metric"):
+        errors.append("gauge 部件必须有 metric")
+    ring = w.get("ring")
+    if ring is not None and (not isinstance(ring, int) or not 2 <= ring <= 40):
+        errors.append("gauge.ring（环宽）必须是 2~40 的整数")
+
+
 WIDGETS = {
     "cards": {
         "summary": "指标卡片网格：标题 + 进度条 + 次要行 + 迷你曲线",
@@ -155,10 +171,16 @@ WIDGETS = {
         "validate": progress_validate,
     },
     "html": {
-        "summary": "自由画布：自定义 HTML 片段，{cpu.usage} 这类占位符替换成指标值",
+        "summary": "自由画布：自定义 HTML 片段，带 <script> 的动态片段走 HWOB API",
         "defaults": {"w": 300, "h": 60},
         "height": html_height,
         "validate": html_validate,
+    },
+    "gauge": {
+        "summary": "环形仪表：单指标圆环，按指标量程定标，可带标签",
+        "defaults": {"size": 120, "ring": 10},
+        "height": gauge_height,
+        "validate": gauge_validate,
     },
 }
 

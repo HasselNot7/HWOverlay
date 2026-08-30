@@ -7,7 +7,7 @@ import {
 
 import { useState } from "react";
 import type {
-  CardItem, CardsWidget, ChipsWidget, GroupDef, HtmlWidget, Metric, MetricRef,
+  CardItem, CardsWidget, ChipsWidget, GaugeWidget, GroupDef, HtmlWidget, Metric, MetricRef,
   OverlayConfig, ProgressWidget, StatWidget, TextWidget,
 } from "../types";
 import { CARD_CLS, FieldLabel, Hint } from "../ui";
@@ -446,7 +446,7 @@ const QUICK = ["cpu.usage", "cpu.temp", "gpu.usage", "gpu.temp", "ram.used", "ra
 export function TextEditor({ w, metrics, onChange, compact }: { w: TextWidget; metrics: Metric[]; onChange: () => void; compact?: boolean }) {
   return (
     <div>
-      <Hint className="mb-2">花括号里填指标路径（如 {"{cpu.usage}"}），没数据显示 --。</Hint>
+      <Hint className="mb-2">花括号里填指标路径（如 {"{cpu.usage}"}），没数据显示 --；{"{time}"} 本地时钟、{"{date}"} 本地日期，不依赖传感器。</Hint>
       <Input
         aria-label="正文" size="sm" variant="flat" placeholder="想写的话 + {指标} 占位符"
         defaultValue={w.text ?? ""} className={compact ? "font-poppins" : "max-w-xl font-poppins"}
@@ -472,6 +472,13 @@ export function TextEditor({ w, metrics, onChange, compact }: { w: TextWidget; m
               </Button>
             );
           })}
+          {["time", "date"].map(p => (
+            <Button key={p} size="sm" variant="flat" className="h-7 min-w-0 px-2 font-poppins text-xs text-primary"
+              title={p === "time" ? "本地时钟 HH:MM:SS，每秒跳动" : "本地日期 YYYY-MM-DD"}
+              onPress={() => { w.text = `${w.text || ""}{${p}}`; onChange(); }}>
+              {p === "time" ? "时钟" : "日期"}
+            </Button>
+          ))}
         </div>
       </div>
     </div>
@@ -528,15 +535,111 @@ export function ProgressEditor({ w, metrics, onChange, compact }: { w: ProgressW
   );
 }
 
+export function GaugeEditor({ w, metrics, onChange, compact }: { w: GaugeWidget; metrics: Metric[]; onChange: () => void; compact?: boolean }) {
+  return (
+    <div className="flex flex-col gap-2">
+      <div className="flex items-center gap-2.5">
+        <span className="w-[64px] flex-none text-xs text-color-desc">指标</span>
+        <MetricSelect metrics={metrics} value={w.metric} allowEmpty={false} compact={compact}
+          onChange={v => { if (v) { w.metric = v; onChange(); } }} />
+      </div>
+      <div className="flex items-center gap-2.5">
+        <span className="w-[64px] flex-none text-xs text-color-desc">标签</span>
+        <Input size="sm" variant="flat" className="font-poppins" placeholder="圆环下的小字（可空）"
+          defaultValue={typeof w.label === "string" ? w.label : ""}
+          onValueChange={v => { w.label = v || undefined; onChange(); }} />
+      </div>
+      <div className="flex items-center gap-2.5">
+        <span className="w-[64px] flex-none text-xs text-color-desc">大小</span>
+        <Input type="number" size="sm" variant="flat" className="w-24 font-poppins"
+          defaultValue={String(w.size ?? 120)}
+          onValueChange={v => { w.size = +v || 120; onChange(); }} />
+      </div>
+      <div className="flex items-center gap-2.5">
+        <span className="w-[64px] flex-none text-xs text-color-desc">环宽</span>
+        <Input type="number" size="sm" variant="flat" className="w-24 font-poppins"
+          defaultValue={String(w.ring ?? 10)}
+          onValueChange={v => { w.ring = +v || 10; onChange(); }} />
+      </div>
+      <Hint className="text-xs">圆环按指标量程定标；中心数字带单位。</Hint>
+    </div>
+  );
+}
+
+/** HtmlEditor 的示例片段：一键插入可跑的动态组件范本 */
+const HTML_SNIPPETS: { name: string; title: string; html: string; w: number; h: number }[] = [
+  {
+    name: "动态圆环",
+    title: "canvas 画的动态圆环，每秒跟着值转",
+    w: 160, h: 160,
+    html: `<canvas id="c" width="160" height="160"></canvas>
+<script>
+const cv = HWOB.root.querySelector('#c'), g = cv.getContext('2d');
+const draw = () => {
+  const v = HWOB.get('cpu.usage') ?? 0;
+  g.clearRect(0, 0, 160, 160);
+  g.lineWidth = 12; g.lineCap = 'round';
+  g.strokeStyle = '#2e3440';
+  g.beginPath(); g.arc(80, 80, 62, 0, Math.PI * 2); g.stroke();
+  g.strokeStyle = '#a3be8c';
+  g.beginPath(); g.arc(80, 80, 62, -Math.PI / 2, -Math.PI / 2 + Math.PI * 2 * v / 100); g.stroke();
+  g.fillStyle = '#eceff4'; g.font = '700 26px monospace'; g.textAlign = 'center';
+  g.fillText(HWOB.text('cpu.usage'), 80, 90);
+};
+HWOB.onTick(draw); draw();
+</script>`,
+  },
+  {
+    name: "60 秒曲线",
+    title: "最近 60 秒的走势曲线",
+    w: 360, h: 120,
+    html: `<canvas id="c" width="360" height="120"></canvas>
+<script>
+const cv = HWOB.root.querySelector('#c'), g = cv.getContext('2d');
+const N = 60;
+const draw = () => {
+  const h = HWOB.history('cpu.usage', N);
+  g.clearRect(0, 0, 360, 120);
+  g.strokeStyle = '#2e3440';
+  for (let y = 0; y <= 120; y += 30) { g.beginPath(); g.moveTo(0, y); g.lineTo(360, y); g.stroke(); }
+  g.strokeStyle = '#88c0d0'; g.lineWidth = 2; g.beginPath();
+  for (let i = 0; i < h.length; i++) {
+    if (h[i] == null) continue;
+    const x = i * (360 / (N - 1)), y = 115 - Math.min(1, h[i] / 100) * 105;
+    i === 0 || h[i - 1] == null ? g.moveTo(x, y) : g.lineTo(x, y);
+  }
+  g.stroke();
+};
+HWOB.onTick(draw);
+</script>`,
+  },
+];
+
 export function HtmlEditor({ w, onChange }: { w: HtmlWidget; onChange: () => void }) {
+  // 示例片段要换掉整个编辑区：key 递增让 Textarea 重新挂载（defaultValue 只在挂载时吃）
+  const [taKey, setTaKey] = useState(0);
   return (
     <div className="flex flex-col gap-2">
       <Textarea
+        key={taKey}
         aria-label="自定义 HTML" variant="flat" className="font-poppins text-xs" minRows={5}
         defaultValue={w.html}
         onValueChange={v => { w.html = v; onChange(); }} />
+      <div className="flex flex-wrap gap-2">
+        {HTML_SNIPPETS.map(s => (
+          <MiniBtn key={s.name} title={s.title} onClick={() => {
+            w.html = s.html;
+            w.w = s.w;
+            w.h = s.h;
+            setTaKey(k => k + 1);
+            onChange();
+          }}>示例：{s.name}</MiniBtn>
+        ))}
+      </div>
       <Hint className="text-xs">
-        {"{cpu.usage}"} 这类占位符会替换成实时值；&lt;script&gt; 不会执行，只支持无状态的 HTML/CSS。
+        {"{cpu.usage}"} 这类占位符会替换成实时值（构建时替换一次）。写 &lt;script&gt; 就是动态组件：
+        HWOB.get('路径') 取原始值 · HWOB.text('路径') 取带单位文本 · HWOB.history('路径', 60) 取采样序列 ·
+        HWOB.onTick(fn) 每秒回调 · HWOB.root 是本部件的 DOM 根。也可以直接手写 canvas 画动态图。
       </Hint>
     </div>
   );

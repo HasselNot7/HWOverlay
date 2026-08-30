@@ -1,6 +1,6 @@
 /** 与 FastAPI 端点一一对应的类型定义。字段以 hwobs 各模块的返回为准。 */
 
-export type Widget = CardsWidget | ChipsWidget | TextWidget | StatWidget | ProgressWidget | HtmlWidget;
+export type Widget = CardsWidget | ChipsWidget | TextWidget | StatWidget | ProgressWidget | HtmlWidget | GaugeWidget;
 
 export interface MetricRef {
   metric: string;
@@ -82,6 +82,14 @@ export interface ProgressWidget extends FreePos {
 export interface HtmlWidget extends FreePos {
   type: "html";
   html: string;
+}
+
+export interface GaugeWidget extends FreePos {
+  type: "gauge";
+  metric: string;
+  label?: string | true;
+  size?: number;
+  ring?: number;
 }
 
 

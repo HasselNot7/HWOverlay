@@ -23,6 +23,9 @@
       --bar-bg: #2e3440;
       --bar-fill: #a3be8c;
       --bar-high: #bf616a;
+
+      /* 圆环仪表：直径按部件 size 由 JS 覆盖，这里给默认值供静态引用 */
+      --gauge-size: 120px;
     }
 
     * {
@@ -97,6 +100,15 @@
     .free-progress.high .fp-fill { background: var(--bar-high); }
     .free-html { line-height: 1.3; }
     .free-html .tmiss { color: var(--subtext-color); }
+    .free-gauge { text-align: center; }
+    .free-gauge svg { display: block; }
+    .free-gauge .gauge-mid {
+      position: absolute; left: 0; right: 0; top: 0; height: var(--gauge-size, 120px);
+      display: flex; align-items: center; justify-content: center;
+      font-weight: 700; color: var(--text-color);
+    }
+    .free-gauge.high .gauge-arc { stroke: var(--bar-high) !important; }
+    .free-gauge .gauge-label { display: block; margin-top: 4px; font-size: 12px; line-height: 16px; color: var(--dim-color); }
 
 
     .metric-card {
@@ -180,6 +192,11 @@
     const SUB_GAP = 8;        // 与 CSS .metric-sub 的 gap 一致
     const SUB_FONT_PX = 14;   // 与 CSS .metric-sub 的 font-size 一致
     const TEXT_REF_RX = /\{([a-zA-Z0-9_.]+)\}/g;
+    // 本地伪路径：不来自传感器，渲染时本地生成（时钟这类不需要后端数据的值）
+    const PSEUDO_REFS = {
+      time: () => { const d = new Date(); return [d.getHours(), d.getMinutes(), d.getSeconds()].map(n => String(n).padStart(2, '0')).join(':'); },
+      date: () => { const d = new Date(); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`; },
+    };
 
     let HW = null;
     const byOut = new Map();  // 输出路径 -> 注册表条目
@@ -428,6 +445,11 @@
         update() {
           line.replaceChildren(...parts.map(p => {
             if (p.lit !== undefined) return text(p.lit);
+            if (PSEUDO_REFS[p.ref]) {
+              const pseudo = el('span', 'tv');
+              pseudo.textContent = PSEUDO_REFS[p.ref]();
+              return pseudo;
+            }
             const v = HW ? dig(HW, p.ref) : null;
             const mt = meta({ metric: p.ref });
             const span = el('span', v == null ? 'tmiss' : 'tv');
@@ -484,9 +506,49 @@
       };
     }
 
-    // --- html：自定义 HTML 片段，{路径} 占位符替换成格式化值（自由画布） ----------
-    // 片段经 innerHTML 注入：<script> 不会执行（浏览器对 innerHTML 的脚本一律
-    // 惰性），只支持无状态的 HTML/CSS —— 这是能力边界，刻意如此。
+    // --- html：自定义 HTML 片段（自由画布） --------------------------------------
+    // 不带 <script> 的静态片段：维持老语义，{路径} 占位符每秒整段替换。
+    // 带脚本的动态片段：占位符只在构建时替换一次，<script> 重新注入使其真正
+    // 执行，动态数据走脚本里拿到的 HWOB API：
+    //   HWOB.get('cpu.usage')            当前原始值（没数据时 null）
+    //   HWOB.text('cpu.temp')            按注册表格式化（单位/小数）
+    //   HWOB.onTick(fn)                  每秒回调 fn(hw)
+    //   HWOB.history('cpu.usage', 60)    最近 N 秒采样数组（每秒补一点）
+    //   HWOB.root                        本部件的 DOM 根（querySelector 用它，别用 document）
+    // 注意：脚本是会跑的 —— 别导入来路不明的版式文件。
+
+    function makeWidgetApi(host) {
+      const fns = [];
+      const series = new Map();   // path -> { path, cap, buf }
+      return {
+        root: host,
+        onTick(fn) { if (typeof fn === 'function') fns.push(fn); },
+        get(path) { return HW ? dig(HW, path) : null; },
+        text(path) { return txt(HW ? dig(HW, path) : null, meta({ metric: path })); },
+        history(path, cap = HISTORY) {
+          let s = series.get(path);
+          if (!s) { s = { path, cap: Math.max(2, cap | 0), buf: [] }; series.set(path, s); }
+          return s.buf;
+        },
+        _emit() {
+          for (const s of series.values()) {
+            s.buf.push(HW ? dig(HW, s.path) : null);
+            while (s.buf.length > s.cap) s.buf.shift();
+          }
+          for (const fn of fns) {
+            try { fn(HW); } catch (e) { console.warn('HWOB onTick:', e); }
+          }
+        },
+      };
+    }
+
+    function substituteRefs(src) {
+      return src.replace(TEXT_REF_RX, (whole, p) => {
+        if (PSEUDO_REFS[p]) return PSEUDO_REFS[p]();
+        const v = HW ? dig(HW, p) : null;
+        return v == null ? whole : txt(v, meta({ metric: p }));
+      });
+    }
 
     function makeHtml(w) {
       const host = el('div', 'free-html');
@@ -494,23 +556,85 @@
       if (w.h) { host.style.height = w.h + 'px'; host.style.overflow = 'hidden'; }
       document.body.appendChild(host);
       const src = w.html || '';
-      const parts = [];
-      let last = 0;
-      for (const m of src.matchAll(TEXT_REF_RX)) {
-        if (m.index > last) parts.push({ lit: src.slice(last, m.index) });
-        parts.push({ ref: m[1] });
-        last = m.index + m[0].length;
+      if (!/<script/i.test(src)) {
+        // 静态片段：每秒整段重替换（没有脚本，重建无副作用）
+        return {
+          update() { host.innerHTML = substituteRefs(src); },
+        };
       }
-      if (last < src.length) parts.push({ lit: src.slice(last) });
+      // 动态片段：构建期替换一次占位符，注入并执行脚本，之后由 HWOB 驱动
+      const api = makeWidgetApi(host);
+      host.innerHTML = substituteRefs(src);
+      for (const old of [...host.querySelectorAll('script')]) {
+        const s = document.createElement('script');
+        if (old.src) s.src = old.src;
+        else s.textContent = old.textContent;
+        window.HWOB = api;   // 脚本同步执行，此刻的 HWOB 就是自己部件的
+        old.replaceWith(s);
+      }
+      return {
+        update() { api._emit(); },
+      };
+    }
+
+    // --- gauge：环形仪表（SVG 圆环，按指标量程定标） -----------------------------
+
+    function makeGauge(w) {
+      const size = Math.max(48, w.size ?? 120);
+      const ring = Math.max(2, w.ring ?? 10);
+      const label = typeof w.label === 'string' ? w.label : (w.label ? '' : null);
+      const host = el('div', 'free-gauge');
+      host.style.width = size + 'px';
+      host.style.setProperty('--gauge-size', size + 'px');
+      const NS = 'http://www.w3.org/2000/svg';
+      const svg = document.createElementNS(NS, 'svg');
+      svg.setAttribute('width', size);
+      svg.setAttribute('height', size);
+      const r = (size - ring) / 2;
+      const c = 2 * Math.PI * r;
+      const mk = stroke => {
+        const cir = document.createElementNS(NS, 'circle');
+        cir.setAttribute('cx', size / 2);
+        cir.setAttribute('cy', size / 2);
+        cir.setAttribute('r', r);
+        cir.setAttribute('fill', 'none');
+        cir.setAttribute('stroke', stroke);
+        cir.setAttribute('stroke-width', ring);
+        return cir;
+      };
+      const track = mk('var(--bar-bg)');
+      const arc = mk('var(--bar-fill)');
+      arc.setAttribute('class', 'gauge-arc');
+      arc.setAttribute('stroke-dasharray', c);
+      arc.setAttribute('stroke-dashoffset', c);
+      arc.setAttribute('transform', `rotate(-90 ${size / 2} ${size / 2})`);
+      svg.append(track, arc);
+      const mid = el('span', 'gauge-mid');
+      mid.style.fontSize = Math.max(12, Math.round(size / 5)) + 'px';
+      const val = el('span', 'tv', [text('--')]);
+      mid.appendChild(val);
+      host.append(svg, mid);
+      if (label !== null) {
+        const lab = el('span', 'gauge-label', [text(label)]);
+        host.appendChild(lab);
+        host.style.height = (size + 20) + 'px';
+      } else {
+        host.style.height = size + 'px';
+      }
+      document.body.appendChild(host);
       return {
         update() {
-          let out = '';
-          for (const p of parts) {
-            if (p.lit !== undefined) { out += p.lit; continue; }
-            const v = HW ? dig(HW, p.ref) : null;
-            out += txt(v, meta({ metric: p.ref }));
+          const v = HW ? dig(HW, w.metric) : null;
+          const mt = meta({ metric: w.metric });
+          let pct = 0;
+          if (v != null) {
+            const lo = (mt.range && mt.range[0]) || 0;
+            const hi = (mt.range && mt.range[1]) || 100;
+            pct = Math.max(0, Math.min(100, (v - lo) / (hi - lo) * 100));
           }
-          host.innerHTML = out;
+          arc.setAttribute('stroke-dashoffset', c * (1 - pct / 100));
+          val.textContent = txt(v, mt);
+          host.classList.toggle('high', isHigh(v, mt.warn));
         },
       };
     }
@@ -518,6 +642,7 @@
     const WIDGET_TYPES = {
       cards: makeCards, chips: makeChips, text: makeText,
       stat: makeStat, progress: makeProgress, html: makeHtml,
+      gauge: makeGauge,
     };
 
     function build(layout) {

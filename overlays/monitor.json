@@ -9,7 +9,7 @@
       12,
       24
     ],
-    "mode": "free"
+    "transparent": true
   },
   "prompt": {
     "user": "HasselNot@system",

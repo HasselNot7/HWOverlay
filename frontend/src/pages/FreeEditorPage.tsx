@@ -3,14 +3,14 @@ import { PanelRightClose, PanelRightOpen } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { api, clone, outPaths } from "../api";
 import type {
-  CardsWidget, ChipsWidget, FreePos, HtmlWidget, OverlayConfig,
+  CardsWidget, ChipsWidget, FreePos, GaugeWidget, HtmlWidget, OverlayConfig,
   ProgressWidget, StatWidget, TextWidget, Widget,
 } from "../types";
 import type { Shared } from "../App";
 import { CARD_CLS, FieldLabel, Hint, SubTitle } from "../ui";
 import { clearDraft, loadDraft, saveDraft } from "../draftStore";
 import {
-  CanvasFields, CardsEditor, ChipsEditor, HtmlEditor, PromptBar,
+  CanvasFields, CardsEditor, ChipsEditor, GaugeEditor, HtmlEditor, PromptBar,
   ProgressEditor, StatEditor, TextEditor,
 } from "./editors";
 
@@ -23,7 +23,7 @@ import {
 
 const WIDGET_LABEL: Record<string, string> = {
   cards: "指标卡片", chips: "小指标行", text: "自定义文字",
-  stat: "大数字", progress: "进度条", html: "自定义 HTML",
+  stat: "大数字", progress: "进度条", html: "自定义 HTML", gauge: "圆环仪表",
 };
 
 /** 开发态预览 iframe 指向 python 后端（跨源也能收发 postMessage）；构建产物里留空 = 同源。 */
@@ -45,7 +45,9 @@ function estHeight(w: Widget): number {
     case "stat": return line(w.size ?? 26);
     case "progress": return w.height ?? 10;
     case "html": return w.h ?? 60;
+    case "gauge": return (w.size ?? 120) + (w.label ? 20 : 0);
   }
+  return 40;
 }
 
 const stretchable = (t: string) => t === "cards" || t === "chips" || t === "text";
@@ -317,6 +319,7 @@ export default function FreeEditorPage({ shared }: { shared: Shared }) {
     const base: Record<string, unknown> = { x: 48 + (n % 4) * 32, y: 40 + (n % 4) * 28 };
     if (type === "stat") Object.assign(base, { type: "stat", metric: first, size: 26, w: 300 });
     if (type === "progress") Object.assign(base, { type: "progress", metric: first, w: 260, height: 10 });
+    if (type === "gauge") Object.assign(base, { type: "gauge", metric: first, size: 120, ring: 10 });
     if (type === "html") Object.assign(base, {
       type: "html",
       html: '<div style="font-size:22px;font-weight:700">CPU {cpu.usage} · {cpu.temp}</div>',
@@ -566,7 +569,7 @@ export default function FreeEditorPage({ shared }: { shared: Shared }) {
       {/* 顶部工具栏 */}
       <div className="flex flex-wrap items-center gap-2 border-b border-divider px-5 py-2.5">
         <h1 className="mr-2 text-lg font-bold text-white">自由排版</h1>
-        {([["stat", "大数字"], ["progress", "进度条"], ["html", "自定义 HTML"],
+        {([["stat", "大数字"], ["progress", "进度条"], ["gauge", "圆环仪表"], ["html", "自定义 HTML"],
            ["cards", "指标卡"], ["chips", "小指标行"], ["text", "文本"]] as const).map(([t, label]) => (
           <Button key={t} size="sm" variant="flat" className="bg-[#27272a]"
             onPress={() => addFree(t)}>+ {label}</Button>
@@ -654,11 +657,13 @@ export default function FreeEditorPage({ shared }: { shared: Shared }) {
                         {WIDGET_LABEL[w.type] ?? w.type}{stretch && " · 通栏"}
                       </span>
                     )}
-                    <div
-                      className="absolute bottom-0 right-0 h-3.5 w-3.5 cursor-nwse-resize border-b-2 border-r-2 border-current opacity-60 hover:opacity-100"
-                      style={{ borderColor: isSel ? "#3884ff" : "#a0a0a8" }}
-                      title="拖拽调整大小"
-                      onMouseDown={e => onDown(e, i, "resize")} />
+                    {w.type !== "gauge" && (
+                      <div
+                        className="absolute bottom-0 right-0 h-3.5 w-3.5 cursor-nwse-resize border-b-2 border-r-2 border-current opacity-60 hover:opacity-100"
+                        style={{ borderColor: isSel ? "#3884ff" : "#a0a0a8" }}
+                        title="拖拽调整大小"
+                        onMouseDown={e => onDown(e, i, "resize")} />
+                    )}
                   </div>
                 );
               })}
@@ -754,6 +759,7 @@ export default function FreeEditorPage({ shared }: { shared: Shared }) {
                 <div className="border-t border-white/[0.06] pt-3">
                   {w.type === "stat" && <StatEditor w={w as StatWidget} metrics={metrics} onChange={onChange} compact />}
                   {w.type === "progress" && <ProgressEditor w={w as ProgressWidget} metrics={metrics} onChange={onChange} compact />}
+                  {w.type === "gauge" && <GaugeEditor w={w as GaugeWidget} metrics={metrics} onChange={onChange} compact />}
                   {w.type === "html" && <HtmlEditor w={w as HtmlWidget} onChange={onChange} />}
                   {w.type === "cards" && <CardsEditor w={w as CardsWidget} metrics={metrics} onChange={onChange} compact />}
                   {w.type === "chips" && <ChipsEditor w={w as ChipsWidget} metrics={metrics} onChange={onChange} />}

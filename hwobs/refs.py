@@ -15,6 +15,13 @@ GROUP_KEYS = ("metrics", "pair", "diff", "items", "value", "sub")
 # text 部件正文里的 {输出路径} 插值
 TEXT_REF_RX = re.compile(r"\{([a-zA-Z0-9_.]+)\}")
 
+# 本地伪路径：渲染端本地生成（时钟这类），不来自传感器，注册表校验要跳过
+PSEUDO_TEXT_REFS = frozenset({"time", "date"})
+
+
+def _text_refs(body):
+    return [r for r in TEXT_REF_RX.findall(body) if r not in PSEUDO_TEXT_REFS]
+
 
 def widget_list(cfg):
     """版式的行列表。schema v2 叫 widgets，v1 叫 rows；两条读取路径统一从这里进。"""
@@ -35,9 +42,9 @@ def iter_refs(node, out=None):
         out.append(node)
     elif isinstance(node, dict):
         if node.get("type") == "text" and isinstance(node.get("text"), str):
-            out.extend(TEXT_REF_RX.findall(node["text"]))
+            out.extend(_text_refs(node["text"]))
         if node.get("type") == "html" and isinstance(node.get("html"), str):
-            out.extend(TEXT_REF_RX.findall(node["html"]))
+            out.extend(_text_refs(node["html"]))
         for k in REF_KEYS:
             if isinstance(node.get(k), str):
                 out.append(node[k])
