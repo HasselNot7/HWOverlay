@@ -23,3 +23,8 @@ Desktop.ini
 
 # 用户自定义指标（管理页未知传感器的产物）
 metrics.user.json
+
+# 前端构建产物与依赖
+frontend/node_modules/
+frontend/dist/
+.zcode/
