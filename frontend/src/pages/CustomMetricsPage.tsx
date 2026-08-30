@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
+import { Button, Checkbox, Input } from "@heroui/react";
 import { api } from "../api";
 import type { Metric, UnknownSensor } from "../types";
 import type { Shared } from "../App";
@@ -46,11 +47,8 @@ export default function CustomMetricsPage({ shared }: { shared: Shared }) {
                   className="flex items-center gap-2 rounded-lg border border-divider bg-content2 px-2.5 py-1 text-xs">
                   {m.name}
                   <span className="text-[11px] text-default-500">{m.out}</span>
-                  <button
-                    className="text-default-500 hover:text-[#d0777f]"
-                    title="删除这个自定义指标"
-                    onClick={() => remove(m.id)}
-                  >删</button>
+                  <Button size="sm" variant="light" className="h-6 min-w-0 px-1.5 text-xs text-default-400"
+                    title="删除这个自定义指标" onPress={() => remove(m.id)}>删</Button>
                 </span>
               ))}
             </div>
@@ -82,11 +80,8 @@ export default function CustomMetricsPage({ shared }: { shared: Shared }) {
                     {openForm === s.id
                       ? <UnknownForm sensor={s} onDone={() => { setOpenForm(null); setErr(""); afterChange(); }} />
                       : (
-                        <button
-                          className="rounded-md bg-content2 px-2 py-0.5 text-xs text-default-400 hover:text-foreground"
-                          title="起个名字、填个单位，注册成可以在版式里用的指标"
-                          onClick={() => { setOpenForm(s.id); setErr(""); }}
-                        >做成指标</button>
+                        <Button size="sm" variant="flat" title="起个名字、填个单位，注册成可以在版式里用的指标"
+                          onPress={() => { setOpenForm(s.id); setErr(""); }}>做成指标</Button>
                       )}
                   </td>
                 </tr>
@@ -103,7 +98,7 @@ export default function CustomMetricsPage({ shared }: { shared: Shared }) {
 function UnknownForm({ sensor, onDone }: { sensor: UnknownSensor; onDone: () => void }) {
   const [name, setName] = useState(sensor.label);
   const [unit, setUnit] = useState("");
-  const [digits, setDigits] = useState(0);
+  const [digits, setDigits] = useState("0");
   const [naZero, setNaZero] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
@@ -113,7 +108,7 @@ function UnknownForm({ sensor, onDone }: { sensor: UnknownSensor; onDone: () => 
     setError("");
     try {
       const rep = await api.addCustomMetric({
-        sensor_id: sensor.id, name, unit, digits, na_zero: naZero,
+        sensor_id: sensor.id, name, unit, digits: +digits || 0, na_zero: naZero,
       });
       if (!rep.saved) setError(rep.error || "加入失败");
       else onDone();
@@ -124,29 +119,20 @@ function UnknownForm({ sensor, onDone }: { sensor: UnknownSensor; onDone: () => 
     }
   };
 
-  const inputCls = "rounded-lg border border-transparent bg-content2 px-2.5 py-1 text-xs text-foreground " +
-    "transition-colors hover:bg-[#2a2a2f] focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/30";
-
   return (
-    <span className="inline-flex flex-wrap items-center gap-1.5">
-      <input type="text" value={name} size={14} onChange={e => setName(e.target.value)}
-        className={inputCls} title="显示在叠加层上的名字" />
-      <input type="text" value={unit} size={7} placeholder="单位，如 °C"
-        onChange={e => setUnit(e.target.value)} className={inputCls} />
-      <input type="number" value={digits} min={0} max={2}
-        onChange={e => setDigits(+e.target.value)} className={`${inputCls} w-14`} title="小数位数" />
-      <label className="inline-flex items-center gap-1 text-xs text-default-500">
-        <input type="checkbox" checked={naZero} onChange={e => setNaZero(e.target.checked)} className="accent-primary" />
-        0 当无数据
-      </label>
-      <button
-        disabled={busy}
-        onClick={submit}
-        className="rounded-md bg-content2 px-2 py-0.5 text-xs text-primary hover:text-foreground disabled:opacity-40"
-      >加入</button>
-      <button onClick={onDone}
-        className="rounded-md bg-content2 px-2 py-0.5 text-xs text-default-400 hover:text-foreground">取消</button>
-      {error && <span className="text-xs text-[#d0777f]">{error}</span>}
+    <span className="inline-flex flex-wrap items-center gap-2">
+      <Input size="sm" variant="flat" className="w-40" placeholder="名字"
+        value={name} onValueChange={setName} />
+      <Input size="sm" variant="flat" className="w-28" placeholder="单位，如 °C"
+        value={unit} onValueChange={setUnit} />
+      <Input size="sm" variant="flat" type="number" className="w-20" placeholder="小数位"
+        value={digits} onValueChange={setDigits} />
+      <Checkbox size="sm" isSelected={naZero} onValueChange={setNaZero}>
+        <span className="text-xs text-default-500">0 当无数据</span>
+      </Checkbox>
+      <Button size="sm" color="primary" isDisabled={busy} onPress={submit}>加入</Button>
+      <Button size="sm" variant="light" onPress={onDone}>取消</Button>
+      {error && <span className="text-xs text-danger">{error}</span>}
     </span>
   );
 }

@@ -16,20 +16,11 @@ body {
   margin: 0;
   background: var(--heroui-background);
   color: var(--heroui-foreground);
-  font-family: "JetBrains Mono", "Cascadia Mono", Consolas, "Source Han Sans SC",
-    "Source Han Sans CN", "思源黑体", "Noto Sans SC", "Microsoft YaHei", monospace;
+  font-family: ui-sans-serif, system-ui, "Segoe UI", "PingFang SC",
+    "Noto Sans SC", "Microsoft YaHei", sans-serif;
 }
 
-/* 原生 select 的自定义箭头（MetricSelect / 单位策略下拉用） */
-.sel-chevron {
-  appearance: none;
-  background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 16 16'><path d='M3.5 6l4.5 4.5L12.5 6' fill='none' stroke='%237f8ea3' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'/></svg>");
-  background-repeat: no-repeat;
-  background-position: right 10px center;
-}
-
-/* 编辑器里的提示条 */
-.hint {
-  border: 1px solid var(--heroui-divider);
-  background: #17171a;
+code,
+code * {
+  font-family: "JetBrains Mono", "Cascadia Mono", Consolas, monospace;
 }

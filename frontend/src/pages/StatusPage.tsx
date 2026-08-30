@@ -1,12 +1,12 @@
+import { Chip, Progress } from "@heroui/react";
 import type { Shared } from "../App";
 
-const Pill = ({ text, kind }: { text: string; kind: "ok" | "warn" | "bad" | "" }) => {
-  const color = kind === "ok" ? "text-primary border-[#3f5d43] bg-[#1d2620]"
-    : kind === "warn" ? "text-warning border-[#6a5a33] bg-[#262219]"
-      : kind === "bad" ? "text-[#d0777f] border-[#6a4048] bg-[#261c1e]"
-        : "text-default-400";
-  return <span className={`inline-block rounded-full border px-2.5 text-xs leading-5 ${color}`}>{text}</span>;
-};
+const Pill = ({ text, kind }: { text: string; kind: "ok" | "warn" | "bad" | "" }) => (
+  <Chip size="sm" variant="bordered"
+    color={kind === "ok" ? "success" : kind === "warn" ? "warning" : kind === "bad" ? "danger" : "default"}>
+    {text}
+  </Chip>
+);
 
 function Panel({ title, children }: { title: string; children: React.ReactNode }) {
   return (
@@ -58,12 +58,11 @@ export default function StatusPage({ shared }: { shared: Shared }) {
               <Kv k="AIDA64 缺这些" v={hw.missing.join(", ")} cls="text-[#d0777f]" />
             ) : null}
           </dl>
-          <div className="mt-2.5 h-2 overflow-hidden rounded bg-[#17171a]">
-            <div
-              className={`h-full rounded transition-all ${st.shm_pct > 90 ? "bg-[#d0777f]" : st.shm_pct > 75 ? "bg-warning" : "bg-primary"}`}
-              style={{ width: `${Math.min(100, st.shm_pct)}%` }}
-            />
-          </div>
+          <Progress
+            aria-label="共享内存占用" size="sm" className="mt-2.5"
+            value={Math.min(100, st.shm_pct)}
+            color={st.shm_pct > 90 ? "danger" : st.shm_pct > 75 ? "warning" : "primary"}
+          />
         </Panel>
 
         <Panel title="导出预算">
@@ -78,12 +77,11 @@ export default function StatusPage({ shared }: { shared: Shared }) {
                 <Kv k="截断风险" v={check.budget.fits ? "无" :
                   `从第 ${(check.budget.truncated_at ?? 0) + 1} 个起会被 AIDA64 静默截断`} />
               </dl>
-              <div className="mt-2.5 h-2 overflow-hidden rounded bg-[#17171a]">
-                <div
-                  className={`h-full rounded transition-all ${check.budget.worst_bytes > check.budget.usable ? "bg-[#d0777f]" : "bg-primary"}`}
-                  style={{ width: `${Math.min(100, check.budget.worst_bytes / check.budget.usable * 100)}%` }}
-                />
-              </div>
+              <Progress
+                aria-label="预算占用" size="sm" className="mt-2.5"
+                value={Math.min(100, check.budget.worst_bytes / check.budget.usable * 100)}
+                color={check.budget.worst_bytes > check.budget.usable ? "danger" : "primary"}
+              />
             </>
           ) : <span className="text-xs text-default-500">载入中…</span>}
         </Panel>

@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { Button } from "@heroui/react";
+import { Button, Input } from "@heroui/react";
 import { api, clone, outPaths } from "../api";
 import type { CardsWidget, ChipsWidget, OverlayConfig, TextWidget } from "../types";
 import type { Shared } from "../App";
@@ -154,23 +154,23 @@ export default function EditorPage({ shared }: { shared: Shared }) {
           确认效果后，再到 OBS 浏览器源里点一次“刷新缓存”即可生效。
         </p>
 
-        <div className="my-2 flex flex-wrap items-center gap-4">
-          <label className="flex items-center gap-1.5 text-xs text-default-500">叠加层宽
-            <input
-              type="number" defaultValue={draft.canvas.w} min={200} max={4000} step={10}
-              className="w-20 rounded-lg border border-transparent bg-content2 px-2.5 py-1.5 text-xs
-                hover:bg-[#2a2a2f] focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/30"
-              onChange={e => { draft.canvas.w = +e.target.value; setDraft({ ...draft }); onChange(); }}
+        <div className="my-3 flex flex-wrap items-center gap-5">
+          <div className="flex items-center gap-2.5">
+            <span className="text-xs text-default-500">叠加层宽</span>
+            <Input
+              aria-label="叠加层宽" type="number" size="sm" variant="flat"
+              defaultValue={String(draft.canvas.w)} className="w-32"
+              onValueChange={v => { draft.canvas.w = +v || draft.canvas.w; setDraft({ ...draft }); onChange(); }}
             />
-          </label>
-          <label className="flex items-center gap-1.5 text-xs text-default-500">叠加层高
-            <input
-              type="number" defaultValue={draft.canvas.h} min={60} max={1000} step={1}
-              className="w-20 rounded-lg border border-transparent bg-content2 px-2.5 py-1.5 text-xs
-                hover:bg-[#2a2a2f] focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/30"
-              onChange={e => { draft.canvas.h = +e.target.value; setDraft({ ...draft }); onChange(); }}
+          </div>
+          <div className="flex items-center gap-2.5">
+            <span className="text-xs text-default-500">叠加层高</span>
+            <Input
+              aria-label="叠加层高" type="number" size="sm" variant="flat"
+              defaultValue={String(draft.canvas.h)} className="w-32"
+              onValueChange={v => { draft.canvas.h = +v || draft.canvas.h; setDraft({ ...draft }); onChange(); }}
             />
-          </label>
+          </div>
           <span className="text-xs text-default-500">这两个数要和 OBS 浏览器源里填的宽高一致。</span>
         </div>
 
@@ -178,15 +178,13 @@ export default function EditorPage({ shared }: { shared: Shared }) {
           {draft.widgets.map((w, i) => {
             const meta = WIDGET_LABEL[w.type] ?? w.type;
             return (
-              <div key={i} className="overflow-hidden rounded-xl border border-divider bg-content2">
-                <div className="flex items-center justify-between border-b border-divider bg-[#17171a] px-3.5 py-2">
+              <div key={i} className="overflow-hidden rounded-2xl border border-divider bg-content2">
+                <div className="flex items-center justify-between border-b border-divider bg-[#17171a] px-4 py-2.5">
                   <b className="text-[13px] font-bold text-primary">部件 {i + 1} · {meta}</b>
-                  <button
-                    className="rounded-md px-2 py-0.5 text-xs text-default-400 hover:text-foreground"
-                    onClick={() => removeWidget(i)}
-                  >删除这一部件</button>
+                  <Button size="sm" variant="light" className="h-7 min-w-0 px-2 text-xs text-default-400"
+                    onPress={() => removeWidget(i)}>删除这一部件</Button>
                 </div>
-                <div className="px-3.5 py-2.5">
+                <div className="px-4 py-3">
                   {w.type === "cards" && <CardsEditor w={w as CardsWidget} metrics={metrics} onChange={onChange} />}
                   {w.type === "chips" && <ChipsEditor w={w as ChipsWidget} metrics={metrics} onChange={onChange} />}
                   {w.type === "text" && <TextEditor w={w as TextWidget} metrics={metrics} onChange={onChange} />}

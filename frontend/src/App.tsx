@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
+import { Button, Switch } from "@heroui/react";
 import { api } from "./api";
 import type { AidaStatus, HW, LayoutCheck, Metric } from "./types";
 import WizardPage from "./pages/WizardPage";
@@ -82,12 +83,12 @@ export default function App() {
 
   return (
     <div className="flex h-full">
-      <aside className="fixed inset-y-0 left-0 z-10 flex w-56 flex-col border-r border-divider bg-[#151517] px-3 py-5">
-        <div className="px-2.5 pb-5">
-          <div className="text-base font-bold before:text-primary before:content-['▍']">
+      <aside className="fixed inset-y-0 left-0 z-10 flex w-60 flex-col border-r border-divider bg-[#151516] px-3.5 py-6">
+        <div className="px-2.5 pb-6">
+          <div className="text-lg font-bold before:mr-1 before:text-primary before:content-['▍']">
             HWOverlay
           </div>
-          <div className="mt-0.5 text-[11.5px] text-default-500">直播硬件叠加层</div>
+          <div className="mt-0.5 text-xs text-default-500">直播硬件叠加层</div>
         </div>
 
         <nav className="flex flex-col gap-1">
@@ -95,15 +96,15 @@ export default function App() {
             <button
               key={item.id}
               onClick={() => switchView(item.id)}
-              className={`flex w-full items-center gap-2.5 rounded-xl px-3 py-2.5 text-left text-[13.5px] transition-colors ${
+              className={`flex h-11 w-full items-center gap-3 rounded-xl px-3.5 text-left text-sm transition-colors ${
                 view === item.id
-                  ? "bg-[#26262b] text-foreground"
-                  : "text-default-500 hover:bg-[#1e1e22] hover:text-foreground"
+                  ? "bg-content3 text-foreground"
+                  : "text-default-400 hover:bg-content2 hover:text-foreground"
               }`}
             >
               <svg
                 viewBox="0 0 16 16"
-                className={`h-4 w-4 flex-none ${view === item.id ? "stroke-primary" : ""}`}
+                className={`h-[18px] w-[18px] flex-none ${view === item.id ? "stroke-primary" : ""}`}
                 fill="none" stroke="currentColor" strokeWidth="1.4"
                 strokeLinejoin="round" strokeLinecap="round"
               >
@@ -114,27 +115,19 @@ export default function App() {
           ))}
         </nav>
 
-        <div className="mt-auto flex flex-col gap-2.5 px-1.5">
-          <label className="flex cursor-pointer items-center gap-2 text-xs text-default-500">
-            <input
-              type="checkbox"
-              checked={auto}
-              onChange={e => setAuto(e.target.checked)}
-              className="accent-primary"
-            />
-            自动刷新
-          </label>
-          <Button_like onClick={() => refreshAll()}>刷新数据</Button_like>
-          <a
-            href="/" target="_blank" rel="noreferrer"
-            className="rounded-lg border border-transparent bg-content2 px-3 py-1.5 text-center text-xs text-default-500 transition-colors hover:text-foreground"
-          >
-            打开叠加层 ↗
-          </a>
+        <div className="mt-auto flex flex-col gap-3 px-1.5">
+          <Switch size="sm" isSelected={auto} onValueChange={setAuto}>
+            <span className="text-xs text-default-500">自动刷新</span>
+          </Switch>
+          <Button size="sm" variant="flat" onPress={() => refreshAll()}>刷新数据</Button>
+          <Button
+            size="sm" variant="flat"
+            onPress={() => window.open("/", "_blank")}
+          >打开叠加层 ↗</Button>
         </div>
       </aside>
 
-      <main className="ml-56 flex-1 px-11 py-8">
+      <main className="ml-60 flex-1 px-11 py-9">
         <div className="mx-auto max-w-[960px]">
           {view === "start" && <WizardPage shared={shared} />}
           {view === "status" && <StatusPage shared={shared} />}
@@ -144,17 +137,5 @@ export default function App() {
         </div>
       </main>
     </div>
-  );
-}
-
-/** 侧栏底部的小按钮（HeroUI Button 在这里太重，一个轻量替身） */
-function Button_like({ onClick, children }: { onClick: () => void; children: React.ReactNode }) {
-  return (
-    <button
-      onClick={onClick}
-      className="rounded-lg border border-transparent bg-content2 px-3 py-1.5 text-center text-xs text-default-500 transition-colors hover:text-foreground"
-    >
-      {children}
-    </button>
   );
 }

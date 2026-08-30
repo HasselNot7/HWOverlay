@@ -1,31 +1,17 @@
 import { heroui } from "@heroui/react";
 
-/** HeroUI 主题：主色用 Nord 青 #88c0d0，与叠加层同源；底色学参考应用的近黑 zinc。 */
+/** HeroUI 主题：主色保持默认蓝（和参考应用同款），暗色底学它的近黑 + 灰阶分层。 */
 export default heroui({
   themes: {
     dark: {
       colors: {
-        background: "#121214",
-        foreground: "#eceff4",
-        divider: "#232326",
-        content1: "#1a1a1d",
-        content2: "#232327",
-        content3: "#2a2a2f",
-        focus: "#88c0d0",
-        primary: {
-          "50": "#e6f3f6",
-          "100": "#c2e2e8",
-          "200": "#9ccfdd",
-          "300": "#88c0d0",
-          "400": "#6aa9bc",
-          "500": "#4d8a9f",
-          "600": "#3a6a7d",
-          "700": "#2d505f",
-          "800": "#22404c",
-          "900": "#182f38",
-          DEFAULT: "#88c0d0",
-          foreground: "#121214",
-        },
+        background: "#121212",
+        foreground: "#eceef0",
+        divider: "#2e2e32",
+        content1: "#1b1b1e",
+        content2: "#27272a",
+        content3: "#323236",
+        focus: "#006fee",
       },
     },
   },
