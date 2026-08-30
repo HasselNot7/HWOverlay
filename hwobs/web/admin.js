@@ -750,8 +750,10 @@ function sizePreview(cw, ch) {
   const pv = $('#pv'), wrap = $('#pv-wrap');
   if (!pv || !cw || !ch) return;
   pvDim = [cw, ch];
+  const w = wrap.clientWidth;
+  if (!w) return;   // 所在视图当前隐藏；切回去时 showView 会重算
   // 缩放比跟随容器实际宽度：窗口再窄也能完整看到整个叠加层，不再裁边
-  const s = Math.min(1, (wrap.clientWidth - 2) / cw);
+  const s = Math.min(1, (w - 2) / cw);
   pv.style.width = cw + 'px';
   pv.style.height = ch + 'px';
   pv.style.transform = `scale(${s})`;
@@ -760,6 +762,25 @@ function sizePreview(cw, ch) {
 }
 
 window.addEventListener('resize', () => { if (pvDim) sizePreview(...pvDim); });
+
+/* ---------- 视图切换：左侧导航，一屏一个区块 ---------- */
+
+const VIEWS = document.querySelectorAll('.view');
+const NAV_BTNS = document.querySelectorAll('#nav button');
+
+function showView(name) {
+  VIEWS.forEach(v => v.classList.toggle('active', v.id === 'view-' + name));
+  NAV_BTNS.forEach(b => b.classList.toggle('active', b.dataset.view === name));
+  try { localStorage.setItem('hwoverlay.view', name); } catch (e) { /* 隐私模式随缘 */ }
+  // 预览在隐藏的视图里量不到宽度，切回版式编辑时重算一次
+  if (name === 'editor') requestAnimationFrame(() => { if (pvDim) sizePreview(...pvDim); });
+}
+
+NAV_BTNS.forEach(b => b.addEventListener('click', () => showView(b.dataset.view)));
+
+let savedView = null;
+try { savedView = localStorage.getItem('hwoverlay.view'); } catch (e) { /* 同上 */ }
+showView(savedView && document.getElementById('view-' + savedView) ? savedView : 'start');
 
 function reloadPreview() {
   $('#pv').src = `/?t=${Date.now()}`;
