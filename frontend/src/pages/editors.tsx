@@ -355,7 +355,6 @@ function CardEditor({ w, card, index, metrics, onChange, compact }: {
 export function CardsEditor({ w, metrics, onChange, compact }: { w: CardsWidget; metrics: Metric[]; onChange: () => void; compact?: boolean }) {
   return (
     <div>
-      <Hint className="mb-2">标题 + 进度条 + 右上大数字 + 下方小字，每个格都能换指标。</Hint>
       {w.items.map((c, i) => (
         <CardEditor key={c.key ?? i} w={w} card={c} index={i} metrics={metrics} onChange={onChange} compact={compact} />
       ))}
@@ -446,7 +445,7 @@ const QUICK = ["cpu.usage", "cpu.temp", "gpu.usage", "gpu.temp", "ram.used", "ra
 export function TextEditor({ w, metrics, onChange, compact }: { w: TextWidget; metrics: Metric[]; onChange: () => void; compact?: boolean }) {
   return (
     <div>
-      <Hint className="mb-2">花括号里填指标路径（如 {"{cpu.usage}"}），没数据显示 --；{"{time}"} 本地时钟、{"{date}"} 本地日期，不依赖传感器。</Hint>
+      <Hint className="mb-2">{"{指标路径}"} 插实时值；{"{time} {date}"} 为本地时钟/日期。</Hint>
       <Input
         aria-label="正文" size="sm" variant="flat" placeholder="想写的话 + {指标} 占位符"
         defaultValue={w.text ?? ""} className={compact ? "font-poppins" : "max-w-xl font-poppins"}
@@ -561,7 +560,6 @@ export function GaugeEditor({ w, metrics, onChange, compact }: { w: GaugeWidget;
           defaultValue={String(w.ring ?? 10)}
           onValueChange={v => { w.ring = +v || 10; onChange(); }} />
       </div>
-      <Hint className="text-xs">圆环按指标量程定标；中心数字带单位。</Hint>
     </div>
   );
 }
@@ -681,7 +679,6 @@ export function CanvasFields({ draft, onChange }: { draft: OverlayConfig; onChan
             }} />
         </div>
       </div>
-      <Hint className="pb-3">与 OBS 浏览器源里的宽高保持一致；开了透明，OBS 里就是无边底色直接叠在画面上。</Hint>
     </div>
   );
 }

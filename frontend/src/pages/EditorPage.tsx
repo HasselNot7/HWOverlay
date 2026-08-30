@@ -244,11 +244,6 @@ export default function EditorPage({ shared }: { shared: Shared }) {
       </Section>
 
       <Section title="编辑器">
-        <Hint>
-          部件从上往下排，下方预览实时跟随；保存后在 OBS 里点“刷新缓存”生效。
-          要拖拽自由摆放，去「自由排版」页。
-        </Hint>
-
         <CanvasFields draft={draft} onChange={onChange} />
         <PromptBar draft={draft} onChange={onChange} />
 
@@ -304,9 +299,7 @@ export default function EditorPage({ shared }: { shared: Shared }) {
             }}
           />
         </div>
-        <Hint className="mt-2">
-          预览实时跟随草稿，按 {scalePct}% 缩放，真实尺寸 {draft.canvas.w}×{draft.canvas.h}。
-        </Hint>
+        <Hint className="mt-2">预览 {scalePct}% · {draft.canvas.w}×{draft.canvas.h}</Hint>
       </Section>
 
       {/* 吸底保存条 */}
