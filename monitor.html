@@ -48,6 +48,9 @@
     /* AIDA64 数据断了就把整条压暗，直播时一眼能看出来 */
     body.offline { opacity: 0.45; }
 
+    /* 背景透明（canvas.transparent）：OBS 浏览器源直接透出游戏画面 */
+    body.transparent { background-color: transparent; }
+
     /* 只剩 Windows 自带指标：轻度提示，数字还在动，不能压太暗 */
     body.degraded { opacity: 0.75; }
 
@@ -277,6 +280,7 @@
       if (!canvas) return;
       const free = canvas.mode === 'free';
       document.body.classList.toggle('free', free);
+      document.body.classList.toggle('transparent', !!canvas.transparent);
       document.body.style.width = canvas.w + 'px';
       document.body.style.height = canvas.h + 'px';
       // 自由画布下部件用 x/y 定位，body 内边距没有意义
@@ -530,15 +534,17 @@
         }
       }
       instances = [];
-      for (const w of layout.widgets || []) {
+      (layout.widgets || []).forEach((w, i) => {
         const make = WIDGET_TYPES[w.type];
-        if (!make) { console.warn('未知部件类型：' + w.type); continue; }
+        if (!make) { console.warn('未知部件类型：' + w.type); return; }
         instances.push(make(w));
         if (free) {
           // 各工厂都把根节点 append 到 body 末尾，拿出来打上定位。
           // cards/chips/text 没写 w 时从 x 拉到右缘（通栏，和流式的观感衔接）；
           // margin_top 已折算进 y，这里清零避免双重偏移。
+          // data-wi = 部件在数组里的下标，编辑器靠它直接改宿主样式做拖拽跟手。
           const host = document.body.lastElementChild;
+          host.dataset.wi = String(i);
           host.style.left = (w.x || 0) + 'px';
           host.style.top = (w.y || 0) + 'px';
           if (w.w) host.style.width = w.w + 'px';
@@ -548,8 +554,21 @@
           }
           host.style.marginTop = '0px';
         }
-      }
+      });
       document.body.appendChild(probe);
+      if (PREVIEW) reportRects();
+    }
+
+    /** 编辑器协议：每次 build 完，把各部件渲染后的真实几何回报给管理页。
+     * 编辑器在 iframe 上叠手柄，手柄位置以此为准 —— 不再靠估算。 */
+    function reportRects() {
+      const rects = [];
+      for (const h of document.body.querySelectorAll('[data-wi]')) {
+        rects[+h.dataset.wi] = {
+          x: h.offsetLeft, y: h.offsetTop, w: h.offsetWidth, h: h.offsetHeight,
+        };
+      }
+      parent.postMessage({ type: 'hwobs-rects', rects }, '*');
     }
 
     function render() {
@@ -576,9 +595,10 @@
     }
 
     if (PREVIEW) {
-      // 同源校验：别处网页就算嵌了这个 iframe 也推不进布局
+      // 只认父页面（管理页编辑器）：比同源校验宽一点，开发态 vite(5173) 内嵌
+      // 8765 的预览也能工作；推的只是版式草稿，没有敏感数据。
       window.addEventListener('message', e => {
-        if (e.origin !== location.origin) return;
+        if (e.source !== window.parent) return;
         const d = e.data;
         if (d && d.type === 'hwobs-preview' && d.layout) acceptPreview(d.layout);
       });

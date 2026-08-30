@@ -92,6 +92,8 @@ export interface Canvas {
   padding?: [number, number];
   /** flow=自上而下堆叠（默认）；free=部件按 x/y 绝对定位 */
   mode?: "flow" | "free";
+  /** true=叠加层背景透明，OBS 里直接叠在画面上 */
+  transparent?: boolean;
 }
 
 export interface OverlayConfig {

@@ -8,7 +8,7 @@ import {
 import { useState } from "react";
 import type {
   CardItem, CardsWidget, ChipsWidget, GroupDef, HtmlWidget, Metric,
-  ProgressWidget, StatWidget, TextWidget,
+  OverlayConfig, ProgressWidget, StatWidget, TextWidget,
 } from "../types";
 import { CARD_CLS, FieldLabel, Hint } from "../ui";
 
@@ -25,10 +25,12 @@ export const metricOpt = (metrics: Metric[], p: string): string => {
 
 const NONE = "__none__";
 
-export function MetricSelect({ metrics, value, allowEmpty = true, onChange }: {
+export function MetricSelect({ metrics, value, allowEmpty = true, compact, onChange }: {
   metrics: Metric[];
   value?: string;
   allowEmpty?: boolean;
+  /** 紧凑模式（浮动面板里）：不锁 240px 定宽，随所在行伸缩 */
+  compact?: boolean;
   onChange: (v: string) => void;
 }) {
   const selected = value ?? (allowEmpty ? NONE : "");
@@ -41,7 +43,7 @@ export function MetricSelect({ metrics, value, allowEmpty = true, onChange }: {
     <Select
       aria-label="选择指标"
       size="sm" variant="flat"
-      className="w-[240px] flex-none font-poppins"
+      className={compact ? "w-full font-poppins" : "w-[240px] flex-none font-poppins"}
       classNames={{ trigger: "cursor-pointer transition-background !duration-150" }}
       selectedKeys={selected ? [selected] : []}
       disallowEmptySelection={!allowEmpty}
@@ -68,7 +70,7 @@ const MiniBtn = ({ onClick, title, children }: {
 
 /** 槽位（value/sub）的条目行：字符串引用就地改；复合对象只读 + 可删。
  * value 槽位每行带"带单位"开关：写进条目的 unit_on，没动过的行沿用组级策略。 */
-function SlotRow({ arr, i, total, unitAll, allowLabel, metrics, onChange, rebuild }: {
+function SlotRow({ arr, i, total, unitAll, allowLabel, metrics, onChange, rebuild, compact }: {
   arr: (string | GroupDef["metrics"][number])[];
   i: number;
   total: number;
@@ -77,6 +79,7 @@ function SlotRow({ arr, i, total, unitAll, allowLabel, metrics, onChange, rebuil
   metrics: Metric[];
   onChange: () => void;
   rebuild: () => void;
+  compact?: boolean;
 }) {
   const item = arr[i];
   const del = (
@@ -100,10 +103,22 @@ function SlotRow({ arr, i, total, unitAll, allowLabel, metrics, onChange, rebuil
     onChange();
   };
 
-  const metricSel = (
+  const metricSel = compact ? (
+    <div className="w-full">
+      <MetricSelect metrics={metrics}
+        value={typeof item === "string" ? item : (item && "metric" in item ? item.metric : undefined)}
+        allowEmpty={false} compact
+        onChange={v => {
+          if (!v) return;
+          if (typeof item === "object" && item !== null) item.metric = v;
+          else arr[i] = v;
+          onChange();
+        }} />
+    </div>
+  ) : (
     <MetricSelect metrics={metrics}
       value={typeof item === "string" ? item : (item && "metric" in item ? item.metric : undefined)}
-      allowEmpty={false}
+      allowEmpty={false} compact={compact}
       onChange={v => {
         if (!v) return;
         if (typeof item === "object" && item !== null) item.metric = v;
@@ -112,9 +127,11 @@ function SlotRow({ arr, i, total, unitAll, allowLabel, metrics, onChange, rebuil
       }} />
   );
 
+  const rowCls = compact ? "my-1.5 flex flex-wrap items-center gap-1.5" : "my-1 flex items-center gap-1.5";
+
   if (typeof item === "string") {
     return (
-      <div className="my-1 flex items-center gap-1.5">
+      <div className={rowCls}>
         {metricSel}
         {!allowLabel && <Switch size="sm" aria-label="这个值带单位" title="显示单位"
           isSelected={unitOn} onValueChange={setUnit} />}
@@ -133,7 +150,7 @@ function SlotRow({ arr, i, total, unitAll, allowLabel, metrics, onChange, rebuil
   }
   if (item && "metric" in item && item.metric) {
     return (
-      <div className="my-1 flex items-center gap-1.5">
+      <div className={rowCls}>
         {metricSel}
         {!allowLabel && <Switch size="sm" aria-label="这个值带单位" title="显示单位"
           isSelected={unitOn} onValueChange={setUnit} />}
@@ -168,21 +185,23 @@ function SlotRow({ arr, i, total, unitAll, allowLabel, metrics, onChange, rebuil
   );
 }
 
-/** 大数字（allowLabel=false）与小字（allowLabel=true）槽位。 */
-export function SlotEditor({ card, defKey, title, allowLabel, metrics, onChange }: {
+/** 大数字（allowLabel=false）与小字（allowLabel=true）槽位。
+ * compact：窄面板模式——标签放上方、内容纵向排，不再和 110px 标签列挤一行。 */
+export function SlotEditor({ card, defKey, title, allowLabel, metrics, onChange, compact }: {
   card: CardItem;
   defKey: "value" | "sub";
   title: string;
   allowLabel: boolean;
   metrics: Metric[];
   onChange: () => void;
+  compact?: boolean;
 }) {
   const def: GroupDef | undefined = card[defKey];
   const list = (def?.metrics ?? []) as (string | GroupDef["metrics"][number])[];
   const unitAll = def?.unit_policy === "all";
   const rows = list.map((_, i) => (
     <SlotRow key={i} arr={list} i={i} total={list.length} unitAll={unitAll}
-      allowLabel={allowLabel} metrics={metrics} onChange={onChange}
+      allowLabel={allowLabel} metrics={metrics} onChange={onChange} compact={compact}
       rebuild={() => onChange()} />
   ));
 
@@ -194,8 +213,8 @@ export function SlotEditor({ card, defKey, title, allowLabel, metrics, onChange 
   };
 
   return (
-    <div className="my-2.5 flex items-start gap-3">
-      <span className="w-[110px] flex-none pt-2"><FieldLabel>{title}</FieldLabel></span>
+    <div className={compact ? "my-2 flex flex-col gap-1.5" : "my-2.5 flex items-start gap-3"}>
+      <span className={compact ? "" : "w-[110px] flex-none pt-2"}><FieldLabel>{title}</FieldLabel></span>
       <div className="min-w-0 flex-1">
         {rows}
         <div className="mt-1">
@@ -209,15 +228,15 @@ export function SlotEditor({ card, defKey, title, allowLabel, metrics, onChange 
 
 /** 大数字格的组级设置：分隔符 + 单位显示策略（分段选择器学它的 Tabs 药丸样式）。 */
 /** 大数字格的组级设置：只剩分隔符 —— 单位改成每行自己的开关了。 */
-export function ValueGroupEditor({ card, onChange }: { card: CardItem; onChange: () => void }) {
+export function ValueGroupEditor({ card, onChange, compact }: { card: CardItem; onChange: () => void; compact?: boolean }) {
   const ensure = (): GroupDef => {
     if (!card.value) card.value = { metrics: [] };
     return card.value;
   };
   return (
-    <div className="my-2.5 flex items-start gap-3">
-      <span className="w-[110px] flex-none pt-2"><FieldLabel>分隔符</FieldLabel></span>
-      <div className="flex items-center gap-2.5">
+    <div className={compact ? "my-2 flex flex-col gap-1.5" : "my-2.5 flex items-start gap-3"}>
+      <span className={compact ? "" : "w-[110px] flex-none pt-2"}><FieldLabel>分隔符</FieldLabel></span>
+      <div className="flex flex-wrap items-center gap-2.5">
         <Input
           aria-label="分隔符" size="sm" variant="flat"
           defaultValue={card.value?.sep ?? " · "} className="w-32 font-poppins"
@@ -229,12 +248,13 @@ export function ValueGroupEditor({ card, onChange }: { card: CardItem; onChange:
   );
 }
 
-function CardEditor({ w, card, index, metrics, onChange }: {
+function CardEditor({ w, card, index, metrics, onChange, compact }: {
   w: CardsWidget;
   card: CardItem;
   index: number;
   metrics: Metric[];
   onChange: () => void;
+  compact?: boolean;
 }) {
   return (
     <div className={`${CARD_CLS} p-4`}>
@@ -246,39 +266,39 @@ function CardEditor({ w, card, index, metrics, onChange }: {
         </Button>
       </div>
 
-      <div className="my-3 flex items-center gap-3">
+      <div className="my-3 flex flex-col gap-1.5">
         <span className="text-xs text-color-desc">标题（卡片左上）</span>
         <Input
           aria-label="卡片标题" size="sm" variant="flat"
-          defaultValue={card.label ?? ""} className="max-w-md font-poppins"
+          defaultValue={card.label ?? ""} className={compact ? "font-poppins" : "max-w-md font-poppins"}
           onValueChange={v => { card.label = v; onChange(); }}
         />
       </div>
 
-      <div className="my-3 flex flex-wrap items-center gap-5">
-        <label className="flex items-center gap-2 text-xs text-color-desc">进度条
-          <MetricSelect metrics={metrics} value={card.bar}
+      <div className={compact ? "my-3 flex flex-col gap-2" : "my-3 flex flex-wrap items-center gap-5"}>
+        <label className={compact ? "flex items-center gap-2 text-xs text-color-desc" : "flex items-center gap-2 text-xs text-color-desc"}>进度条
+          <MetricSelect metrics={metrics} value={card.bar} compact={compact}
             onChange={v => { if (v) card.bar = v; else delete card.bar; onChange(); }} />
         </label>
         <label className="flex items-center gap-2 text-xs text-color-desc">迷你曲线
-          <MetricSelect metrics={metrics} value={card.spark}
+          <MetricSelect metrics={metrics} value={card.spark} compact={compact}
             onChange={v => { if (v) card.spark = v; else delete card.spark; onChange(); }} />
         </label>
       </div>
 
-      <SlotEditor card={card} defKey="value" title="大数字（右上）" allowLabel={false} metrics={metrics} onChange={onChange} />
-      <ValueGroupEditor card={card} onChange={onChange} />
-      <SlotEditor card={card} defKey="sub" title="小字（下方一行）" allowLabel metrics={metrics} onChange={onChange} />
+      <SlotEditor card={card} defKey="value" title="大数字（右上）" allowLabel={false} metrics={metrics} onChange={onChange} compact={compact} />
+      <ValueGroupEditor card={card} onChange={onChange} compact={compact} />
+      <SlotEditor card={card} defKey="sub" title="小字（下方一行）" allowLabel metrics={metrics} onChange={onChange} compact={compact} />
     </div>
   );
 }
 
-export function CardsEditor({ w, metrics, onChange }: { w: CardsWidget; metrics: Metric[]; onChange: () => void }) {
+export function CardsEditor({ w, metrics, onChange, compact }: { w: CardsWidget; metrics: Metric[]; onChange: () => void; compact?: boolean }) {
   return (
     <div>
       <Hint className="mb-2">标题 + 进度条 + 右上大数字 + 下方小字，每个格都能换指标。</Hint>
       {w.items.map((c, i) => (
-        <CardEditor key={c.key ?? i} w={w} card={c} index={i} metrics={metrics} onChange={onChange} />
+        <CardEditor key={c.key ?? i} w={w} card={c} index={i} metrics={metrics} onChange={onChange} compact={compact} />
       ))}
       <div className="mt-2">
         <MiniBtn onClick={() => {
@@ -364,13 +384,13 @@ export function ChipsEditor({ w, metrics, onChange }: { w: ChipsWidget; metrics:
 
 const QUICK = ["cpu.usage", "cpu.temp", "gpu.usage", "gpu.temp", "ram.used", "ram.total", "net.up_mbps", "net.down_mbps"];
 
-export function TextEditor({ w, metrics, onChange }: { w: TextWidget; metrics: Metric[]; onChange: () => void }) {
+export function TextEditor({ w, metrics, onChange, compact }: { w: TextWidget; metrics: Metric[]; onChange: () => void; compact?: boolean }) {
   return (
     <div>
       <Hint className="mb-2">花括号里填指标路径（如 {"{cpu.usage}"}），没数据显示 --。</Hint>
       <Input
         aria-label="正文" size="sm" variant="flat" placeholder="想写的话 + {指标} 占位符"
-        defaultValue={w.text ?? ""} className="max-w-xl font-poppins"
+        defaultValue={w.text ?? ""} className={compact ? "font-poppins" : "max-w-xl font-poppins"}
         onValueChange={v => { w.text = v; onChange(); }}
       />
       <div className="mt-2 flex flex-wrap items-center gap-4">
@@ -401,17 +421,17 @@ export function TextEditor({ w, metrics, onChange }: { w: TextWidget; metrics: M
 
 // --- 自由画布部件的参数面板 ---------------------------------------------------
 
-export function StatEditor({ w, metrics, onChange }: { w: StatWidget; metrics: Metric[]; onChange: () => void }) {
+export function StatEditor({ w, metrics, onChange, compact }: { w: StatWidget; metrics: Metric[]; onChange: () => void; compact?: boolean }) {
   return (
     <div className="flex flex-col gap-2">
       <div className="flex items-center gap-2.5">
         <span className="w-[64px] flex-none text-xs text-color-desc">指标</span>
-        <MetricSelect metrics={metrics} value={w.metric} allowEmpty={false}
+        <MetricSelect metrics={metrics} value={w.metric} allowEmpty={false} compact={compact}
           onChange={v => { if (v) { w.metric = v; onChange(); } }} />
       </div>
       <div className="flex items-center gap-2.5">
         <span className="w-[64px] flex-none text-xs text-color-desc">名字</span>
-        <Input size="sm" variant="flat" className="w-56 font-poppins" placeholder="可空"
+        <Input size="sm" variant="flat" className={compact ? "min-w-0 flex-1 font-poppins" : "w-56 font-poppins"} placeholder="可空"
           defaultValue={w.label ?? ""}
           onValueChange={v => { w.label = v || undefined; onChange(); }} />
       </div>
@@ -425,12 +445,12 @@ export function StatEditor({ w, metrics, onChange }: { w: StatWidget; metrics: M
   );
 }
 
-export function ProgressEditor({ w, metrics, onChange }: { w: ProgressWidget; metrics: Metric[]; onChange: () => void }) {
+export function ProgressEditor({ w, metrics, onChange, compact }: { w: ProgressWidget; metrics: Metric[]; onChange: () => void; compact?: boolean }) {
   return (
     <div className="flex flex-col gap-2">
       <div className="flex items-center gap-2.5">
         <span className="w-[64px] flex-none text-xs text-color-desc">指标</span>
-        <MetricSelect metrics={metrics} value={w.metric} allowEmpty={false}
+        <MetricSelect metrics={metrics} value={w.metric} allowEmpty={false} compact={compact}
           onChange={v => { if (v) { w.metric = v; onChange(); } }} />
       </div>
       <div className="flex items-center gap-2.5">
@@ -459,6 +479,100 @@ export function HtmlEditor({ w, onChange }: { w: HtmlWidget; onChange: () => voi
       <Hint className="text-xs">
         {"{cpu.usage}"} 这类占位符会替换成实时值；&lt;script&gt; 不会执行，只支持无状态的 HTML/CSS。
       </Hint>
+    </div>
+  );
+}
+
+// --- 排版页共用块 ---------------------------------------------------------------
+
+/** 画布尺寸输入：原地改 draft.canvas，调用方负责重渲染。 */
+export function CanvasFields({ draft, onChange }: { draft: OverlayConfig; onChange: () => void }) {
+  return (
+    <div className="mt-2 flex flex-wrap items-end gap-5">
+      <div className="flex flex-col gap-2">
+        <FieldLabel>叠加层宽</FieldLabel>
+        <Input
+          aria-label="叠加层宽" type="number" size="lg" variant="flat"
+          classNames={{ inputWrapper: "px-4" }}
+          defaultValue={String(draft.canvas.w)} className="w-36 font-poppins"
+          onValueChange={v => { draft.canvas.w = +v || draft.canvas.w; onChange(); }}
+        />
+      </div>
+      <div className="flex flex-col gap-2">
+        <FieldLabel>叠加层高</FieldLabel>
+        <Input
+          aria-label="叠加层高" type="number" size="lg" variant="flat"
+          classNames={{ inputWrapper: "px-4" }}
+          defaultValue={String(draft.canvas.h)} className="w-36 font-poppins"
+          onValueChange={v => { draft.canvas.h = +v || draft.canvas.h; onChange(); }}
+        />
+      </div>
+      <div className="flex flex-col gap-2 pb-3">
+        <FieldLabel>背景透明</FieldLabel>
+        <div className="flex h-12 items-center">
+          <Switch size="sm" aria-label="背景透明"
+            isSelected={!!draft.canvas.transparent}
+            onValueChange={b => {
+              if (b) draft.canvas.transparent = true;
+              else delete draft.canvas.transparent;
+              onChange();
+            }} />
+        </div>
+      </div>
+      <Hint className="pb-3">与 OBS 浏览器源里的宽高保持一致；开了透明，OBS 里就是无边底色直接叠在画面上。</Hint>
+    </div>
+  );
+}
+
+/** 顶部装饰命令行：整行开关 + 内容/字号/光标。原地改 draft.prompt。 */
+export function PromptBar({ draft, onChange }: { draft: OverlayConfig; onChange: () => void }) {
+  return (
+    <div className="mt-2 flex flex-wrap items-end gap-5">
+      <div className="flex flex-col gap-2">
+        <FieldLabel>顶部命令行装饰</FieldLabel>
+        <div className="flex h-12 items-center">
+          <Switch size="sm" aria-label="显示顶部命令行装饰"
+            isSelected={!!draft.prompt}
+            onValueChange={b => {
+              if (b) {
+                draft.prompt = { user: "streamer@pc", cmd: "./sysmon --source=aida64 --interval=1s", cursor: true, size: 19 };
+              } else {
+                delete draft.prompt;
+              }
+              onChange();
+            }} />
+        </div>
+      </div>
+      {draft.prompt && (
+        <>
+          <div className="flex flex-col gap-2">
+            <FieldLabel>用户@主机</FieldLabel>
+            <Input aria-label="命令行用户" size="lg" variant="flat" className="w-56 font-poppins"
+              value={draft.prompt.user ?? ""}
+              onValueChange={v => { draft.prompt!.user = v; onChange(); }} />
+          </div>
+          <div className="flex min-w-0 flex-1 flex-col gap-2">
+            <FieldLabel>命令行文本</FieldLabel>
+            <Input aria-label="命令行文本" size="lg" variant="flat" className="min-w-[280px] font-poppins"
+              value={draft.prompt.cmd ?? ""}
+              onValueChange={v => { draft.prompt!.cmd = v; onChange(); }} />
+          </div>
+          <div className="flex flex-col gap-2">
+            <FieldLabel>命令行字号</FieldLabel>
+            <Input aria-label="命令行字号" type="number" size="lg" variant="flat" className="w-24 font-poppins"
+              value={String(draft.prompt.size ?? 19)}
+              onValueChange={v => { draft.prompt!.size = +v || 19; onChange(); }} />
+          </div>
+          <div className="flex flex-col gap-2 pb-3">
+            <FieldLabel>闪烁光标</FieldLabel>
+            <div className="flex h-12 items-center">
+              <Switch size="sm" aria-label="闪烁光标"
+                isSelected={draft.prompt.cursor ?? true}
+                onValueChange={b => { draft.prompt!.cursor = b; onChange(); }} />
+            </div>
+          </div>
+        </>
+      )}
     </div>
   );
 }

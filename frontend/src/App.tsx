@@ -1,7 +1,7 @@
 import { addToast, Button, Modal, ModalBody, ModalContent, ModalFooter, ModalHeader, Switch } from "@heroui/react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import {
-  House, Activity, LayoutGrid, FlaskConical, Table2, RefreshCw,
+  House, Activity, LayoutGrid, Move, FlaskConical, Table2, RefreshCw,
   ExternalLink, AudioLines, Power,
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
@@ -10,13 +10,15 @@ import type { AidaStatus, HW, LayoutCheck, Metric } from "./types";
 import WizardPage from "./pages/WizardPage";
 import StatusPage from "./pages/StatusPage";
 import EditorPage from "./pages/EditorPage";
+import FreeEditorPage from "./pages/FreeEditorPage";
 import CustomMetricsPage from "./pages/CustomMetricsPage";
 import MetricsTablePage from "./pages/MetricsTablePage";
 
 const NAV = [
   { id: "start", label: "开始使用", Icon: House },
   { id: "status", label: "状态总览", Icon: Activity },
-  { id: "editor", label: "版式编辑", Icon: LayoutGrid },
+  { id: "editor", label: "流式排版", Icon: LayoutGrid },
+  { id: "free", label: "自由排版", Icon: Move },
   { id: "custom", label: "自定义指标", Icon: FlaskConical },
   { id: "metrics", label: "指标总表", Icon: Table2 },
 ];
@@ -184,21 +186,24 @@ export default function App() {
         </ModalContent>
       </Modal>
 
-      {/* 主体：居中列。表单类页保持 NP 的 800px；表格/编辑器这类数据密集页放宽到 1200px */}
-      <main className="relative ml-72 min-h-screen">
-        <div className="flex justify-center">
-          <div className={`flex w-full flex-col gap-6 px-10 py-6 ${
-            view === "editor" || view === "metrics" || view === "custom"
-              ? "max-w-[1200px]" : "max-w-[800px]"
-          }`}>
-            {view === "start" && <WizardPage shared={shared} />}
-            {view === "status" && <StatusPage shared={shared} />}
-            {view === "editor" && <EditorPage shared={shared} />}
-            {view === "custom" && <CustomMetricsPage shared={shared} />}
-            {view === "metrics" && <MetricsTablePage shared={shared} />}
+      {/* 主体：居中列。表单类页保持 NP 的 800px；表格/编辑器这类数据密集页放宽到 1200px。
+          自由排版是全屏工作台（自带工具栏/面板/保存条），不走这列。 */}
+      {view === "free" ? <FreeEditorPage shared={shared} /> : (
+        <main className="relative ml-72 min-h-screen">
+          <div className="flex justify-center">
+            <div className={`flex w-full flex-col gap-6 px-10 py-6 ${
+              view === "editor" || view === "metrics" || view === "custom"
+                ? "max-w-[1200px]" : "max-w-[800px]"
+            }`}>
+              {view === "start" && <WizardPage shared={shared} />}
+              {view === "status" && <StatusPage shared={shared} />}
+              {view === "editor" && <EditorPage shared={shared} />}
+              {view === "custom" && <CustomMetricsPage shared={shared} />}
+              {view === "metrics" && <MetricsTablePage shared={shared} />}
+            </div>
           </div>
-        </div>
-      </main>
+        </main>
+      )}
     </div>
   );
 }
