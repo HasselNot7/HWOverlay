@@ -90,8 +90,9 @@ python build.py --skip-frontend   # 跳过前端构建（已有 dist 时）
 
 React + HeroUI 单页应用（源码 `frontend/`）：
 
-- **开始使用**：三步向导 —— 连接 AIDA64、对齐导出清单（含预算 diff，
-  勾选确认后应用，**会关闭并重启 AIDA64**）、OBS 填法。
+- **开始使用**：三步向导 —— 连接 AIDA64、导出清单只读对比（缺哪些传感器、
+  一键复制补全后的 `HWMonExtAppItems` 行，**本软件不写 AIDA64 的 ini**，
+  改不改由用户自己动手）、OBS 填法。
 - **状态总览**：数据源状态、共享内存预算条、OBS 填法。
 - **版式编辑**：部件级可视化编辑 + 实时缩放预览 + 写盘前强制校验。
 - **自定义指标**：未知传感器注册与删除。
@@ -103,7 +104,7 @@ React + HeroUI 单页应用（源码 `frontend/`）：
 |---|---|
 | GET `/hw.json` `/overlay.json` `/metrics.json` `/sensors` | 数据 |
 | GET/POST `/api/layout-check` | 校验磁盘配置 / 校验草稿 |
-| GET `/api/aida/status` `/api/aida/plan`；POST `/api/aida/apply` | 导出清单状态/diff/应用（需 `confirm`） |
+| GET `/api/aida/status` `/api/aida/plan` | 导出清单状态与只读对比（缺哪些/补全清单；**不写 AIDA64 的 ini**） |
 | PUT `/api/config`；POST `/api/config/rollback` | 版式写盘（校验不过不落盘、备份、原子替换）/ 回滚 |
 | GET `/api/sensors/unknown`；POST/DELETE `/api/metrics/custom` | 自定义指标 |
 

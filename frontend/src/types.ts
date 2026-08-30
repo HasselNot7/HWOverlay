@@ -135,27 +135,18 @@ export interface BudgetBrief {
 export interface AidaPlan {
   current_count: number;
   needed_count: number;
-  to_add: string[];
-  to_remove: string[];
-  add_reasons: Record<string, string[]>;
+  /** 版式需要、但 AIDA64 还没导出的传感器（用户自己去补，本软件不写 ini） */
+  missing: string[];
+  missing_reasons: Record<string, string[]>;
+  /** 清单里本软件用不到的传感器——仅列出告知，绝不动它们 */
+  unused: string[];
+  /** 补全清单：现有 ∪ 缺口，供用户复制粘贴进 ini 的整行值 */
+  merged_key: string;
+  merged_items: string;
   budget_now: BudgetBrief;
-  /** 默认动作（只加不删，保留现有传感器）之后的预算 */
-  budget_new: BudgetBrief;
-  /** 勾选"顺便精简"（收敛到版式所需）之后的预算 */
-  budget_prune: BudgetBrief;
+  budget_merged: BudgetBrief;
   fits: boolean;
-  fits_prune: boolean;
-  /** 精简相比只加不删能省多少字节 */
-  prune_saves: number;
-  restart_required: boolean;
   unchanged: boolean;
-}
-
-export interface ApplyResult {
-  applied: boolean;
-  reason?: string;
-  rolled_back?: boolean;
-  verified?: boolean;
 }
 
 export interface UnknownSensor {

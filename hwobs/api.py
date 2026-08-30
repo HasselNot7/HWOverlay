@@ -120,35 +120,6 @@ def create_app() -> FastAPI:
     def aida_plan():
         return controller.plan_export()
 
-    @app.post("/api/aida/apply")
-    def aida_apply(body: dict = Body(...)):
-        if not (isinstance(body, dict) and body.get("confirm") is True):
-            return JSONResponse({"applied": False,
-                                 "reason": "需要 confirm=true：这一步会关闭并重启你的 AIDA64"},
-                                status_code=400)
-        plan = controller.plan_export()
-        prune = bool(body.get("prune"))
-        if not plan["to_add"] and not (prune and plan["to_remove"]):
-            return {"applied": False, "reason": "版式需要的传感器都已导出，无需改动"}
-        if not (plan["fits_prune"] if prune else plan["fits"]):
-            reason = ("精简后仍超出 4096 预算，先去掉几个版式指标" if prune else
-                      "只加不删会超出 4096 预算：回编辑器去掉几个指标，或勾选“顺便精简”")
-            return JSONResponse({"applied": False, "reason": reason}, status_code=409)
-        if body.get("expect_count") != plan["needed_count"]:
-            return JSONResponse({"applied": False,
-                                 "reason": "清单已变化，请刷新后重新确认", "plan": plan},
-                                status_code=409)
-        sensors = controller.read_sensors_now()
-        needed, _unknown = controller.propose(config.read(), sensors=sensors)
-        current = list(sensors or {})
-        # 默认只加不删（清单里可能有其他软件在用的传感器）；prune=True 才收敛到版式所需
-        ids = needed if prune else current + [i for i in needed if i not in current]
-        try:
-            res = controller.apply(ids, confirm=True)
-        except Exception as e:      # noqa: BLE001
-            return JSONResponse({"applied": False, "reason": f"执行失败：{e}"}, status_code=500)
-        return {**res, "plan_after": controller.plan_export()}
-
     # ---------- 自定义指标 ----------
 
     @app.get("/api/sensors/unknown")

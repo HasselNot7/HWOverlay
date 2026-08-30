@@ -1,7 +1,8 @@
-import { Button, Checkbox, Chip, Divider } from "@heroui/react";
+import { addToast, Button, Chip } from "@heroui/react";
 import { useCallback, useEffect, useState } from "react";
+import { Copy } from "lucide-react";
 import { api } from "../api";
-import type { AidaPlan, ApplyResult } from "../types";
+import type { AidaPlan } from "../types";
 import type { Shared } from "../App";
 import { Hint, Page, Section, SubTitle } from "../ui";
 
@@ -26,15 +27,11 @@ function Step({ kind, title, children }: {
   );
 }
 
-const DiffChips = ({ ids, kind }: { ids: string[]; kind: "add" | "del" }) => (
+const DiffChips = ({ ids }: { ids: string[] }) => (
   <div className="mt-1.5 flex flex-wrap gap-1.5">
     {ids.map(id => (
       <span key={id}
-        className={`rounded-lg border px-1.5 py-0.5 text-xs font-poppins ${
-          kind === "add"
-            ? "border-default-100 bg-default-100/50 text-primary"
-            : "border-default-100 text-default-500 line-through"
-        }`}>
+        className="rounded-lg border border-default-100 bg-default-100/50 px-1.5 py-0.5 font-poppins text-xs text-primary">
         {id}
       </span>
     ))}
@@ -43,10 +40,6 @@ const DiffChips = ({ ids, kind }: { ids: string[]; kind: "add" | "del" }) => (
 
 export default function WizardPage({ shared }: { shared: Shared }) {
   const [plan, setPlan] = useState<AidaPlan | null>(null);
-  const [confirmed, setConfirmed] = useState(false);
-  const [pruneOpt, setPruneOpt] = useState(false);
-  const [msg, setMsg] = useState<{ text: string; kind: "ok" | "bad" | "warn" } | null>(null);
-  const [busy, setBusy] = useState(false);
   const { status } = shared;
 
   const loadPlan = useCallback(async () => {
@@ -55,27 +48,18 @@ export default function WizardPage({ shared }: { shared: Shared }) {
 
   useEffect(() => { loadPlan(); }, [loadPlan, shared.check]);
 
-  const apply = async (prune: boolean) => {
+  /** 复制补全后的 HWMonExtAppItems 整行。写不写 ini 是用户自己的动作，本软件不碰。 */
+  const copyMerged = async () => {
     if (!plan) return;
-    setBusy(true);
-    setMsg({ text: "应用中：关闭 AIDA64 → 写 ini → 重启 → 回读校验…", kind: "warn" });
     try {
-      const rep: ApplyResult = await api.aidaApply(plan.needed_count, prune);
-      if (!rep.applied) {
-        setMsg({ text: `✗ ${rep.reason || "未应用"}`, kind: "bad" });
-      } else {
-        setMsg({
-          text: rep.rolled_back ? "✗ 已应用，但回读发现截断，已自动回滚——请减少指标"
-            : "✓ 已应用，共享内存已更新",
-          kind: rep.rolled_back ? "bad" : "ok",
-        });
-        await shared.refreshAll();
-        await loadPlan();
-      }
+      await navigator.clipboard.writeText(`${plan.merged_key}=${plan.merged_items}`);
+      addToast({
+        title: "已复制补全清单",
+        description: "粘贴替换 aida64.ini 里的 HWMonExtAppItems= 行（改之前先关 AIDA64）",
+        color: "success",
+      });
     } catch (e) {
-      setMsg({ text: `✗ 请求失败：${e}`, kind: "bad" });
-    } finally {
-      setBusy(false);
+      addToast({ title: "复制失败", description: String(e), color: "danger" });
     }
   };
 
@@ -83,71 +67,46 @@ export default function WizardPage({ shared }: { shared: Shared }) {
     if (!plan) return <Step kind="todo" title="② 读取导出清单…" />;
     if (plan.unchanged) {
       return (
-        <Step kind="done" title="② 导出清单已满足版式">
-          {plan.to_remove.length > 0 && (
+        <Step kind="done" title="② AIDA64 导出清单已满足版式">
+          {plan.unused.length > 0 && (
             <Hint>
-              另有 {plan.to_remove.length} 个传感器在清单里但本软件用不到
-              （{plan.to_remove.join("、")}），默认保留——共享内存里的清单其他软件也可能在读。
+              清单里另有 {plan.unused.length} 个本软件用不到的传感器（{plan.unused.join("、")}），
+              照常保留——它们可能正被其他软件使用。
             </Hint>
           )}
         </Step>
       );
     }
-    if (!plan.fits && !plan.fits_prune) {
-      return (
-        <Step kind="bad" title="② 版式需要的传感器超出 4096 预算">
-          <Hint>
-            最坏 {plan.budget_new.worst_bytes} 字节 &gt; 可用 {plan.budget_new.usable}，
-            从第 {(plan.budget_new.truncated_at ?? 0) + 1} 个起会被截断。回编辑器去掉几个小指标。
-          </Hint>
-        </Step>
-      );
-    }
-    const overBudget = !plan.fits;
-    const canApply = (plan.fits || (pruneOpt && plan.fits_prune)) && confirmed && !busy;
     return (
-      <Step kind="todo" title={`② 导出清单需要补充（加 ${plan.to_add.length}）`}>
+      <Step kind="todo" title={`② AIDA64 还没导出 ${plan.missing.length} 个版式要用的传感器`}>
         <div className="flex flex-col gap-2 text-sm">
-          <div>需增加 {plan.to_add.length} 个<DiffChips ids={plan.to_add} kind="add" /></div>
-          <div className="text-color-desc">
-            默认只加不删（保留清单里现有的 {plan.current_count} 个），
-            预算 {plan.budget_now.worst_bytes} → {plan.budget_new.worst_bytes} / {plan.budget_new.usable} 字节
-          </div>
-          {plan.to_remove.length > 0 && (
-            <div className="rounded-xl border border-white/[0.04] bg-[#1a1a1d] p-3">
-              <div>另有 {plan.to_remove.length} 个本软件用不到：
-                <DiffChips ids={plan.to_remove} kind="del" />
-              </div>
-              <Checkbox className="mt-1.5" isSelected={pruneOpt} onValueChange={setPruneOpt}>
-                <span className="text-sm text-color-desc">
-                  顺便从清单移除它们（省 {plan.prune_saves} 字节）——
-                  注意清单里的传感器其他软件可能也在读，删了会影响它们
-                </span>
-              </Checkbox>
-            </div>
-          )}
-          {overBudget && (
-            <div className="text-warning">
-              只加不删会超预算（{plan.budget_new.worst_bytes} / {plan.budget_new.usable} 字节）：
-              {plan.fits_prune ? "要么回编辑器去掉几个指标，要么勾选上面的精简。" : "请回编辑器去掉几个指标。"}
-            </div>
-          )}
-          <div className="mt-2 flex items-center gap-4">
-            <Checkbox isSelected={confirmed} onValueChange={setConfirmed}>
-              <span className="text-sm text-color-desc">
-                我确认：这会关闭并重启 AIDA64，期间 OSD / 信息板会断流
-              </span>
-            </Checkbox>
-            <Button
-              color="primary" size="lg" className="px-7"
-              isDisabled={!canApply} isLoading={busy}
-              onPress={() => apply(pruneOpt)}
-            >
-              应用并重启 AIDA64
+          <div>缺这些：<DiffChips ids={plan.missing} /></div>
+          <Hint>
+            对应的指标：{plan.missing.map(id => {
+              const names = plan.missing_reasons[id] || [];
+              return `${id}（${names.join("/") || "聚合来源"}）`;
+            }).join("、")}。不补的话这些指标在叠加层上一直是 --。
+          </Hint>
+          <Hint>
+            本软件不会替你改 AIDA64 的配置：HWMonExtAppItems 是 AIDA64 的清单，
+            其他软件（OSD、看板…）可能也在读。补全有两种办法：
+          </Hint>
+          <ol className="ml-5 list-decimal flex flex-col gap-1 text-color-desc text-sm">
+            <li>在 AIDA64 里把这些传感器加进共享内存导出清单（和你之前加 WiFi 传感器一样）；</li>
+            <li>或复制下面的整行，关闭 AIDA64 → 打开 aida64.ini → 替换 HWMonExtAppItems= 那一行 → 保存 → 再启动 AIDA64。</li>
+          </ol>
+          <div className="flex flex-wrap items-center gap-3">
+            <Button size="md" variant="flat" startContent={<Copy size={15} />} onPress={copyMerged}>
+              复制补全后的清单
             </Button>
+            <code className="max-w-full truncate rounded-md bg-default-100 px-2 py-1 font-poppins text-xs text-default-500">
+              {plan.merged_key}={plan.merged_items}
+            </code>
           </div>
-          <div className="text-color-desc">
-            原理：AIDA64 只把 HWMonExtAppItems 列出的传感器写进共享内存，且退出时才回写 ini。
+          <div className={`text-color-desc ${plan.fits ? "" : "text-warning"}`}>
+            补全后预算：{plan.current_count} → {plan.budget_merged.count} 个传感器，
+            最坏 {plan.budget_now.worst_bytes} → {plan.budget_merged.worst_bytes} / {plan.budget_merged.usable} 字节
+            {plan.fits ? "" : " —— 超预算，先回编辑器去掉几个指标再补"}
           </div>
         </div>
       </Step>
@@ -185,12 +144,6 @@ export default function WizardPage({ shared }: { shared: Shared }) {
           </Hint>
         </Step>
       </Section>
-      {msg && (
-        <div className={`text-sm ${
-          msg.kind === "ok" ? "text-primary"
-            : msg.kind === "bad" ? "text-danger" : "text-warning"
-        }`}>{msg.text}</div>
-      )}
     </Page>
   );
 }

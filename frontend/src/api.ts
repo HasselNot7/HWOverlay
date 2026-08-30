@@ -3,7 +3,6 @@
 import type {
   AidaPlan,
   AidaStatus,
-  ApplyResult,
   HW,
   LayoutCheck,
   Metric,
@@ -37,8 +36,6 @@ export const api = {
     sendJSON<LayoutCheck & { errors?: string[] }>("/api/layout-check", "POST", cfg),
   aidaStatus: () => getJSON<AidaStatus>("/api/aida/status"),
   aidaPlan: () => getJSON<AidaPlan>("/api/aida/plan"),
-  aidaApply: (expectCount: number, prune = false) =>
-    sendJSON<ApplyResult>("/api/aida/apply", "POST", { confirm: true, expect_count: expectCount, prune }),
   saveConfig: (cfg: OverlayConfig) =>
     sendJSON<{ saved: boolean; errors?: string[]; warnings?: string[] }>(
       "/api/config", "PUT", cfg),

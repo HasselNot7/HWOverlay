@@ -1,24 +1,23 @@
-"""AIDA64 导出清单的读写与进程生命周期。
+"""AIDA64 导出清单的只读对比。
 
-改 HWMonExtAppItems 必须走「确认 → 停进程 → 等它真退出 → 备份 → 写 → 校验没被回改
-→ 启动 → 回读共享内存比对 → 失败则回滚」。原因是 AIDA64 在**自己退出时**才把配置
-写回 ini，运行中改的会被整份覆盖掉 —— 这一步顺序错了就会静默失效。
+本模块**不会写 aida64.ini，也不会启停 AIDA64**（全项目唯一动外部进程的
+地方只剩 ini.find_install 的只读反查）。原因：HWMonExtAppItems 是 AIDA64
+的配置，OSD、看板等其他软件也在读同一份共享内存，删谁留谁必须由用户自己
+决定 —— 这里只负责"版式需要什么、AIDA64 现在有什么、缺什么"，并拼出一条
+用户可自行粘贴的补全行（见 plan_export）。
 
-本模块是全项目唯一会启停外部进程的地方。apply() 不带 confirm=True 直接拒绝执行。
+历史上曾有过 apply() 状态机（确认 → 停进程 → 写 ini → 校验 → 重启 → 回读
+回滚），已删除：替用户改第三方软件的清单属于越权，且分发场景下别的用户
+未必愿意。
 """
 
 import re
 import subprocess
-import time
-from pathlib import Path
 
 from .. import budget, registry, refs
 from ..metrics import DISK_RX, NIC_RX
 from ..sources import aida64
 from . import ini
-
-STOP_TIMEOUT = 12.0
-START_TIMEOUT = 20.0
 
 
 def _proc_path():
@@ -58,8 +57,8 @@ def status():
 
 
 def runtime_ids(sensors):
-    """代码里按正则聚合、不走注册表的 ID（网卡各条、磁盘速率与温度）必须一并保住，
-    否则管理界面"只导出用到的指标"会把磁盘列和网络列静默清零。"""
+    """代码里按正则聚合、不走注册表的 ID（网卡各条、磁盘速率与温度）必须一并算进
+    版式所需，否则只读对比会把磁盘列和网络列误报成"用不到"。"""
     if not sensors:
         return []
     keep = []
@@ -75,8 +74,8 @@ def runtime_ids(sensors):
 def needed_ids(overlay_cfg, reg=None, sensors=None):
     """版式实际引用到的输出路径 -> 需要导出的传感器 ID。
 
-    版式树的遍历只有 refs 模块一份（历史上各写一份曾漏收三类路径，apply
-    一旦执行会把版式在用的传感器删掉）。本函数只负责"路径 -> 传感器 ID"：
+    版式树的遍历只有 refs 模块一份（历史上各写一份曾漏收三类路径）。本函数
+    只负责"路径 -> 传感器 ID"：
       - sources.aida64：候选 ID 全收，候选是为跨主板兜底存在的
       - sum_of：派生量的依赖要递归展开（显存总量 = 已用 + 空闲，"空闲"也得导）
       - agg：这类指标只有正则没有 ID，要拿当前已导出的 ID 去匹配
@@ -123,11 +122,11 @@ def needed_ids(overlay_cfg, reg=None, sensors=None):
 
 
 def plan_export(overlay_cfg=None, sensors=None):
-    """只读：当前导出清单 vs 版式需要的清单。向导和 apply 确认框都用它。
+    """只读对比：版式需要哪些传感器、AIDA64 现在导出了哪些、缺哪些。
 
-    共享内存里的清单是 AIDA64 的，其他软件（OSD、看板……）也可能在读：
-    默认动作**只加不删**，版式用不到的传感器一律保留；to_remove 只作为
-    可选的"精简"方案列出，要显式勾选（prune）才会生效。
+    缺口（missing）提示用户自己去 AIDA64 里补；unused 是清单里本软件用不到的
+    传感器，仅列出、绝不动它们。merged_items 是"现有 ∪ 缺口"拼好的整行值，
+    用户想批量补时复制粘贴进 ini 即可 —— 写不写、何时写，都是用户自己的动作。
     """
     from .. import config
     cfg = overlay_cfg or config.read()
@@ -142,26 +141,23 @@ def plan_export(overlay_cfg=None, sensors=None):
         for sid in m.get("sources", {}).get("aida64", []):
             why.setdefault(sid, []).append(m.get("name") or m["id"])
 
-    to_add = [i for i in needed if i not in current]
-    to_remove = [i for i in current if i not in needed]
-    add_only = current + to_add                        # 默认动作的最终清单：保留现有，只补缺
-    plan_add = budget.plan(add_only, hints=hints)
+    missing = [i for i in needed if i not in current]
+    unused = [i for i in current if i not in needed]
+    merged = current + missing                        # 补全清单：现有传感器一个不丢
+    merged_plan = budget.plan(merged, hints=hints)
     return {
         "current_count": len(current),
         "needed_count": len(needed),
-        "to_add": to_add,
-        "to_remove": to_remove,
-        "add_reasons": {i: why.get(i, ["网卡/磁盘聚合，代码按正则取用"]) for i in to_add},
+        "missing": missing,
+        "missing_reasons": {i: why.get(i, ["网卡/磁盘聚合，代码按正则取用"]) for i in missing},
+        "unused": unused,
+        "merged_key": ini.ITEMS_KEY,
+        "merged_items": " ".join(merged),
         "budget_now": {k: now[k] for k in ("count", "usable", "worst_bytes", "typical_bytes", "fits")},
-        "budget_new": {k: plan_add[k] for k in ("count", "usable", "worst_bytes", "typical_bytes", "fits",
-                                                "truncated_at")},
-        "budget_prune": {k: plan[k] for k in ("count", "usable", "worst_bytes", "typical_bytes", "fits",
-                                              "truncated_at")},
-        "fits": plan_add["fits"],
-        "fits_prune": plan["fits"],
-        "prune_saves": max(0, plan_add["worst_bytes"] - plan["worst_bytes"]),
-        "restart_required": bool(to_add),
-        "unchanged": not to_add,
+        "budget_merged": {k: merged_plan[k] for k in ("count", "usable", "worst_bytes", "typical_bytes",
+                                                      "fits", "truncated_at")},
+        "fits": merged_plan["fits"],
+        "unchanged": not missing,
         "unknown_paths": plan["unknown_paths"],
     }
 
@@ -177,86 +173,3 @@ def propose(overlay_cfg, sensors=None):
     plan = budget.plan(ids, hints=hints)
     plan["unknown_paths"] = unknown_paths
     return ids, plan
-
-
-def _wait_gone(pid):
-    deadline = time.time() + STOP_TIMEOUT
-    while time.time() < deadline:
-        out = subprocess.run(["powershell", "-NoProfile", "-Command",
-                              f"Get-Process -Id {pid} -ErrorAction SilentlyContinue | Measure-Object | Select -Expand Count"],
-                             capture_output=True, text=True).stdout.strip()
-        if out == "0":
-            return True
-        time.sleep(0.3)
-    return False
-
-
-def apply(ids, confirm=False, restart=True, exe=None):
-    """写入 HWMonExtAppItems 并重启 AIDA64 校验。不 confirm 就只报计划，不落任何改动。"""
-    st = status()
-    if not confirm:
-        return {"applied": False, "reason": "需要 confirm=True：这会关闭并重启你的 AIDA64",
-                "status": st, "would_write": ids}
-    if not st["ini"]:
-        return {"applied": False, "reason": "找不到 aida64.ini", "status": st}
-    if not st["running"]:
-        return {"applied": False, "reason": "AIDA64 没在运行，无法回读校验（请先启动它）", "status": st}
-
-    ini_path = Path(st["ini"])
-    before = ini.load(ini_path)
-    pid = subprocess.run(["powershell", "-NoProfile", "-Command",
-                          "Get-Process aida64 | Select -First 1 -Expand Id"],
-                         capture_output=True, text=True).stdout.strip()
-    subprocess.run(["powershell", "-NoProfile", "-Command", "Stop-Process -Name aida64 -Force"])
-    if not _wait_gone(int(pid or -1)):
-        return {"applied": False, "reason": f"AIDA64 在 {STOP_TIMEOUT}s 内没退出，已放弃写入以免配置被覆盖"}
-
-    bak, _ = ini.set_items(ini_path, ids, backup=True)
-    ok, detail = ini.verify_untouched(ini_path, before)
-    if not ok:
-        _restore(ini_path, bak)
-        return {"applied": False, "reason": f"ini 校验失败，已回滚：{detail}"}
-
-    if restart:
-        target = exe or (st["install"] + "\\aida64.exe" if st["install"] else None)
-        if not target or not Path(target).is_file():
-            return {"applied": True, "verified": False,
-                    "reason": "已写入但找不到 aida64.exe，请手动启动 AIDA64", "backup": str(bak)}
-        subprocess.run(["powershell", "-NoProfile", "-Command", f'Start-Process "{target}"'])
-        verdict = _verify_shm(ids)
-        if not verdict["ok"] and verdict["truncated_at"] is not None:
-            _restore(ini_path, bak)
-            subprocess.run(["powershell", "-NoProfile", "-Command", f'Start-Process "{target}"'])
-            return {"applied": False, "rolled_back": True,
-                    "reason": f"回读发现从第 {verdict['truncated_at']} 条起被截断，已回滚并恢复原配置",
-                    "missing": verdict["missing"]}
-        return {"applied": True, "verified": True, "backup": str(bak), "check": verdict}
-    return {"applied": True, "verified": False, "backup": str(bak),
-            "reason": "已写入但未重启 AIDA64，改动要等它下次启动才生效"}
-
-
-def _restore(ini_path, bak):
-    import shutil
-    shutil.copy2(bak, ini_path)
-
-
-def _verify_shm(requested, timeout=START_TIMEOUT):
-    """轮询共享内存，比对"请求集 vs 实得集"。这是唯一能发现静默截断的手段。"""
-    deadline = time.time() + timeout
-    got = {}
-    while time.time() < deadline:
-        got, _used = aida64.read_sensors()
-        if got and len(got) >= 5:
-            break
-        time.sleep(0.5)
-    if not got:
-        return {"ok": False, "missing": list(requested), "truncated_at": None,
-                "reason": "AIDA64 重启后共享内存读不到"}
-    missing = [sid for sid in requested if sid not in got]
-    truncated_at = None
-    for i, sid in enumerate(requested):
-        if sid in missing:
-            truncated_at = i
-            break
-    return {"ok": not missing, "missing": missing, "truncated_at": truncated_at,
-            "exported": len(got), "unexpected": sorted(set(got) - set(requested))}

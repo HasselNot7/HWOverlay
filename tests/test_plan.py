@@ -1,9 +1,9 @@
-"""导出计划（plan_export）的不变量测试。
+"""导出计划（needed_ids / plan_export）的不变量测试。
 
-核心不变量：按这份计划删传感器之后，版式引用的每个指标仍然要有值。
-曾经的 bug 就是 needed_ids 漏收 sum_of 依赖与 agg 正则匹配的 ID，
-apply() 一旦执行会把"显存总量"和"WiFi 信号"的底层传感器删掉，
-面板上对应格子当场变 -- 且没有任何报错。
+核心不变量：用户照补全清单把版式所需的传感器都导出后，版式引用的
+每个指标都要能取到值。曾经的 bug 就是 needed_ids 漏收 sum_of 依赖与
+agg 正则匹配的 ID —— 面板上对应格子会永远显示 -- 且没有任何报错。
+本软件不写 AIDA64 的清单，这里的职责是保证"告诉用户的东西是对的"。
 """
 
 import re
@@ -62,8 +62,8 @@ def backing(m):
     return ids
 
 
-print("[删完之后版式还能不能取到值]")
-kept = {sid: v for sid, v in sensors.items() if sid in needed}   # 模拟勾选"精简"后的导出集（默认只加不删是它的超集，更安全）
+print("[版式所需集合是否自足]")
+kept = {sid: v for sid, v in sensors.items() if sid in needed}   # needed 是最小充分集；补全清单（现有∪缺口）只会是它的超集
 vals, _m, _ms, _src = registry.resolve(kept, reg)
 tree = registry.apply(vals, reg)
 
@@ -77,7 +77,7 @@ for path in referenced:
         continue                       # 这台机器本来就没有这个传感器，不算被计划删掉
     if dig(tree, path) is None:
         silent.append(f"{path} ← {bs}")
-check("按此计划删完后，版式引用的指标没有一个变成空值",
+check("照最小集导出后，版式引用的指标没有一个变成空值",
       not silent, "; ".join(silent))
 
 print("\n[两条曾经漏收的路径]")
@@ -89,20 +89,19 @@ check("agg 正则匹配的 ID 被保留（WiFi 信号要的是当前网卡的 WL
       not wlan or all(s in needed for s in wlan),
       f"实采 {wlan or '无'}，needed 缺 {[s for s in wlan if s not in needed]}")
 
-print("\n[默认只加不删 —— 共享内存里的清单其他软件也在读]")
+print("\n[只读对比：缺口、冗余、补全清单 —— 本软件不写 AIDA64 的清单]")
 p = controller.plan_export(cfg, sensors=sensors)
-check("确实识别出了可精简的冗余传感器", len(p["to_remove"]) > 0, str(p["to_remove"]))
-check("冗余项都不在版式引用链上",
-      not (set(p["to_remove"]) & set(needed)), str(set(p["to_remove"]) & set(needed)))
-check("needed_count 与实际清单一致", p["needed_count"] == len(needed))
-check("只加不删后的预算仍算得过来", p["fits"], str(p["budget_new"]))
-check("budget_new 按只加不删算（现有传感器一个不丢）",
-      p["budget_new"]["count"] == p["current_count"] + len(p["to_add"]),
-      f"{p['budget_new']['count']} != {p['current_count']} + {len(p['to_add'])}")
-check("精简是独立方案：预算收敛到版式所需，且与 fits_prune 一致",
-      p["budget_prune"]["count"] == p["needed_count"] and p["fits_prune"] == p["budget_prune"]["fits"],
-      str(p["budget_prune"]))
-check("unchanged 只看有没有要补的（冗余不再算待办）", p["unchanged"] == (len(p["to_add"]) == 0))
+check("missing = 版式所需 − 当前导出",
+      p["missing"] == [i for i in needed if i not in sensors], str(p["missing"]))
+check("unused 与版式引用链无交集（仅告知，绝不动）",
+      not (set(p["unused"]) & set(needed)), str(set(p["unused"]) & set(needed)))
+check("补全清单 = 现有 ∪ 缺口（现有传感器一个不丢）",
+      set(p["merged_items"].split()) == set(sensors) | set(needed),
+      f"{len(p['merged_items'].split())} 项")
+check("补全清单能被 ini.get_items 原样解析回列表（空格分隔约定一致）",
+      " ".join(p["merged_items"].split()) == p["merged_items"], p["merged_items"][:60])
+check("补全后预算放得下", p["fits"], str(p["budget_merged"]))
+check("unchanged 只看有没有缺口", p["unchanged"] == (not p["missing"]))
 
 print(f"\n通过 {passed}，失败 {len(failed)}")
 raise SystemExit(1 if failed else 0)

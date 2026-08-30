@@ -1,13 +1,12 @@
 """M3 的纯函数测试：不启停 AIDA64、不写它的 ini。
 
-用真实的 aida64.ini 做**只读**往返验证（复制到临时目录再改），
-以及用真实共享内存标定值验证预算模型。apply() 不在这里测 —— 它会重启外部程序。
+用真实的 aida64.ini 做**只读**验证（load/get_items 的字节级保真），
+以及用真实共享内存标定值验证预算模型。本软件不写 AIDA64 的清单 ——
+那是用户（和其他软件）的地盘，写回链路已整体删除。
 """
 
 import json
-import shutil
 import sys
-import tempfile
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
@@ -30,43 +29,24 @@ def check(name, cond, detail=""):
         print(f"  FAIL {name}  {detail}")
 
 
-def t_ini_roundtrip():
-    print("\n[ini 定点改写]")
+def t_ini_readonly():
+    print("\n[ini 只读保真]")
     if not LIVE_INI.is_file():
         print("  skip 找不到 aida64.ini，跳过")
         return
-    with tempfile.TemporaryDirectory() as td:
-        copy = Path(td) / "aida64.ini"
-        shutil.copy2(LIVE_INI, copy)
-
-        raw_before = copy.read_bytes()
-        lines = ini.load(copy)
-        copy.write_text(ini.dump(lines), encoding=ini.ENCODING, newline="")
-        check("不改任何东西时字节级往返一致", copy.read_bytes() == raw_before,
-              f"{len(raw_before)} -> {len(copy.read_bytes())}")
-
-        ids = ["SCPUUTI", "TCPUPKG", "TGPU1"]
-        bak, hit = ini.set_items(copy, ids)
-        check("命中并改写 HWMonExtAppItems", hit)
-        check("备份文件已生成", bak.is_file())
-        ok, detail = ini.verify_untouched(copy, lines)
-        check("除目标键外其余行未被改动", ok, detail)
-        check("回读得到刚写入的 ID 列表", ini.get_items(ini.load(copy)) == ids)
-        check("UTF-16 BOM 保留", copy.read_bytes()[:2] == b"\xff\xfe")
-
-        _, found = ini.replace_line(lines, "NO_SUCH_KEY_X", "1")
-        check("目标键不存在时 replace_line 报告未命中", not found)
-        with tempfile.TemporaryDirectory() as td2:
-            orphan = Path(td2) / "other.ini"
-            _write = ini._write
-            _write(orphan, "\r\n".join(["[General]", "Foo=1"]))
-            try:
-                ini.set_items(orphan, ids, backup=False)
-                check("目标键不存在时 set_items 拒绝写入而非盲加", False, "没有抛错")
-            except KeyError:
-                after = ini.dump(ini.load(orphan))
-                check("目标键不存在时 set_items 拒绝写入而非盲加",
-                      "Foo=1" in after and ini.ITEMS_KEY not in after, after[:80])
+    raw_before = LIVE_INI.read_bytes()
+    lines = ini.load(LIVE_INI)
+    roundtrip = "\r\n".join(lines).encode(ini.ENCODING)
+    check("load() 不做换行归一化，join 回去字节级一致", roundtrip == raw_before,
+          f"{len(lines)} 行 / {len(raw_before)} 字节")
+    check("UTF-16 BOM 在", raw_before[:2] == b"\xff\xfe")
+    items = ini.get_items(lines)
+    check("get_items 从真实 ini 里解析出导出清单", len(items) > 0,
+          f"前 4 个: {items[:4]}")
+    check("清单里没有换行残渣（空格分隔解析干净）",
+          all(" " not in i and i == i.strip() for i in items))
+    check("本模块没有写回函数（防误用）",
+          not any(hasattr(ini, n) for n in ("set_items", "replace_line", "verify_untouched")))
 
 
 def t_budget():
@@ -115,19 +95,17 @@ def t_needed():
         print(f"  info 版式需要但 AIDA64 当前未导出: {missing or '无'}")
 
 
-def t_apply_is_gated():
-    print("\n[危险入口]")
-    r = controller.apply(["SCPUUTI"])
-    check("apply() 不带 confirm 时拒绝执行", r.get("applied") is False, str(r)[:120])
+def t_status_readonly():
+    print("\n[只读体检]")
     st = controller.status()
-    check("status() 只读且能拿到 ini 路径", bool(st["ini"]))
+    check("status() 只读且能拿到 ini 路径", bool(st["ini"]), str(st)[:160])
 
 
 if __name__ == "__main__":
-    t_ini_roundtrip()
+    t_ini_readonly()
     t_budget()
     t_needed()
-    t_apply_is_gated()
+    t_status_readonly()
     print(f"\n通过 {passed}，失败 {len(failed)}")
     if failed:
         print("失败项：" + ", ".join(failed))
