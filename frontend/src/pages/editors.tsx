@@ -87,8 +87,8 @@ function SlotRow({ arr, i, allowLabel, metrics, onChange, rebuild }: {
           onChange={v => { if (v) { arr[i] = v; onChange(); } }} />
         {allowLabel && (
           <Input
-            aria-label="前缀文字" size="sm" variant="flat" placeholder="前面加字（可空）"
-            className="w-32 min-w-28 font-poppins" title="填了字，直播时这个值前面就会显示它"
+            aria-label="前缀文字" size="sm" variant="flat" placeholder="前缀"
+            className="w-32 min-w-28 font-poppins" title="直播时显示在这个值前面"
             onBlur={e => {
               if (e.target.value) { arr[i] = { metric: arr[i] as string, label: e.target.value }; rebuild(); onChange(); }
             }}
@@ -105,8 +105,8 @@ function SlotRow({ arr, i, allowLabel, metrics, onChange, rebuild }: {
           onChange={v => { if (v) { item.metric = v; onChange(); } }} />
         {allowLabel && (
           <Input
-            aria-label="前缀文字" size="sm" variant="flat" placeholder="前面加字（可空）"
-            className="w-32 min-w-28 font-poppins" title="填了字，直播时这个值前面就会显示它"
+            aria-label="前缀文字" size="sm" variant="flat" placeholder="前缀"
+            className="w-32 min-w-28 font-poppins" title="直播时显示在这个值前面"
             defaultValue={item.label ?? ""}
             onValueChange={v => { item.label = v || undefined; onChange(); }}
           />
