@@ -424,9 +424,12 @@ export default function FreeEditorPage({ shared }: { shared: Shared }) {
   useEffect(() => {
     const snapAxis = (cands: number[], targets: number[]) => {
       let best: { dd: number; t: number; adj: number } | null = null;
+      // 吸附半径按屏幕像素算（约 8 屏幕像素）：缩得很小时画布 8px 只有几屏幕
+      // 像素，人手根本压不到；换算成屏幕像素后无论缩放多大都好吸。
+      const radius = Math.max(SNAP_PX, Math.round(8 / (scaleRef.current || 1)));
       for (const c of cands) for (const t of targets) {
         const dd = Math.abs(c - t);
-        if (dd <= SNAP_PX && (!best || dd < best.dd)) best = { dd, t, adj: t - c };
+        if (dd <= radius && (!best || dd < best.dd)) best = { dd, t, adj: t - c };
       }
       return best;
     };
@@ -709,6 +712,35 @@ export default function FreeEditorPage({ shared }: { shared: Shared }) {
                   {showW && numInput("宽", "w", pos.w)}
                   {w.type === "html" && numInput("高", "h", pos.h)}
                 </div>
+                {promptRect && (
+                  <div className="flex flex-wrap gap-2">
+                    <span className="self-center text-xs text-color-desc">对齐命令行：</span>
+                    <Button size="sm" variant="flat" className="bg-[#27272a]"
+                      title="把这个部件的左缘贴到命令行第一个字符的位置"
+                      onPress={() => {
+                        pushHistory();
+                        pos.x = promptRect.x;
+                        setDraft({ ...draft });
+                        onChange();
+                      }}>左缘</Button>
+                    <Button size="sm" variant="flat" className="bg-[#27272a]"
+                      title="把这个部件的顶边贴到命令行的顶边"
+                      onPress={() => {
+                        pushHistory();
+                        pos.y = promptRect.y;
+                        setDraft({ ...draft });
+                        onChange();
+                      }}>顶边</Button>
+                    <Button size="sm" variant="flat" className="bg-[#27272a]"
+                      title="把部件底部挪到命令行下方一点，从顶部开始排"
+                      onPress={() => {
+                        pushHistory();
+                        pos.y = promptRect.y + promptRect.h + 8;
+                        setDraft({ ...draft });
+                        onChange();
+                      }}>移到命令行下方</Button>
+                  </div>
+                )}
                 {stretchable(w.type) && pos.w !== undefined && (
                   <Button size="sm" variant="flat" className="bg-[#27272a]"
                     title="清掉固定宽度，从 X 拉到画布右缘"
@@ -791,6 +823,7 @@ export default function FreeEditorPage({ shared }: { shared: Shared }) {
                 <SubTitle>快捷键</SubTitle>
                 <Hint className="text-xs">
                   拖动挪位置 · 右下角改大小<br />
+                  拖近边缘自动吸附 · 选中后可一键「对齐命令行」<br />
                   方向键微调（Shift = 10px）<br />
                   Ctrl+Z 撤销 · Ctrl+D 复制部件<br />
                   Delete 删除 · Esc 取消选中 · Ctrl+S 保存

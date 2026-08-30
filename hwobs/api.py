@@ -190,6 +190,17 @@ def create_app() -> FastAPI:
 
     # ---------- 管理页：React 构建产物；没构建过就提示构建命令 ----------
 
+    # 管理页是 SPA：HTML 入口绝不能被浏览器缓存，否则换版本后老 origin 一直
+    # 卡在旧 bundle（"localhost 能用、127.0.0.1 不能用" 的元凶 —— 浏览器按
+    # 域名分别缓存）。带内容哈希的 /admin/assets/* 可长期缓存，唯独入口设 no-cache。
+    @app.middleware("http")
+    async def no_cache_admin_html(request, call_next):
+        response = await call_next(request)
+        p = request.url.path
+        if p == "/admin" or p == "/admin/" or p.endswith(".html"):
+            response.headers["Cache-Control"] = "no-cache"
+        return response
+
     if (FRONTEND_DIST / "index.html").is_file():
         app.mount("/admin", StaticFiles(directory=FRONTEND_DIST, html=True), name="admin")
     else:
