@@ -123,7 +123,12 @@ def needed_ids(overlay_cfg, reg=None, sensors=None):
 
 
 def plan_export(overlay_cfg=None, sensors=None):
-    """只读：当前导出清单 vs 版式需要的清单。向导和 apply 确认框都用它。"""
+    """只读：当前导出清单 vs 版式需要的清单。向导和 apply 确认框都用它。
+
+    共享内存里的清单是 AIDA64 的，其他软件（OSD、看板……）也可能在读：
+    默认动作**只加不删**，版式用不到的传感器一律保留；to_remove 只作为
+    可选的"精简"方案列出，要显式勾选（prune）才会生效。
+    """
     from .. import config
     cfg = overlay_cfg or config.read()
     sensors = sensors if sensors is not None else (read_sensors_now())
@@ -139,6 +144,8 @@ def plan_export(overlay_cfg=None, sensors=None):
 
     to_add = [i for i in needed if i not in current]
     to_remove = [i for i in current if i not in needed]
+    add_only = current + to_add                        # 默认动作的最终清单：保留现有，只补缺
+    plan_add = budget.plan(add_only, hints=hints)
     return {
         "current_count": len(current),
         "needed_count": len(needed),
@@ -146,11 +153,15 @@ def plan_export(overlay_cfg=None, sensors=None):
         "to_remove": to_remove,
         "add_reasons": {i: why.get(i, ["网卡/磁盘聚合，代码按正则取用"]) for i in to_add},
         "budget_now": {k: now[k] for k in ("count", "usable", "worst_bytes", "typical_bytes", "fits")},
-        "budget_new": {k: plan[k] for k in ("count", "usable", "worst_bytes", "typical_bytes", "fits",
-                                            "truncated_at")},
-        "fits": plan["fits"],
-        "restart_required": bool(to_add or to_remove),
-        "unchanged": not (to_add or to_remove),
+        "budget_new": {k: plan_add[k] for k in ("count", "usable", "worst_bytes", "typical_bytes", "fits",
+                                                "truncated_at")},
+        "budget_prune": {k: plan[k] for k in ("count", "usable", "worst_bytes", "typical_bytes", "fits",
+                                              "truncated_at")},
+        "fits": plan_add["fits"],
+        "fits_prune": plan["fits"],
+        "prune_saves": max(0, plan_add["worst_bytes"] - plan["worst_bytes"]),
+        "restart_required": bool(to_add),
+        "unchanged": not to_add,
         "unknown_paths": plan["unknown_paths"],
     }
 

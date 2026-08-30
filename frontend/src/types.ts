@@ -139,8 +139,14 @@ export interface AidaPlan {
   to_remove: string[];
   add_reasons: Record<string, string[]>;
   budget_now: BudgetBrief;
+  /** 默认动作（只加不删，保留现有传感器）之后的预算 */
   budget_new: BudgetBrief;
+  /** 勾选"顺便精简"（收敛到版式所需）之后的预算 */
+  budget_prune: BudgetBrief;
   fits: boolean;
+  fits_prune: boolean;
+  /** 精简相比只加不删能省多少字节 */
+  prune_saves: number;
   restart_required: boolean;
   unchanged: boolean;
 }

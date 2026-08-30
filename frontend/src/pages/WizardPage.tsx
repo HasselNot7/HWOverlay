@@ -44,6 +44,7 @@ const DiffChips = ({ ids, kind }: { ids: string[]; kind: "add" | "del" }) => (
 export default function WizardPage({ shared }: { shared: Shared }) {
   const [plan, setPlan] = useState<AidaPlan | null>(null);
   const [confirmed, setConfirmed] = useState(false);
+  const [pruneOpt, setPruneOpt] = useState(false);
   const [msg, setMsg] = useState<{ text: string; kind: "ok" | "bad" | "warn" } | null>(null);
   const [busy, setBusy] = useState(false);
   const { status } = shared;
@@ -54,12 +55,12 @@ export default function WizardPage({ shared }: { shared: Shared }) {
 
   useEffect(() => { loadPlan(); }, [loadPlan, shared.check]);
 
-  const apply = async () => {
+  const apply = async (prune: boolean) => {
     if (!plan) return;
     setBusy(true);
     setMsg({ text: "应用中：关闭 AIDA64 → 写 ini → 重启 → 回读校验…", kind: "warn" });
     try {
-      const rep: ApplyResult = await api.aidaApply(plan.needed_count);
+      const rep: ApplyResult = await api.aidaApply(plan.needed_count, prune);
       if (!rep.applied) {
         setMsg({ text: `✗ ${rep.reason || "未应用"}`, kind: "bad" });
       } else {
@@ -81,9 +82,18 @@ export default function WizardPage({ shared }: { shared: Shared }) {
   const step2 = () => {
     if (!plan) return <Step kind="todo" title="② 读取导出清单…" />;
     if (plan.unchanged) {
-      return <Step kind="done" title="② 导出清单与版式一致" />;
+      return (
+        <Step kind="done" title="② 导出清单已满足版式">
+          {plan.to_remove.length > 0 && (
+            <Hint>
+              另有 {plan.to_remove.length} 个传感器在清单里但本软件用不到
+              （{plan.to_remove.join("、")}），默认保留——共享内存里的清单其他软件也可能在读。
+            </Hint>
+          )}
+        </Step>
+      );
     }
-    if (!plan.fits) {
+    if (!plan.fits && !plan.fits_prune) {
       return (
         <Step kind="bad" title="② 版式需要的传感器超出 4096 预算">
           <Hint>
@@ -93,18 +103,35 @@ export default function WizardPage({ shared }: { shared: Shared }) {
         </Step>
       );
     }
+    const overBudget = !plan.fits;
+    const canApply = (plan.fits || (pruneOpt && plan.fits_prune)) && confirmed && !busy;
     return (
-      <Step kind="todo" title={`② 导出清单需要调整（加 ${plan.to_add.length} / 减 ${plan.to_remove.length}）`}>
+      <Step kind="todo" title={`② 导出清单需要补充（加 ${plan.to_add.length}）`}>
         <div className="flex flex-col gap-2 text-sm">
-          {plan.to_add.length > 0 && (
-            <div>需增加 {plan.to_add.length} 个<DiffChips ids={plan.to_add} kind="add" /></div>
-          )}
-          {plan.to_remove.length > 0 && (
-            <div>可移除 {plan.to_remove.length} 个<DiffChips ids={plan.to_remove} kind="del" /></div>
-          )}
+          <div>需增加 {plan.to_add.length} 个<DiffChips ids={plan.to_add} kind="add" /></div>
           <div className="text-color-desc">
+            默认只加不删（保留清单里现有的 {plan.current_count} 个），
             预算 {plan.budget_now.worst_bytes} → {plan.budget_new.worst_bytes} / {plan.budget_new.usable} 字节
           </div>
+          {plan.to_remove.length > 0 && (
+            <div className="rounded-xl border border-white/[0.04] bg-[#1a1a1d] p-3">
+              <div>另有 {plan.to_remove.length} 个本软件用不到：
+                <DiffChips ids={plan.to_remove} kind="del" />
+              </div>
+              <Checkbox className="mt-1.5" isSelected={pruneOpt} onValueChange={setPruneOpt}>
+                <span className="text-sm text-color-desc">
+                  顺便从清单移除它们（省 {plan.prune_saves} 字节）——
+                  注意清单里的传感器其他软件可能也在读，删了会影响它们
+                </span>
+              </Checkbox>
+            </div>
+          )}
+          {overBudget && (
+            <div className="text-warning">
+              只加不删会超预算（{plan.budget_new.worst_bytes} / {plan.budget_new.usable} 字节）：
+              {plan.fits_prune ? "要么回编辑器去掉几个指标，要么勾选上面的精简。" : "请回编辑器去掉几个指标。"}
+            </div>
+          )}
           <div className="mt-2 flex items-center gap-4">
             <Checkbox isSelected={confirmed} onValueChange={setConfirmed}>
               <span className="text-sm text-color-desc">
@@ -113,7 +140,8 @@ export default function WizardPage({ shared }: { shared: Shared }) {
             </Checkbox>
             <Button
               color="primary" size="lg" className="px-7"
-              isDisabled={!confirmed || busy} isLoading={busy} onPress={apply}
+              isDisabled={!canApply} isLoading={busy}
+              onPress={() => apply(pruneOpt)}
             >
               应用并重启 AIDA64
             </Button>

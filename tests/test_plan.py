@@ -63,7 +63,7 @@ def backing(m):
 
 
 print("[删完之后版式还能不能取到值]")
-kept = {sid: v for sid, v in sensors.items() if sid in needed}   # 模拟 apply 之后的导出集
+kept = {sid: v for sid, v in sensors.items() if sid in needed}   # 模拟勾选"精简"后的导出集（默认只加不删是它的超集，更安全）
 vals, _m, _ms, _src = registry.resolve(kept, reg)
 tree = registry.apply(vals, reg)
 
@@ -89,13 +89,20 @@ check("agg 正则匹配的 ID 被保留（WiFi 信号要的是当前网卡的 WL
       not wlan or all(s in needed for s in wlan),
       f"实采 {wlan or '无'}，needed 缺 {[s for s in wlan if s not in needed]}")
 
-print("\n[计划不是'什么都别删']")
+print("\n[默认只加不删 —— 共享内存里的清单其他软件也在读]")
 p = controller.plan_export(cfg, sensors=sensors)
-check("确实识别出了可删的冗余传感器", len(p["to_remove"]) > 0, str(p["to_remove"]))
+check("确实识别出了可精简的冗余传感器", len(p["to_remove"]) > 0, str(p["to_remove"]))
 check("冗余项都不在版式引用链上",
       not (set(p["to_remove"]) & set(needed)), str(set(p["to_remove"]) & set(needed)))
 check("needed_count 与实际清单一致", p["needed_count"] == len(needed))
-check("删改后预算仍算得过来", p["fits"], str(p["budget_new"]))
+check("只加不删后的预算仍算得过来", p["fits"], str(p["budget_new"]))
+check("budget_new 按只加不删算（现有传感器一个不丢）",
+      p["budget_new"]["count"] == p["current_count"] + len(p["to_add"]),
+      f"{p['budget_new']['count']} != {p['current_count']} + {len(p['to_add'])}")
+check("精简是独立方案：预算收敛到版式所需，且与 fits_prune 一致",
+      p["budget_prune"]["count"] == p["needed_count"] and p["fits_prune"] == p["budget_prune"]["fits"],
+      str(p["budget_prune"]))
+check("unchanged 只看有没有要补的（冗余不再算待办）", p["unchanged"] == (len(p["to_add"]) == 0))
 
 print(f"\n通过 {passed}，失败 {len(failed)}")
 raise SystemExit(1 if failed else 0)
