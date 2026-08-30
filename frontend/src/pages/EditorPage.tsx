@@ -81,6 +81,19 @@ export default function EditorPage({ shared }: { shared: Shared }) {
   }, [draft]);
   useEffect(() => { pushPreview(); }, [pushPreview]);
 
+  // monitor 就绪后回报 hwobs-ready —— iframe 的 load 事件会被 @import 的
+  // 在线字体拖住好几秒，只赌 onLoad 会在第一次推送丢进 about:blank 里。
+  const pushRef = useRef(pushPreview);
+  pushRef.current = pushPreview;
+  useEffect(() => {
+    const onMsg = (e: MessageEvent) => {
+      if (e.source !== frameRef.current?.contentWindow) return;
+      if ((e.data as { type?: string })?.type === "hwobs-ready") pushRef.current();
+    };
+    window.addEventListener("message", onMsg);
+    return () => window.removeEventListener("message", onMsg);
+  }, []);
+
   const save = async () => {
     if (!draft) return;
     const rep = await api.saveConfig(draft);

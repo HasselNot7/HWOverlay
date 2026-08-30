@@ -100,6 +100,8 @@ export default function FreeEditorPage({ shared }: { shared: Shared }) {
   const [panelOpen, setPanelOpen] = useState(() => localStorage.getItem(PANEL_KEY) !== "0");
   const [selected, setSelected] = useState<number | null>(null);
   const [rects, setRects] = useState<(Rect | null)[]>([]);
+  /** 顶部装饰命令行的真实几何：作为吸附目标，部件好对齐它的首部 */
+  const [promptRect, setPromptRect] = useState<Rect | null>(null);
   const wrapRef = useRef<HTMLDivElement>(null);
   const frameRef = useRef<HTMLIFrameElement>(null);
   const boxRefs = useRef(new Map<number, HTMLDivElement>());
@@ -107,6 +109,7 @@ export default function FreeEditorPage({ shared }: { shared: Shared }) {
   const scaleRef = useRef(pvScale);
   const draftRef = useRef<OverlayConfig | null>(null);
   const rectsRef = useRef<(Rect | null)[]>([]);
+  const promptRef = useRef<Rect | null>(null);
   const snapRef = useRef(true);
   const gridRef = useRef(false);
   const vgRef = useRef<HTMLDivElement>(null);
@@ -117,6 +120,7 @@ export default function FreeEditorPage({ shared }: { shared: Shared }) {
   scaleRef.current = pvScale;
   draftRef.current = draft;
   rectsRef.current = rects;
+  promptRef.current = promptRect;
   snapRef.current = snapOn;
   gridRef.current = gridOn;
 
@@ -129,6 +133,7 @@ export default function FreeEditorPage({ shared }: { shared: Shared }) {
     setDraft(d);
     setSelected(null);
     setRects([]);
+    setPromptRect(null);
     histRef.current = [];
     const isDirty = JSON.stringify(d) !== JSON.stringify(c);
     setDirty(isDirty);
@@ -199,11 +204,19 @@ export default function FreeEditorPage({ shared }: { shared: Shared }) {
   }, [draft]);
   useEffect(() => { pushPreview(); }, [pushPreview]);
 
+  // monitor 就绪后会回报 hwobs-ready（iframe 的 load 事件被在线字体拖住时
+  // onLoad 补推来不及，必须等这个握手再推，草稿才不会丢在 about:blank 里）
+  const pushRef = useRef(pushPreview);
+  pushRef.current = pushPreview;
   useEffect(() => {
     const onMsg = (e: MessageEvent) => {
       if (e.source !== frameRef.current?.contentWindow) return;
-      const d = e.data as { type?: string; rects?: (Rect | null)[] };
-      if (d?.type === "hwobs-rects" && Array.isArray(d.rects)) setRects(d.rects);
+      const d = e.data as { type?: string; rects?: (Rect | null)[]; prompt?: Rect | null };
+      if (d?.type === "hwobs-ready") { pushRef.current(); return; }
+      if (d?.type === "hwobs-rects" && Array.isArray(d.rects)) {
+        setRects(d.rects);
+        setPromptRect(d.prompt ?? null);
+      }
     };
     window.addEventListener("message", onMsg);
     return () => window.removeEventListener("message", onMsg);
@@ -412,6 +425,12 @@ export default function FreeEditorPage({ shared }: { shared: Shared }) {
           if (!r) continue;
           xs.push(r.x, r.x + r.w, Math.round(r.x + r.w / 2));
           ys.push(r.y, r.y + r.h, Math.round(r.y + r.h / 2));
+        }
+        // 顶部装饰命令行也是磁铁：部件好对齐它的首部（左缘）和基线
+        const pr = promptRef.current;
+        if (pr) {
+          xs.push(pr.x, pr.x + pr.w, Math.round(pr.x + pr.w / 2));
+          ys.push(pr.y, pr.y + pr.h, Math.round(pr.y + pr.h / 2));
         }
         const bw = d.mode === "move" ? (d.stretch ? W - nx : d.ow) : nw;
         const bh = d.mode === "move" ? d.oh : (t && heightEditable(t) ? nh : d.oh);
@@ -710,7 +729,7 @@ export default function FreeEditorPage({ shared }: { shared: Shared }) {
               <Hint className="text-xs">没选中部件时这里是画布设置；点画布上的部件改它的参数。</Hint>
               <CanvasFields draft={draft} onChange={onChange} />
               <div className="border-t border-white/[0.06] pt-3">
-                <PromptBar draft={draft} onChange={onChange} />
+                <PromptBar draft={draft} onChange={onChange} compact />
               </div>
               <div className="border-t border-white/[0.06] pt-3">
                 <SubTitle>校验</SubTitle>

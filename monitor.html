@@ -560,7 +560,8 @@
     }
 
     /** 编辑器协议：每次 build 完，把各部件渲染后的真实几何回报给管理页。
-     * 编辑器在 iframe 上叠手柄，手柄位置以此为准 —— 不再靠估算。 */
+     * 编辑器在 iframe 上叠手柄，手柄位置以此为准 —— 不再靠估算。
+     * 装饰命令行也一并回报：编辑器拿它当吸附目标，部件好对齐它的首部。 */
     function reportRects() {
       const rects = [];
       for (const h of document.body.querySelectorAll('[data-wi]')) {
@@ -568,7 +569,11 @@
           x: h.offsetLeft, y: h.offsetTop, w: h.offsetWidth, h: h.offsetHeight,
         };
       }
-      parent.postMessage({ type: 'hwobs-rects', rects }, '*');
+      const pl = document.body.querySelector('.prompt-line');
+      const prompt = pl
+        ? { x: pl.offsetLeft, y: pl.offsetTop, w: pl.offsetWidth, h: pl.offsetHeight }
+        : null;
+      parent.postMessage({ type: 'hwobs-rects', rects, prompt }, '*');
     }
 
     function render() {
@@ -627,6 +632,11 @@
       await tick();
       setInterval(tick, REFRESH_MS);
       booted = true;
+      if (PREVIEW) {
+        // 握手：告诉管理页"我准备好收草稿了"。iframe 的 load 事件会被
+        // @import 的在线字体拖住好几秒，编辑器不能赌 onLoad 的时机。
+        parent.postMessage({ type: 'hwobs-ready' }, '*');
+      }
     }
 
     boot();
