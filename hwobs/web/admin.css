@@ -177,7 +177,8 @@ h3 { font-size: 12px; color: var(--muted); font-weight: 400; margin: 14px 0 8px;
 .card-edit { border: 1px solid var(--line-soft); border-radius: 7px; margin: 10px 0; background: var(--panel); padding: 0 12px 10px; }
 .card-edit legend { font-size: 12px; color: var(--muted); padding: 0 8px; display: flex; gap: 8px; align-items: center; }
 .card-edit .slot { display: flex; align-items: flex-start; gap: 10px; margin: 8px 0; }
-.card-edit .slot > .src { flex: 0 0 110px; line-height: 28px; }
+.card-edit .slot > .src { flex: 0 0 110px; line-height: 26px; }
+.slot-items { flex: 1; min-width: 0; }
 .slot-row { display: flex; align-items: center; gap: 4px; margin: 3px 0; }
 .slot-row .path { color: var(--muted); font-size: 12px; }
 .slot-row select { max-width: 225px; }

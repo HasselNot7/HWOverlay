@@ -351,24 +351,26 @@ function slotRow(arr, i, rebuild) {
 function slotEditor(card, defKey, title) {
   const box = el('div', 'slot');
   box.append(el('span', 'src', title));
-  const rebuild = () => fillSlot(box, card, defKey, title, rebuild);
-  fillSlot(box, card, defKey, title, rebuild);
+  const items = el('div', 'slot-items');
+  box.append(items);
+  const rebuild = () => fillSlot(items, card, defKey, rebuild);
+  fillSlot(items, card, defKey, rebuild);
   return box;
 }
 
-function fillSlot(box, card, defKey, title, rebuild) {
+function fillSlot(items, card, defKey, rebuild) {
   const def = card[defKey];
   const list = def?.metrics ?? [];
-  box.querySelectorAll('.slot-row, .slot-add').forEach(n => n.remove());
-  list.forEach((_, i) => box.append(slotRow(list, i, rebuild)));
+  items.replaceChildren();
+  list.forEach((_, i) => items.append(slotRow(list, i, rebuild)));
   const add = el('button', 'mini slot-add'); add.textContent = '+ 加指标';
   add.addEventListener('click', () => {
     const first = outPaths()[0];
     if (def) def.metrics.push(first);
     else card[defKey] = { metrics: [first] };
-    rebuild(); onChange();
+    fillSlot(items, card, defKey, rebuild); onChange();
   });
-  box.append(add);
+  items.append(add);
 }
 
 function cardEditor(w, c, i, rebuildCards) {
