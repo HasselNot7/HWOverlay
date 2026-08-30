@@ -35,8 +35,11 @@ def snapshot():
         winapi_values={"ram_used": used, "ram_total": total})
     tree = registry.apply(values, reg)
 
-    # 内存占用率优先用 AIDA64 的 SMEMUTI，拿不到再退回 Windows 自己算的
-    tree["ram"]["pct"] = values.get("ram_pct") or pct
+    # 内存占用率优先用 AIDA64 的 SMEMUTI，拿不到再退回 Windows 自己算的。
+    # 空注册表（新装机的分发默认）没有 ram 节点，不能硬塞 —— 键只在用户
+    # 注册了 ram.pct 时才存在。
+    if "ram" in tree and "pct" in tree["ram"]:
+        tree["ram"]["pct"] = values.get("ram_pct") or pct
     tree.setdefault("net", {})["active_nics"] = metrics.active_nics(sensors)
 
     out.update(

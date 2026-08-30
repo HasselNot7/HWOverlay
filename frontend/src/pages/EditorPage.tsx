@@ -130,9 +130,42 @@ export default function EditorPage({ shared }: { shared: Shared }) {
 
   const scalePct = Math.round(pvScale * 100);
 
+  /** 一键上手：注册内置指标集 + 把预设版式原地装进草稿（脏状态，看过满意再点保存）。
+   * 注意走项目惯例的原地修改：直接 setDraft(新对象) 会让 onChange 的闭包比不出 dirty。 */
+  const loadPreset = async () => {
+    try {
+      const seeded = await api.seedPresetMetrics();
+      const preset = await api.layoutPreset();
+      Object.assign(draft, preset);
+      setDraft({ ...draft });
+      onChange();
+      addToast({
+        title: "默认样式已装进草稿",
+        description: seeded.added ? `顺带注册了 ${seeded.added} 个默认指标，满意后点「保存」生效`
+          : "默认指标集本来就在，满意后点「保存」生效",
+        color: "success",
+      });
+    } catch (e) {
+      addToast({ title: "加载默认样式失败", description: String(e), color: "danger" });
+    }
+  };
+
   return (
     <Page title="版式编辑">
+      {!metrics.length && (
+        <div className="rounded-xl border border-warning/40 bg-warning/10 px-4 py-3 text-sm text-warning">
+          还没有注册任何指标 —— 去「自定义指标」页注册传感器，或点下面的"加载默认样式"（会顺带注册默认指标集）。
+        </div>
+      )}
       <Section title="版式校验">
+        {draft.widgets.length === 0 && (
+          <div className="flex flex-col gap-2">
+            <Hint>画布是空的 —— 每个人的显示尺寸和想看的东西都不一样，所以默认不预置任何部件。</Hint>
+            <Button variant="flat" size="lg" className="w-fit bg-[#27272a]" onPress={loadPreset}>
+              加载默认样式（四张指标卡片 + 底部小指标行，顺带注册默认指标集）
+            </Button>
+          </div>
+        )}
         {check && !check.errors.length && !check.warnings.length && (
           <Hint><span className="text-success">✓ 版式无错误、无提醒</span></Hint>
         )}

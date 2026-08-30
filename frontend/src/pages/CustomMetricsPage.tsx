@@ -1,15 +1,18 @@
-import { Button, Checkbox, Chip, Input } from "@heroui/react";
+import { addToast, Button, Checkbox, Chip, Input } from "@heroui/react";
 import { useCallback, useEffect, useState } from "react";
+import { Wand2 } from "lucide-react";
 import { api } from "../api";
 import type { Metric, UnknownSensor } from "../types";
 import type { Shared } from "../App";
 import { CARD_CLS, Hint, Page, Section } from "../ui";
 
-/** "未知传感器"一键做成指标 + 自定义指标管理。 */
+/** "未知传感器"一键做成指标 + 自定义指标管理。
+ * 分发模型：新机器注册表是空的，所有导出的传感器都先落在"未知"里，用户自己挑。 */
 export default function CustomMetricsPage({ shared }: { shared: Shared }) {
   const [unknown, setUnknown] = useState<{ ok: boolean; error?: string; unknown: UnknownSensor[] } | null>(null);
   const [openForm, setOpenForm] = useState<string | null>(null);
   const [err, setErr] = useState("");
+  const [seeding, setSeeding] = useState(false);
 
   const reload = useCallback(async () => {
     try { setUnknown(await api.unknownSensors()); } catch { setUnknown(null); }
@@ -22,6 +25,27 @@ export default function CustomMetricsPage({ shared }: { shared: Shared }) {
     await reload();
   };
 
+  const seedPreset = async () => {
+    setSeeding(true);
+    try {
+      const rep = await api.seedPresetMetrics();
+      if (rep.error) {
+        addToast({ title: "加载失败", description: rep.error, color: "danger" });
+      } else {
+        addToast({
+          title: rep.added ? `已注册 ${rep.added} 个默认指标` : "默认指标集已都在了",
+          description: "编辑器的下拉和总表里立即可见",
+          color: "success",
+        });
+        await afterChange();
+      }
+    } catch (e) {
+      addToast({ title: "加载失败", description: String(e), color: "danger" });
+    } finally {
+      setSeeding(false);
+    }
+  };
+
   const remove = async (id: string) => {
     await api.removeCustomMetric(id);
     await afterChange();
@@ -31,10 +55,19 @@ export default function CustomMetricsPage({ shared }: { shared: Shared }) {
 
   return (
     <Page title="自定义指标">
-      <Section title="未知传感器">
+      <Section title="未知传感器"
+        right={
+          <Button size="sm" variant="flat" className="bg-[#27272a]"
+            startContent={<Wand2 size={15} />}
+            isLoading={seeding} onPress={seedPreset}>
+            一键注册默认指标集
+          </Button>
+        }>
         <Hint>
-          AIDA64 在导出、但还没注册成指标的传感器。注册后编辑器的下拉和
-          勾选列表里就能选它，叠加层才能显示 —— 这一步不用改任何文件。
+          AIDA64 导出的、还没注册成指标的传感器都在这里 —— 各家机器传感器名不一样，
+          所以挑你想要的注册即可，也可以一键加载内置的默认指标集（CPU/显卡/内存/网络
+          常见项，幂等，已有名称或改名后的自定义指标不会被覆盖）。注册后编辑器的下拉
+          和勾选列表里就能选它，叠加层才能显示。
         </Hint>
 
         {customs.length > 0 && (

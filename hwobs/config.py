@@ -55,6 +55,9 @@ def validate(cfg, path=OVERLAY_FILE):
     rep["needed_ids"] = ids
     rep["budget"] = {k: plan[k] for k in ("count", "usable", "worst_bytes",
                                           "typical_bytes", "fits", "truncated_at")}
+    if not cfg.get("widgets"):
+        rep["warnings"] = rep.get("warnings", []) + \
+            ["版式是空的：去「版式编辑」加部件，或点「加载默认样式」一键上手"]
     rep["target"] = str(path)
     return rep
 
@@ -63,8 +66,8 @@ def _sane(cfg):
     """结构底线。校验器假设这些存在，缺了会抛异常而不是给出好读的报错。"""
     if not isinstance(cfg, dict):
         return "配置必须是 JSON 对象"
-    if not isinstance(cfg.get("widgets"), list) or not cfg["widgets"]:
-        return "widgets 必须是非空数组"
+    if not isinstance(cfg.get("widgets"), list):
+        return "widgets 必须是数组（可以是空的，去编辑器加部件或加载默认样式）"
     canvas = cfg.get("canvas")
     if not isinstance(canvas, dict):
         return "缺少 canvas 对象"

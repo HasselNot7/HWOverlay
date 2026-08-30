@@ -68,15 +68,17 @@ for name, junk in [("数组", [1, 2, 3]), ("null", None), ("字符串", "hello")
         check(f"{name} 被拒且返回可读错误", False, f"抛异常 {type(e).__name__}: {e}")
 
 td, p = fresh()
-before = p.read_text(encoding="utf-8")
-bad = json.loads(json.dumps(cfg))
-bad["widgets"] = []
-saved, rep = config.save(bad, path=p)
-check("widgets 为空被拒", not saved and any("widgets" in e for e in rep["errors"]),
-      str(rep["errors"]))
-check("被拒时文件一字节未动", p.read_text(encoding="utf-8") == before)
+empty = json.loads(json.dumps(cfg))
+empty["widgets"] = []
+saved, rep = config.save(empty, path=p)
+check("widgets 为空现在合法（分发默认就是空画布）",
+      saved and not rep["errors"], str(rep.get("errors")))
+check("空版式只给提醒不报错",
+      any("版式是空的" in w for w in rep.get("warnings", [])), str(rep.get("warnings")))
+check("空版式已落盘", json.loads(p.read_text(encoding="utf-8"))["widgets"] == [])
 
 print("\n[校验不过就不落盘]")
+before = p.read_text(encoding="utf-8")           # 之后的"一字节未动"以当前盘上内容为准
 bad2 = json.loads(json.dumps(cfg))
 bad2["widgets"][1]["items"].append("gpu.does_not_exist")
 saved, rep = config.save(bad2, path=p)

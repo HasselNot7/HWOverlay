@@ -1,0 +1,161 @@
+{
+  "version": 2,
+  "name": "monitor",
+  "canvas": {
+    "w": 2000,
+    "h": 200,
+    "theme": "nord-console",
+    "padding": [
+      12,
+      24
+    ]
+  },
+  "prompt": {
+    "user": "streamer@pc",
+    "cmd": "./sysmon --source=aida64 --interval=1s",
+    "cursor": true,
+    "size": 19
+  },
+  "widgets": [
+    {
+      "type": "cards",
+      "cols": 4,
+      "gap": 32,
+      "items": [
+        {
+          "key": "cpu",
+          "label": "CPU",
+          "bar": "cpu.usage",
+          "value": {
+            "metrics": [
+              "cpu.usage",
+              "cpu.temp"
+            ]
+          },
+          "sub": {
+            "sep": " · ",
+            "metrics": [
+              {
+                "metric": "cpu.clock_mhz",
+                "label": "主频"
+              },
+              {
+                "metric": "cpu.power_w",
+                "label": "功耗"
+              },
+              {
+                "metric": "cpu.volt",
+                "label": "电压"
+              }
+            ]
+          },
+          "spark": "cpu.usage"
+        },
+        {
+          "key": "gpu",
+          "label": "GPU",
+          "bar": "gpu.usage",
+          "value": {
+            "metrics": [
+              "gpu.usage",
+              "gpu.temp"
+            ]
+          },
+          "sub": {
+            "sep": " · ",
+            "metrics": [
+              {
+                "pair": [
+                  "gpu.mem_used_mb",
+                  "gpu.mem_total_mb"
+                ],
+                "divide": 1024,
+                "unit": "GB",
+                "digits": 1,
+                "digits2": 0,
+                "label": "显存"
+              },
+              {
+                "metric": "gpu.clock_mhz",
+                "label": "核心"
+              },
+              {
+                "metric": "gpu.mem_clock_mhz",
+                "label": "显存"
+              }
+            ]
+          },
+          "spark": "gpu.usage"
+        },
+        {
+          "key": "ram",
+          "label": "内存",
+          "bar": "ram.pct",
+          "value": {
+            "metrics": [
+              "ram.used",
+              "ram.total"
+            ]
+          },
+          "sub": {
+            "sep": " · ",
+            "metrics": [
+              {
+                "diff": [
+                  "ram.total",
+                  "ram.used"
+                ],
+                "unit": "GB 可用",
+                "digits": 1
+              },
+              {
+                "metric": "ram.pct",
+                "unit": "%",
+                "digits": 0
+              }
+            ]
+          },
+          "spark": "ram.pct"
+        },
+        {
+          "key": "net",
+          "label": "网络",
+          "bar": "net.up_mbps",
+          "value": {
+            "metrics": [
+              {
+                "metric": "net.up_mbps"
+              },
+              "net.down_mbps"
+            ]
+          },
+          "sub": {
+            "sep": " · ",
+            "metrics": [
+              {
+                "metric": "net.wifi_dbm",
+                "label": "WiFi"
+              }
+            ]
+          },
+          "spark": "net.up_mbps"
+        }
+      ]
+    },
+    {
+      "type": "chips",
+      "fit": "shrink",
+      "items": [
+        "cpu.socket_temp",
+        "cpu.clock_mhz",
+        "cpu.power_w",
+        "cpu.fan_rpm",
+        "gpu.hotspot",
+        "gpu.power_w",
+        "gpu.mem_temp",
+        "misc.mobo_temp",
+        "misc.dimm_max"
+      ]
+    }
+  ]
+}

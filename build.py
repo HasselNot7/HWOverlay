@@ -65,7 +65,7 @@ def main():
                 z.write(p, p.relative_to(out.parent).as_posix())
 
     print(f"\n产物：{zip_path}  （{zip_path.stat().st_size / 1024 / 1024:.1f} MB）")
-    print("解压后双击 HWOverlay.exe：会自动开浏览器到管理页，按三步走完成配置。")
+    print("解压后双击 HWOverlay.exe：会自动开浏览器到管理页，按「开始使用」完成配置。")
     print('首次运行未签名，Windows SmartScreen 会拦一下：点"更多信息"→"仍要运行"。')
     return 0
 

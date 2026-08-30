@@ -79,6 +79,8 @@ export interface Metric {
   digits?: number;
   divide?: number;
   custom?: boolean;
+  /** 从内置指标集（metrics.json）一键注册进来的 */
+  preset?: boolean;
   rate_untrusted?: boolean;
   na_zero?: boolean;
   sources?: { aida64?: string[]; winapi?: string };

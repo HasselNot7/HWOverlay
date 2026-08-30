@@ -52,7 +52,7 @@ check("out 落在 custom. 命名空间", entry["out"] == "custom.thdd1", str(ent
 check("带 custom 标记", entry.get("custom") is True)
 check("用户文件已写盘且是合法 JSON", USER.is_file() and json.loads(USER.read_text(encoding="utf-8")))
 
-merged = registry._merge_user(registry.json.loads(registry.REGISTRY_FILE.read_text(encoding="utf-8")), USER)
+merged = registry.load(user_path=USER)     # 0.3.0 起：用户文件本身就是注册表
 by_id = {m["id"]: m for m in merged["metrics"]}
 check("合并后注册表里有它", "custom_thdd1" in by_id)
 

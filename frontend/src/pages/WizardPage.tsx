@@ -1,8 +1,4 @@
-import { addToast, Button, Chip } from "@heroui/react";
-import { useCallback, useEffect, useState } from "react";
-import { Copy } from "lucide-react";
-import { api } from "../api";
-import type { AidaPlan } from "../types";
+import { Chip } from "@heroui/react";
 import type { Shared } from "../App";
 import { Hint, Page, Section, SubTitle } from "../ui";
 
@@ -27,91 +23,8 @@ function Step({ kind, title, children }: {
   );
 }
 
-const DiffChips = ({ ids }: { ids: string[] }) => (
-  <div className="mt-1.5 flex flex-wrap gap-1.5">
-    {ids.map(id => (
-      <span key={id}
-        className="rounded-lg border border-default-100 bg-default-100/50 px-1.5 py-0.5 font-poppins text-xs text-primary">
-        {id}
-      </span>
-    ))}
-  </div>
-);
-
 export default function WizardPage({ shared }: { shared: Shared }) {
-  const [plan, setPlan] = useState<AidaPlan | null>(null);
   const { status } = shared;
-
-  const loadPlan = useCallback(async () => {
-    try { setPlan(await api.aidaPlan()); } catch { setPlan(null); }
-  }, []);
-
-  useEffect(() => { loadPlan(); }, [loadPlan, shared.check]);
-
-  /** 复制补全后的 HWMonExtAppItems 整行。写不写 ini 是用户自己的动作，本软件不碰。 */
-  const copyMerged = async () => {
-    if (!plan) return;
-    try {
-      await navigator.clipboard.writeText(`${plan.merged_key}=${plan.merged_items}`);
-      addToast({
-        title: "已复制补全清单",
-        description: "粘贴替换 aida64.ini 里的 HWMonExtAppItems= 行（改之前先关 AIDA64）",
-        color: "success",
-      });
-    } catch (e) {
-      addToast({ title: "复制失败", description: String(e), color: "danger" });
-    }
-  };
-
-  const step2 = () => {
-    if (!plan) return <Step kind="todo" title="② 读取导出清单…" />;
-    if (plan.unchanged) {
-      return (
-        <Step kind="done" title="② AIDA64 导出清单已满足版式">
-          {plan.unused.length > 0 && (
-            <Hint>
-              清单里另有 {plan.unused.length} 个本软件用不到的传感器（{plan.unused.join("、")}），
-              照常保留——它们可能正被其他软件使用。
-            </Hint>
-          )}
-        </Step>
-      );
-    }
-    return (
-      <Step kind="todo" title={`② AIDA64 还没导出 ${plan.missing.length} 个版式要用的传感器`}>
-        <div className="flex flex-col gap-2 text-sm">
-          <div>缺这些：<DiffChips ids={plan.missing} /></div>
-          <Hint>
-            对应的指标：{plan.missing.map(id => {
-              const names = plan.missing_reasons[id] || [];
-              return `${id}（${names.join("/") || "聚合来源"}）`;
-            }).join("、")}。不补的话这些指标在叠加层上一直是 --。
-          </Hint>
-          <Hint>
-            本软件不会替你改 AIDA64 的配置：HWMonExtAppItems 是 AIDA64 的清单，
-            其他软件（OSD、看板…）可能也在读。补全有两种办法：
-          </Hint>
-          <ol className="ml-5 list-decimal flex flex-col gap-1 text-color-desc text-sm">
-            <li>在 AIDA64 里把这些传感器加进共享内存导出清单（和你之前加 WiFi 传感器一样）；</li>
-            <li>或复制下面的整行，关闭 AIDA64 → 打开 aida64.ini → 替换 HWMonExtAppItems= 那一行 → 保存 → 再启动 AIDA64。</li>
-          </ol>
-          <div className="flex flex-wrap items-center gap-3">
-            <Button size="md" variant="flat" startContent={<Copy size={15} />} onPress={copyMerged}>
-              复制补全后的清单
-            </Button>
-            <code className="max-w-full truncate rounded-md bg-default-100 px-2 py-1 font-poppins text-xs text-default-500">
-              {plan.merged_key}={plan.merged_items}
-            </code>
-          </div>
-          <div className={`text-color-desc ${plan.fits ? "" : "text-warning"}`}>
-            补全后预算：{plan.current_count} → {plan.budget_merged.count} 个传感器，
-            最坏 {plan.budget_now.worst_bytes} → {plan.budget_merged.worst_bytes} / {plan.budget_merged.usable} 字节
-            {plan.fits ? "" : " —— 超预算，先回编辑器去掉几个指标再补"}
-          </div>
-        </div>
-      </Step>
-    );
-  };
 
   const step1 = !status ? (
     <Step kind="todo" title="① 连接 AIDA64">
@@ -140,9 +53,15 @@ export default function WizardPage({ shared }: { shared: Shared }) {
 
   return (
     <Page title="开始使用">
-      <Section title="准备 AIDA64">{step1}</Section>
-      <Section title="对齐导出清单">{step2()}</Section>
-      <Section title="放进 OBS" divider={false}>
+      <Section title="连接 AIDA64">{step1}</Section>
+      <Section title="挑选指标与排版" divider={false}>
+        <Step kind="todo" title="② 去注册传感器、挑版式">
+          <Hint>
+            各家机器的 AIDA64 传感器名不一样，所以这里不预置任何指标：
+            去「自定义指标」页把传感器注册成指标（新机器可以一键加载默认指标集），
+            再去「版式编辑」排版 —— 默认是空白画布，有"加载默认样式"按钮一键上手。
+          </Hint>
+        </Step>
         <Step kind="done" title="③ 在 OBS 里添加“浏览器”源">
           <Hint>
             URL {location.origin}/　宽 {shared.check?.canvas_w ?? "—"}　高 {shared.check?.canvas_h ?? "—"}

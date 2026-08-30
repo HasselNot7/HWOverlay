@@ -25,6 +25,7 @@ from .sources import aida64, winapi
 
 HTML_FILE = paths.resource("monitor.html")
 FRONTEND_DIST = paths.resource("frontend/dist")
+LAYOUT_PRESET_FILE = paths.resource("overlays/layout.preset.json")
 
 MAX_BODY = 64 * 1024      # 版式配置远小于这个数，超了就是乱发
 
@@ -125,6 +126,22 @@ def create_app() -> FastAPI:
 
     # ---------- 自定义指标 ----------
 
+    @app.post("/api/metrics/preset")
+    def metrics_preset():
+        """一键注册内置指标集（幂等，已存在的原样保留）。新装机的开箱按钮。"""
+        try:
+            added = registry.seed_builtin()
+        except Exception as e:      # noqa: BLE001
+            return JSONResponse({"added": 0, "ids": [], "error": f"服务端处理失败：{e}"}, status_code=500)
+        return {"added": len(added), "ids": added}
+
+    @app.get("/api/layout/preset")
+    def layout_preset():
+        """编辑器"加载默认样式"用的预设版式。"""
+        if not LAYOUT_PRESET_FILE.is_file():
+            return JSONResponse({"error": "包里没有 layout.preset.json"}, status_code=404)
+        return json.loads(LAYOUT_PRESET_FILE.read_text(encoding="utf-8"))
+
     @app.get("/api/sensors/unknown")
     def sensors_unknown():
         sensors, _used = aida64.read_sensors()
@@ -156,7 +173,7 @@ def create_app() -> FastAPI:
         except Exception as e:      # noqa: BLE001
             return JSONResponse({"removed": False, "error": f"服务端处理失败：{e}"}, status_code=500)
         if not removed:
-            return JSONResponse({"removed": False, "error": "没有这个自定义指标"}, status_code=404)
+            return JSONResponse({"removed": False, "error": "没有这个指标（或已删除）"}, status_code=404)
         return {"removed": True, "id": id}
 
     # ---------- 退出程序：windowed 打包没有控制台，停服务得有个正经入口 ----------

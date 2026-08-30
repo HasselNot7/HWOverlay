@@ -1,19 +1,23 @@
 """指标注册表：把「传感器 ID → 有名字、有单位、有阈值的指标」从代码里搬到数据里。
 
+分发模型（0.3.0 起）：
+- **用户文件 metrics.user.json 就是注册表的全部**。新装机器上它不存在 -> 注册表为空，
+  AIDA64 导出的每个传感器都是"未知传感器"，用户在管理页自己挑着注册 —— 各家
+  AIDA64 版本/主板不同，传感器名对不上是常态，内置的一套硬编码 ID 在别人机器上
+  大半是死行，反而碍事。
+- 内置的 metrics.json 降级为**默认指标集（预设）**：管理页一键"注册默认指标集"
+  （seed_builtin）整包搬进用户文件，幂等；想要开箱即用的人一下就能上手。
+- **迁移**：旧版装过、已有用户文件但没有 preset_seeded 标记的机器，首次加载时
+  自动把内置集补进去并打标记 —— 行为与旧版"内置+用户合并"完全一致，老机器无感。
+
 约定（重要）：
 - `id` 用扁平名（cpu_usage），它是 /hw.json 里 matched 的键；`out` 才是输出路径（cpu.usage）。
-  两者分开，是为了在重构期保持与 legacy 实现逐字段一致。
 - `out: null` 表示这条只作中间量，不出现在输出里（例如显存空闲，仅用于求总量）。
-- 只有带 `sources.aida64` 的条目参与 matched / missing；聚合与派生条目不进这两张表，
-  否则 missing 会多出 legacy 里没有的键。
+- 只有带 `sources.aida64` 的条目参与 matched / missing；聚合与派生条目不进这两张表。
 - 单位一律在这里解读，数据源只出原始字符串。速率类标了 `rate_untrusted`，
   因为 AIDA64 导出的是自动换算后的显示值且不带单位，M4 要与 Windows 计数器对拍标定。
-
-用户自定义指标（管理页"未知传感器 -> 做成指标"的产物）：
-- 存在独立的 metrics.user.json（可写数据目录，打包后在 %LOCALAPPDATA%），包内资源只读。
-- load() 时合并进注册表；custom 条目不进 matched（那张表是冻结的回归契约），
-  sources 照常输出，管理页"这个数从哪来"照常可查。
-- 保存/删除后调用 reload_()，运行中的服务立即生效，不需要重启。
+- 删除任何条目（save_custom 造的也好、预设搬进来的也好）= 从用户文件里删掉，
+  对应传感器自动回到"未知传感器"池子。
 """
 
 import json
@@ -30,40 +34,46 @@ USER_METRICS_FILE = paths.data_root() / "metrics.user.json"
 _CACHED = None
 
 
+def _skeleton():
+    """注册表骨架：速率单位等元数据仍来自内置文件，条目本身全部来自用户。"""
+    meta = json.loads(REGISTRY_FILE.read_text(encoding="utf-8"))
+    return {"version": meta.get("version", 1),
+            "rate_unit": meta.get("rate_unit", "KB/s"),
+            "metrics": [], "_bytes_per_unit": read_profile()}
+
+
+def _valid(entry):
+    return isinstance(entry, dict) and entry.get("id") and entry.get("name")
+
+
+def _build(user_path):
+    data = _read_user(user_path)
+    # 旧版迁移：有用户文件但没有预设标记 -> 自动补内置集并打标记（见模块 docstring）。
+    # 新装机没有这个文件，从空白开始，一切交给用户注册。
+    if user_path.is_file() and not data.get("preset_seeded"):
+        _append_builtin(data)
+        data["preset_seeded"] = True
+        _write_user(data, user_path)
+    reg = _skeleton()
+    reg["metrics"] = [e for e in data.get("metrics", []) if _valid(e)]
+    return reg
+
+
 def load(path=REGISTRY_FILE, user_path=None):
+    """显式传 user_path（测试/工具）时绕过缓存现算；默认路径走单例缓存。"""
+    user_path = USER_METRICS_FILE if user_path is None else paths.Path(user_path)
     global _CACHED
-    if _CACHED is None:
-        reg = json.loads(path.read_text(encoding="utf-8"))
-        # 标定过就用量出来的数，覆盖按单位名猜的换算表（没标定过是 None）
-        reg["_bytes_per_unit"] = read_profile()
-        reg = _merge_user(reg, USER_METRICS_FILE if user_path is None else user_path)
-        _CACHED = reg
-    return _CACHED
+    if user_path == USER_METRICS_FILE:
+        if _CACHED is None:
+            _CACHED = _build(user_path)
+        return _CACHED
+    return _build(user_path)
 
 
 def reload_():
     global _CACHED
     _CACHED = None
     return load()
-
-
-def _merge_user(reg, user_path):
-    """把用户自定义指标合并进注册表。同 id 覆盖内建条目（留给想微调内建指标的人）。"""
-    user_path = paths.Path(user_path)
-    if not user_path.is_file():
-        return reg
-    try:
-        data = json.loads(user_path.read_text(encoding="utf-8"))
-    except (ValueError, OSError):
-        return reg                      # 用户文件坏了不拖垮主注册表
-    for entry in data.get("metrics", []):
-        if not isinstance(entry, dict) or not entry.get("id") or not entry.get("name"):
-            continue
-        entry.setdefault("custom", True)
-        entry.setdefault("out", "custom." + entry["id"])
-        reg["metrics"] = [m for m in reg["metrics"] if m.get("id") != entry["id"]]
-        reg["metrics"].append(entry)
-    return reg
 
 
 def _read_user(user_path):
@@ -85,12 +95,40 @@ def _write_user(data, user_path):
     os.replace(tmp, user_path)
 
 
+def _append_builtin(data):
+    """把内置指标集追加进 data（跳过已有 id，标上 preset）。原地改，返回新增 id 列表。"""
+    meta = json.loads(REGISTRY_FILE.read_text(encoding="utf-8"))
+    have = {m.get("id") for m in data.get("metrics", [])}
+    added = []
+    for m in meta.get("metrics", []):
+        if not _valid(m) or m["id"] in have:
+            continue
+        e = dict(m)
+        e.setdefault("preset", True)
+        data.setdefault("metrics", []).append(e)
+        have.add(e["id"])
+        added.append(e["id"])
+    return added
+
+
+def seed_builtin(user_path=None):
+    """一键注册内置指标集。幂等：已有的 id 原样保留。返回本次新增的 id 列表。"""
+    user_path = USER_METRICS_FILE if user_path is None else paths.Path(user_path)
+    data = _read_user(user_path)
+    added = _append_builtin(data)
+    data["preset_seeded"] = True
+    _write_user(data, user_path)
+    if user_path == USER_METRICS_FILE:
+        reload_()
+    return added
+
+
 def save_custom(spec, sensors=None, user_path=None, reg=None):
     """把"未知传感器"注册成用户指标。返回 (条目, None) 或 (None, 错误说明)。
 
     spec: {sensor_id, name, unit, digits, na_zero}
     """
-    reg = reg or load()
+    reg = reg if reg is not None else load(user_path=user_path)
     sid = str(spec.get("sensor_id") or "").strip()
     name = str(spec.get("name") or "").strip()
     unit = str(spec.get("unit") or "").strip()
@@ -119,25 +157,27 @@ def save_custom(spec, sensors=None, user_path=None, reg=None):
     if spec.get("na_zero"):
         entry["na_zero"] = True
 
-    user_path = USER_METRICS_FILE if user_path is None else user_path
+    user_path = USER_METRICS_FILE if user_path is None else paths.Path(user_path)
     data = _read_user(user_path)
     data["metrics"] = [m for m in data.get("metrics", []) if m.get("id") != mid]
     data["metrics"].append(entry)
     _write_user(data, user_path)
-    reload_()
+    if user_path == USER_METRICS_FILE:
+        reload_()
     return entry, None
 
 
 def remove_custom(metric_id, user_path=None):
-    """删除一个自定义指标。返回是否删掉了东西。"""
-    user_path = USER_METRICS_FILE if user_path is None else user_path
+    """删除一个指标（自定义的、预设搬来的都一样）。删掉后它的传感器回到未知池。"""
+    user_path = USER_METRICS_FILE if user_path is None else paths.Path(user_path)
     data = _read_user(user_path)
     kept = [m for m in data.get("metrics", []) if m.get("id") != metric_id]
     if len(kept) == len(data.get("metrics", [])):
         return False
     data["metrics"] = kept
     _write_user(data, user_path)
-    reload_()
+    if user_path == USER_METRICS_FILE:
+        reload_()
     return True
 
 

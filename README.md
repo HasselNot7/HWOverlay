@@ -90,13 +90,20 @@ python build.py --skip-frontend   # 跳过前端构建（已有 dist 时）
 
 React + HeroUI 单页应用（源码 `frontend/`）：
 
-- **开始使用**：三步向导 —— 连接 AIDA64、导出清单只读对比（缺哪些传感器、
-  一键复制补全后的 `HWMonExtAppItems` 行，**本软件不写 AIDA64 的 ini**，
-  改不改由用户自己动手）、OBS 填法。
+- **开始使用**：两步 —— 连接 AIDA64、OBS 填法。
 - **状态总览**：数据源状态、共享内存预算条、OBS 填法。
 - **版式编辑**：部件级可视化编辑 + 实时缩放预览 + 写盘前强制校验。
-- **自定义指标**：未知传感器注册与删除。
-- **指标总表**：每个指标的当前值、来源、是否被版式引用、候选传感器 ID。
+  默认是空白画布（每块屏幕尺寸都不同），有"加载默认样式"一键上手
+  （顺带注册默认指标集）。
+- **自定义指标**：未知传感器注册与删除 + 一键注册默认指标集。
+- **指标总表**：每个指标的当前值、来源、是否被版式引用、候选传感器 ID；
+  行内删除 = 回到未知池。
+
+**注册表模型（0.3.0 起）**：`metrics.user.json` 就是注册表的全部。
+新装机器上它不存在 -> 注册表为空，所有导出传感器都是"未知传感器"，
+用户自己挑着注册 —— 各家 AIDA64 版本/主板不同，硬编码的传感器 ID 在
+别人机器上大半是死行。内置 `metrics.json` 降级为默认指标集（预设），
+一键整包搬进用户文件，幂等；旧版用户文件首次加载自动迁移，无感。
 
 ## API
 
@@ -106,7 +113,9 @@ React + HeroUI 单页应用（源码 `frontend/`）：
 | GET/POST `/api/layout-check` | 校验磁盘配置 / 校验草稿 |
 | GET `/api/aida/status` `/api/aida/plan` | 导出清单状态与只读对比（缺哪些/补全清单；**不写 AIDA64 的 ini**） |
 | PUT `/api/config`；POST `/api/config/rollback` | 版式写盘（校验不过不落盘、备份、原子替换）/ 回滚 |
-| GET `/api/sensors/unknown`；POST/DELETE `/api/metrics/custom` | 自定义指标 |
+| GET `/api/sensors/unknown`；POST/DELETE `/api/metrics/custom` | 自定义指标（删除 = 回未知池） |
+| POST `/api/metrics/preset`；GET `/api/layout/preset` | 一键注册默认指标集 / 读预设版式 |
+| POST `/api/app/shutdown` | 退出程序（需 `confirm`，管理页按钮用） |
 
 ## 三个必须知道的限制
 
