@@ -16,7 +16,7 @@
 import json
 
 from fastapi import Body, FastAPI, Query, Request
-from fastapi.responses import FileResponse, JSONResponse
+from fastapi.responses import FileResponse, HTMLResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 
 from . import config, overlay, paths, registry
@@ -25,7 +25,6 @@ from .sources import aida64, winapi
 
 HTML_FILE = paths.resource("monitor.html")
 FRONTEND_DIST = paths.resource("frontend/dist")
-OLD_WEB_DIR = paths.resource("hwobs/web")
 
 MAX_BODY = 64 * 1024      # 版式配置远小于这个数，超了就是乱发
 
@@ -181,22 +180,18 @@ def create_app() -> FastAPI:
             return JSONResponse({"removed": False, "error": "没有这个自定义指标"}, status_code=404)
         return {"removed": True, "id": id}
 
-    # ---------- 管理页：React 构建产物优先，过渡期回落旧 vanilla ----------
+    # ---------- 管理页：React 构建产物；没构建过就提示构建命令 ----------
 
     if (FRONTEND_DIST / "index.html").is_file():
         app.mount("/admin", StaticFiles(directory=FRONTEND_DIST, html=True), name="admin")
     else:
         @app.get("/admin")
-        def admin_legacy():
-            return FileResponse(OLD_WEB_DIR / "admin.html", media_type="text/html; charset=utf-8")
-
-        @app.get("/admin.js")
-        def admin_legacy_js():
-            return FileResponse(OLD_WEB_DIR / "admin.js",
-                                media_type="text/javascript; charset=utf-8")
-
-        @app.get("/admin.css")
-        def admin_legacy_css():
-            return FileResponse(OLD_WEB_DIR / "admin.css", media_type="text/css; charset=utf-8")
+        def admin_not_built():
+            return HTMLResponse(
+                "<meta charset='utf-8'><body style='background:#121214;color:#eceff4;"
+                "font-family:monospace;padding:40px'>管理页还没构建。"
+                "在 frontend/ 里跑 <code>npm ci &amp;&amp; npm run build</code>，"
+                "或打包时执行 <code>python build.py</code>（会自动构建）。</body>",
+                status_code=503)
 
     return app

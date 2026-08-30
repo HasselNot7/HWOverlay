@@ -22,7 +22,6 @@ FRONTEND_DIST = ROOT / "frontend" / "dist"
 datas = [
     ('monitor.html', '.'),
     ('overlays', 'overlays'),
-    ('hwobs/web', 'hwobs/web'),
     ('hwobs/registry/metrics.json', 'hwobs/registry'),
 ]
 if FRONTEND_DIST.is_dir():
