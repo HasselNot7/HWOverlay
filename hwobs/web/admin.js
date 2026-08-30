@@ -595,16 +595,21 @@ async function onSave() {
   renderObs();
 }
 
+let pvDim = null;
 function sizePreview(cw, ch) {
   const pv = $('#pv'), wrap = $('#pv-wrap');
   if (!pv || !cw || !ch) return;
-  const s = 0.45;
+  pvDim = [cw, ch];
+  // 缩放比跟随容器实际宽度：窗口再窄也能完整看到整个叠加层，不再裁边
+  const s = Math.min(1, (wrap.clientWidth - 2) / cw);
   pv.style.width = cw + 'px';
   pv.style.height = ch + 'px';
   pv.style.transform = `scale(${s})`;
   wrap.style.height = Math.ceil(ch * s) + 'px';
   $('#pv-note').textContent = `预览按 ${Math.round(s * 100)}% 缩放，真实尺寸 ${cw}×${ch}。`;
 }
+
+window.addEventListener('resize', () => { if (pvDim) sizePreview(...pvDim); });
 
 function reloadPreview() {
   $('#pv').src = `/?t=${Date.now()}`;

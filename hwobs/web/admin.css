@@ -98,12 +98,6 @@ main { display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)
 }
 .card > h2::before { content: "▍"; color: var(--accent-dim); margin-right: 4px; }
 
-/* 编辑 + 预览 双栏 */
-.duo { display: grid; grid-template-columns: minmax(0, 1fr) 520px; gap: 16px; align-items: start; }
-.duo .card { margin-bottom: 0; }
-#preview-card { position: sticky; top: 16px; }
-@media (max-width: 1280px) { .duo { grid-template-columns: 1fr; } #preview-card { position: static; } }
-
 /* ---------- 键值表 ---------- */
 
 .kv { display: grid; grid-template-columns: auto 1fr; gap: 4px 14px; }
@@ -221,10 +215,10 @@ h3 { font-size: 12px; color: var(--muted); font-weight: 400; margin: 14px 0 8px;
 /* ---------- 预览 ---------- */
 
 .pv-wrap {
-  width: 100%; height: 90px; overflow: hidden; background: var(--sunken);
+  width: 100%; overflow: hidden; background: var(--sunken);
   border: 1px solid var(--line-soft); border-radius: 6px;
 }
-.pv-wrap iframe { width: 2000px; height: 200px; border: 0; transform: scale(.45); transform-origin: 0 0; }
+.pv-wrap iframe { width: 2000px; height: 200px; border: 0; transform-origin: 0 0; }
 
 /* ---------- 首启向导：时间线 ---------- */
 

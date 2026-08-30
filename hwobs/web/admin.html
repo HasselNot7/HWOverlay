@@ -28,36 +28,31 @@
 
   <section id="check" class="card"><h2>版式校验</h2><div class="body">载入中…</div></section>
 
-  <div class="duo">
-    <section id="editor" class="card">
-      <h2>编辑版式</h2>
-      <div class="body">
-        <p class="hint"><b>怎么玩</b>：部件从上往下排，就是叠加层从上到下的样子。
-        改完看右边预览，点 <b>保存</b> 后在 OBS 浏览器源里点一次"刷新缓存"即可生效。</p>
-        <div class="form">
-          <label>叠加层宽 <input type="number" id="e-w" min="200" max="4000" step="10"></label>
-          <label>叠加层高 <input type="number" id="e-h" min="60" max="1000" step="1"></label>
-          <span class="src">这两个数要和 OBS 浏览器源里填的宽高一致。</span>
-        </div>
-        <div id="e-widgets"></div>
-        <div class="savebar">
-          <button id="e-save" class="primary" disabled>保存</button>
-          <button id="e-undo">还原上一版</button>
-          <span id="e-dirty"></span>
-          <span class="spacer"></span>
-          <span id="e-msg"></span>
-        </div>
+  <section id="editor" class="card">
+    <h2>编辑版式</h2>
+    <div class="body">
+      <p class="hint"><b>怎么玩</b>：部件从上往下排，就是叠加层从上到下的样子。
+      改完看下面预览，点 <b>保存</b> 后在 OBS 浏览器源里点一次"刷新缓存"即可生效。</p>
+      <div class="form">
+        <label>叠加层宽 <input type="number" id="e-w" min="200" max="4000" step="10"></label>
+        <label>叠加层高 <input type="number" id="e-h" min="60" max="1000" step="1"></label>
+        <span class="src">这两个数要和 OBS 浏览器源里填的宽高一致。</span>
       </div>
-    </section>
+      <div id="e-widgets"></div>
+      <div class="savebar">
+        <button id="e-save" class="primary" disabled>保存</button>
+        <button id="e-undo">还原上一版</button>
+        <span id="e-dirty"></span>
+        <span class="spacer"></span>
+        <span id="e-msg"></span>
+      </div>
+    </div>
+  </section>
 
-    <section id="preview" class="card">
-      <h2>预览</h2>
-      <div class="body">
-        <div class="pv-wrap" id="pv-wrap"><iframe id="pv" title="叠加层预览" scrolling="no"></iframe></div>
-        <div class="src" id="pv-note">预览按 45% 缩放。</div>
-      </div>
-    </section>
-  </div>
+  <section id="preview" class="card"><h2>预览</h2><div class="body">
+    <div class="pv-wrap" id="pv-wrap"><iframe id="pv" title="叠加层预览" scrolling="no"></iframe></div>
+    <div class="src" id="pv-note">预览缩放比例跟随窗口宽度。</div>
+  </div></section>
 
   <section id="metrics" class="card"><h2>指标总表</h2><div class="body">载入中…</div></section>
 
