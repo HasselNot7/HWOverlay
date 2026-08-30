@@ -120,6 +120,8 @@ export default function FreeEditorPage({ shared }: { shared: Shared }) {
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const histRef = useRef<string[]>([]);
   const lastPushRef = useRef(0);
+  /** 中键拖拽平移画布（抓手）：记录起点与初始 scroll */
+  const panRef = useRef<{ x: number; y: number; sl: number; st: number } | null>(null);
   scaleRef.current = pvScale;
   draftRef.current = draft;
   rectsRef.current = rects;
@@ -419,6 +421,35 @@ export default function FreeEditorPage({ shared }: { shared: Shared }) {
     };
   };
 
+  // 中键平移：按住鼠标中键拖动画布（zoom 固定、画布溢出出滚动条时最有用）。
+  const startPan = (e: React.MouseEvent) => {
+    const el = wrapRef.current;
+    if (!el) return;
+    e.preventDefault();      // 压掉浏览器中键自动滚动
+    e.stopPropagation();     // 别触发取消选中
+    panRef.current = { x: e.clientX, y: e.clientY, sl: el.scrollLeft, st: el.scrollTop };
+    el.style.cursor = "grabbing";
+  };
+  useEffect(() => {
+    const move = (e: MouseEvent) => {
+      const p = panRef.current, el = wrapRef.current;
+      if (!p || !el) return;
+      el.scrollLeft = p.sl - (e.clientX - p.x);
+      el.scrollTop = p.st - (e.clientY - p.y);
+    };
+    const up = () => {
+      if (!panRef.current) return;
+      panRef.current = null;
+      if (wrapRef.current) wrapRef.current.style.cursor = "";
+    };
+    window.addEventListener("mousemove", move);
+    window.addEventListener("mouseup", up);
+    return () => {
+      window.removeEventListener("mousemove", move);
+      window.removeEventListener("mouseup", up);
+    };
+  }, []);
+
   // 拖动：iframe 宿主节点 + 手柄盒都直改 DOM（不重渲染），松手才进草稿。
   // 拖近画布边缘或其他部件的左/右/中（上/下/中）时自动吸附，参考线直改 DOM。
   useEffect(() => {
@@ -487,8 +518,8 @@ export default function FreeEditorPage({ shared }: { shared: Shared }) {
           }
         }
       }
-      // 网格兜底：部件对齐没命中时，位置就近吸附到网格线（网格开且吸附开才生效）
-      if (gridRef.current && snapRef.current && d.mode === "move") {
+      // 网格兜底：位置就近吸附到网格线。只认「网格」开关；若对象吸附已命中该轴则让位。
+      if (gridRef.current && d.mode === "move") {
         const gx = Math.round(nx / GRID_PX) * GRID_PX;
         const gy = Math.round(ny / GRID_PX) * GRID_PX;
         if (snX == null && gx !== nx) { nx = Math.max(0, Math.min(gx, W - 24)); }
@@ -606,18 +637,10 @@ export default function FreeEditorPage({ shared }: { shared: Shared }) {
         <div ref={wrapRef}
           className="absolute inset-0 select-none overflow-auto p-6"
           style={{ paddingRight: panelOpen ? PANEL_W + 24 : 24 }}
-          onMouseDown={() => setSelected(null)}>
+          onMouseDown={e => { if (e.button === 1) startPan(e); else setSelected(null); }}>
           <div className="flex min-h-full min-w-full items-center justify-center">
             <div className="relative"
               style={{ width: Math.ceil(draft.canvas.w * pvScale), height: Math.ceil(draft.canvas.h * pvScale) }}>
-              {gridOn && (
-                <div className="pointer-events-none absolute inset-0 opacity-40"
-                  style={{
-                    backgroundImage:
-                      "linear-gradient(#26262b 1px, transparent 1px), linear-gradient(90deg, #26262b 1px, transparent 1px)",
-                    backgroundSize: `${GRID_PX * pvScale}px ${GRID_PX * pvScale}px`,
-                  }} />
-              )}
               <iframe
                 key={pvKey}
                 ref={frameRef}
@@ -630,6 +653,15 @@ export default function FreeEditorPage({ shared }: { shared: Shared }) {
                   transform: `scale(${pvScale})`, transformOrigin: "0 0",
                 }}
               />
+              {/* 网格叠在预览之上、手柄盒之下（手柄盒有 z-index，自动浮在网格上） */}
+              {gridOn && (
+                <div className="pointer-events-none absolute inset-0 opacity-50"
+                  style={{
+                    backgroundImage:
+                      "linear-gradient(#3a3f4a 1px, transparent 1px), linear-gradient(90deg, #3a3f4a 1px, transparent 1px)",
+                    backgroundSize: `${GRID_PX * pvScale}px ${GRID_PX * pvScale}px`,
+                  }} />
+              )}
               {/* 对齐参考线：拖动吸附时显示，直改 DOM 不走 React */}
               <div ref={vgRef} className="pointer-events-none absolute inset-y-0 z-40 hidden w-px bg-primary" />
               <div ref={hgRef} className="pointer-events-none absolute inset-x-0 z-40 hidden h-px bg-primary" />
@@ -821,7 +853,7 @@ export default function FreeEditorPage({ shared }: { shared: Shared }) {
               <div className="border-t border-white/[0.06] pt-3">
                 <SubTitle>快捷键</SubTitle>
                 <Hint className="text-xs">
-                  拖动挪位置 · 右下角改大小<br />
+                  拖动挪位置 · 右下角改大小 · 中键拖动画布<br />
                   拖近边缘自动吸附 · 选中后可一键「对齐命令行」<br />
                   方向键微调（Shift = 10px）<br />
                   Ctrl+Z 撤销 · Ctrl+D 复制部件<br />
