@@ -1,75 +1,128 @@
-import { Chip } from "@heroui/react";
+import { Button, Chip } from "@heroui/react";
+import { Cable, LayoutTemplate, MonitorPlay, ArrowRight } from "lucide-react";
+import type { LucideIcon } from "lucide-react";
 import type { Shared } from "../App";
-import { Hint, Page, Section, SubTitle } from "../ui";
+import { CARD_CLS, Hint, Page } from "../ui";
 
-type StepKind = "done" | "todo" | "bad";
+type StepKind = "done" | "todo" | "bad" | "act";
 
-const KIND_CHIP = { done: "success", todo: "warning", bad: "danger" } as const;
-const KIND_TEXT = { done: "已完成", todo: "待办", bad: "有问题" } as const;
+const KIND_CHIP: Record<StepKind, { color: "success" | "warning" | "danger" | "default"; text: string }> = {
+  done: { color: "success", text: "已完成" },
+  todo: { color: "warning", text: "待办" },
+  bad: { color: "danger", text: "有问题" },
+  act: { color: "default", text: "照着做" },     // 没法替用户验证的步骤，如实标注
+};
 
-/** 单个步骤：小节标题 + 状态点 Chip，正文用灰色说明。 */
-function Step({ kind, title, children }: {
+/** 步骤卡片：Now Playing 集成页的卡片语言 —— 近黑底淡描边圆角，左侧彩色步骤图标块，
+ * 标题 + 状态点 Chip 一行，正文灰色说明在下面。 */
+function StepCard({ kind, num, title, Icon, children, actions }: {
   kind: StepKind;
+  num: number;
   title: string;
+  Icon: LucideIcon;
   children?: React.ReactNode;
+  actions?: React.ReactNode;
 }) {
+  const tone = {
+    done: "bg-primary/15 text-primary",
+    todo: "bg-warning/15 text-warning",
+    bad: "bg-danger/15 text-danger",
+    act: "bg-default-100 text-default-500",
+  }[kind];
   return (
-    <div className="flex flex-col gap-3">
-      <SubTitle right={
-        <Chip size="sm" variant="dot" color={KIND_CHIP[kind]}>{KIND_TEXT[kind]}</Chip>
-      }>{title}</SubTitle>
-      {children}
+    <div className={`${CARD_CLS} flex gap-4 p-4`}>
+      <div className={`flex h-12 w-12 shrink-0 items-center justify-center rounded-xl ${tone}`}>
+        <Icon size={22} strokeWidth={1.75} />
+      </div>
+      <div className="min-w-0 flex-1">
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <h3 className="text-base font-bold leading-6 text-default-800">
+            <span className="mr-1.5 font-poppins">{num}</span>{title}
+          </h3>
+          <Chip size="sm" variant="dot" color={KIND_CHIP[kind].color}>{KIND_CHIP[kind].text}</Chip>
+        </div>
+        {children && <div className="mt-2 flex flex-col gap-2">{children}</div>}
+        {actions && <div className="mt-3 flex flex-wrap gap-2">{actions}</div>}
+      </div>
     </div>
   );
 }
 
 export default function WizardPage({ shared }: { shared: Shared }) {
-  const { status } = shared;
+  const { status, metrics, check } = shared;
+  const metricCount = metrics?.length ?? 0;
+  const widgetCount = check?.widgets ?? 0;
 
   const step1 = !status ? (
-    <Step kind="todo" title="① 连接 AIDA64">
+    <StepCard kind="todo" num={1} title="连接 AIDA64" Icon={Cable}>
       <Hint>状态接口还没读到 —— 服务可能刚启动，点侧栏「刷新数据」重试。</Hint>
-    </Step>
+    </StepCard>
   ) : status.error ? (
-    <Step kind="bad" title="① 连接 AIDA64">
+    <StepCard kind="bad" num={1} title="连接 AIDA64" Icon={Cable}>
       <Hint>读取状态时出错：{status.error}</Hint>
-    </Step>
+    </StepCard>
   ) : !status.running || !status.ini ? (
-    <Step kind="bad" title="① 连接 AIDA64">
+    <StepCard kind="bad" num={1} title="连接 AIDA64" Icon={Cable}>
       <Hint>
         {status.running ? "AIDA64 在跑，但共享内存读不到" : "AIDA64 没在运行"}
         {status.running && !status.shm_readable ? " —— 请确认 AIDA64 里开了共享内存（文件 → 设置 → 硬件监视工具 → 外部程序）" : ""}
         <br />
         {status.install || "没找到安装目录（绿色版请先启动一次 AIDA64）"}
       </Hint>
-    </Step>
+    </StepCard>
   ) : (
-    <Step kind="done" title="① AIDA64 已连接">
+    <StepCard kind="done" num={1} title="AIDA64 已连接" Icon={Cable}>
       <Hint>
         导出 {status.exported_ids.length} 个传感器 · 共享内存 {status.shm_bytes}/{status.shm_limit} 字节 = {status.shm_pct}%
       </Hint>
-    </Step>
+    </StepCard>
+  );
+
+  const registered = metricCount > 0;
+  const laid = widgetCount > 0;
+  const step2kind = registered && laid ? "done" as const : "todo" as const;
+  const step2 = (
+    <StepCard kind={step2kind} num={2} title="注册传感器、挑版式" Icon={LayoutTemplate}
+      actions={
+        <>
+          <Button size="sm" variant="flat" className="bg-[#27272a]"
+            endContent={<ArrowRight size={14} />} onPress={() => shared.goto("custom")}>
+            去注册指标（已 {metricCount} 个）
+          </Button>
+          <Button size="sm" variant="flat" className="bg-[#27272a]"
+            endContent={<ArrowRight size={14} />} onPress={() => shared.goto("editor")}>
+            去排版（{laid ? `已 ${widgetCount} 个部件` : "空白画布，可一键加载默认样式"}）
+          </Button>
+        </>
+      }>
+      <Hint>
+        各家机器的 AIDA64 传感器名不一样，所以不预置任何指标：先在「自定义指标」把传感器
+        注册成指标（新机器可一键加载默认指标集），再去「版式编辑」排版。
+      </Hint>
+    </StepCard>
+  );
+
+  // OBS 有没有加源没法替用户验证 —— 如实给"照着做"；但版式还是空的时候先拦一下
+  const step3kind = laid ? "act" as const : "todo" as const;
+  const step3 = (
+    <StepCard kind={step3kind} num={3} title="在 OBS 里添加“浏览器”源" Icon={MonitorPlay}>
+      <Hint>
+        URL <code className="rounded-md bg-default-100 px-1.5 py-0.5 font-poppins text-xs">{location.origin}/</code>
+        　宽 {check?.canvas_w ?? "—"} × 高 {check?.canvas_h ?? "—"}
+        {!laid && " —— 版式还是空的，先去排版，否则 OBS 里只有一条装饰命令行"}
+        <br />
+        改过版式后要在浏览器源属性里点“刷新缓存”，否则 OBS 还是旧页面。
+      </Hint>
+    </StepCard>
   );
 
   return (
     <Page title="开始使用">
-      <Section title="连接 AIDA64">{step1}</Section>
-      <Section title="挑选指标与排版" divider={false}>
-        <Step kind="todo" title="② 去注册传感器、挑版式">
-          <Hint>
-            各家机器的 AIDA64 传感器名不一样，所以这里不预置任何指标：
-            去「自定义指标」页把传感器注册成指标（新机器可以一键加载默认指标集），
-            再去「版式编辑」排版 —— 默认是空白画布，有"加载默认样式"按钮一键上手。
-          </Hint>
-        </Step>
-        <Step kind="done" title="③ 在 OBS 里添加“浏览器”源">
-          <Hint>
-            URL {location.origin}/　宽 {shared.check?.canvas_w ?? "—"}　高 {shared.check?.canvas_h ?? "—"}
-            <br />
-            改过版式后要在浏览器源属性里点“刷新缓存”，否则 OBS 还是旧页面。
-          </Hint>
-        </Step>
-      </Section>
+      <div className="flex flex-col gap-3">
+        {step1}
+        {step2}
+        {step3}
+      </div>
     </Page>
   );
 }

@@ -95,6 +95,7 @@ export interface LayoutCheck {
   est_height: number;
   canvas_w: number | null;
   canvas_h: number | null;
+  widgets: number;
   referenced: string[];
   needed_ids: string[];
   budget?: {

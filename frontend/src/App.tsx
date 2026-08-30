@@ -28,6 +28,8 @@ export interface Shared {
   status: AidaStatus | null;
   reloadMetrics: () => Promise<Metric[]>;
   refreshAll: () => Promise<void>;
+  /** 向导等页面的"去 XX"按钮切视图用 */
+  goto: (view: string) => void;
 }
 
 /** 导航项：Now Playing 同款 —— min-h-12 圆角药丸，激活 bg-default-100，图标 24px。 */
@@ -127,7 +129,7 @@ export default function App() {
     );
   }
 
-  const shared: Shared = { metrics, hw, check, status, reloadMetrics, refreshAll };
+  const shared: Shared = { metrics, hw, check, status, reloadMetrics, refreshAll, goto: switchView };
 
   return (
     <div className="dark bg-background font-sans text-foreground antialiased">
