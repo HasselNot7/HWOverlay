@@ -92,7 +92,7 @@ export default function MetricsTablePage({ shared }: { shared: Shared }) {
           </Table>
         </div>
         <Hint className="mt-2 text-xs">
-          灰色行是版式没用的指标；删除只影响本软件的注册表，不碰 AIDA64。
+          灰色行为未使用的指标
         </Hint>
       </Section>
 

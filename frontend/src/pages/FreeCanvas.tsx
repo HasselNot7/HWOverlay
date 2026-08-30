@@ -74,14 +74,23 @@ export default function FreeCanvas({ draft, selected, onSelect, onChange }: {
   const fit = () => {
     const cw = wrapRef.current?.clientWidth;
     if (cw && canvas.w) {
-      scaleRef.current = Math.min(1, (cw - 2) / canvas.w);
-      force();
+      const s = Math.min(1, (cw - 2) / canvas.w);
+      // 拖动进行中不换比例：盒子位置是按旧 scale 直改的 DOM，突然换算会跳变
+      if (Math.abs(s - scaleRef.current) > 0.001 && !drag.current) {
+        scaleRef.current = s;
+        force();
+      }
     }
   };
+  // 面板挂载时布局还没展开，clientWidth 会先给一个错误的小值；
+  // window resize 捕捉不到"面板展开"，必须用 ResizeObserver 盯容器本身
   useEffect(() => {
+    const el = wrapRef.current;
+    if (!el) return;
+    const ro = new ResizeObserver(() => fit());
+    ro.observe(el);
     fit();
-    window.addEventListener("resize", fit);
-    return () => window.removeEventListener("resize", fit);
+    return () => ro.disconnect();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [canvas.w]);
   const scale = scaleRef.current;
