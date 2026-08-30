@@ -317,24 +317,32 @@ function metricSelect(value, onchange) {
 }
 
 /* 槽位（value/sub）里的一个条目行。字符串引用就地改写；
- * pair/diff 这类复合对象只显示与删除，不提供内部编辑（要改就删了重加）。 */
-function slotRow(arr, i, rebuild) {
+ * pair/diff 这类复合对象只显示与删除，不提供内部编辑（要改就删了重加）。
+ * allowLabel=false 的大数字格不提供标签输入 —— 渲染器在该格不显示名称文字。 */
+function slotRow(arr, i, rebuild, allowLabel) {
   const item = arr[i];
   const row = el('div', 'slot-row');
   if (typeof item === 'string') {
     const sel = metricSelect(item, v => { arr[i] = v; onChange(); });
-    const label = el('input'); label.type = 'text'; label.placeholder = '前缀标签（可空）';
-    label.value = ''; label.size = 8; label.title = '字符串引用没有标签字段；填标签会把它升级成对象';
-    label.addEventListener('change', () => {
-      if (label.value) { arr[i] = { metric: arr[i], label: label.value }; rebuild(); }
-    });
-    row.append(sel, label);
+    row.append(sel);
+    if (allowLabel) {
+      const label = el('input'); label.type = 'text'; label.placeholder = '前面加字（可空）';
+      label.value = ''; label.size = 8; label.title = '填了字，直播时这个值前面就会显示它';
+      label.addEventListener('change', () => {
+        if (label.value) { arr[i] = { metric: arr[i], label: label.value }; rebuild(); onChange(); }
+      });
+      row.append(label);
+    }
   } else if (item?.metric) {
     const sel = metricSelect(item.metric, v => { item.metric = v; onChange(); });
-    const label = el('input'); label.type = 'text'; label.placeholder = '前缀标签（可空）';
-    label.value = item.label ?? ''; label.size = 8;
-    label.addEventListener('input', () => { item.label = label.value || undefined; onChange(); });
-    row.append(sel, label);
+    row.append(sel);
+    if (allowLabel) {
+      const label = el('input'); label.type = 'text'; label.placeholder = '前面加字（可空）';
+      label.value = item.label ?? ''; label.size = 8;
+      label.title = '填了字，直播时这个值前面就会显示它';
+      label.addEventListener('input', () => { item.label = label.value || undefined; onChange(); });
+      row.append(label);
+    }
   } else if (item?.pair || item?.diff) {
     const pair = item.pair || item.diff;
     row.append(el('span', 'path', `${item.pair ? 'pair' : 'diff'}: ${pair.join(' / ')}`));
@@ -348,29 +356,33 @@ function slotRow(arr, i, rebuild) {
   return row;
 }
 
-function slotEditor(card, defKey, title) {
+function slotEditor(card, defKey, title, allowLabel, note) {
   const box = el('div', 'slot');
   box.append(el('span', 'src', title));
   const items = el('div', 'slot-items');
   box.append(items);
-  const rebuild = () => fillSlot(items, card, defKey, rebuild);
-  fillSlot(items, card, defKey, rebuild);
+  const rebuild = () => fillSlot(items, card, defKey, rebuild, allowLabel);
+  fillSlot(items, card, defKey, rebuild, allowLabel);
+  if (note) items.append(el('div', 'src slot-note', note));
   return box;
 }
 
-function fillSlot(items, card, defKey, rebuild) {
+function fillSlot(items, card, defKey, rebuild, allowLabel) {
   const def = card[defKey];
   const list = def?.metrics ?? [];
+  const note = items.querySelector('.slot-note');
   items.replaceChildren();
-  list.forEach((_, i) => items.append(slotRow(list, i, rebuild)));
+  list.forEach((_, i) => items.append(slotRow(list, i, rebuild, allowLabel)));
   const add = el('button', 'mini slot-add'); add.textContent = '+ 加指标';
+  add.title = allowLabel ? '这一行再加一个值' : '这一格再加一个值';
   add.addEventListener('click', () => {
     const first = outPaths()[0];
     if (def) def.metrics.push(first);
     else card[defKey] = { metrics: [first] };
-    fillSlot(items, card, defKey, rebuild); onChange();
+    fillSlot(items, card, defKey, rebuild, allowLabel); onChange();
   });
   items.append(add);
+  if (note) items.append(note);
 }
 
 function cardEditor(w, c, i, rebuildCards) {
@@ -392,8 +404,9 @@ function cardEditor(w, c, i, rebuildCards) {
       metricSelect(c.spark, v => { v ? c.spark = v : delete c.spark; onChange(); })]),
   ]));
 
-  fs.append(slotEditor(c, 'value', '大数字（右上）'));
-  fs.append(slotEditor(c, 'sub', '小字（下方一行）'));
+  fs.append(slotEditor(c, 'value', '大数字（右上）', false,
+    '这一格只显示数值不加名字；想给值加"核心"这样的前缀字，放进小字行'));
+  fs.append(slotEditor(c, 'sub', '小字（下方一行）', true));
   return fs;
 }
 
@@ -575,6 +588,8 @@ async function onChange() {
     renderBudget();
     renderCheck();
     renderObs();
+    // 预览 iframe 显示的是已保存版本；草稿没保存前如实说明，免得"改了没反应"
+    if (dirty) $('#pv-note').textContent = '预览显示的是已保存的版本 —— 点"保存"后才会刷新成当前草稿。';
   }, 350);
 }
 
