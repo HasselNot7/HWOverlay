@@ -1,4 +1,4 @@
-import { addToast, Button, Input } from "@heroui/react";
+import { addToast, Button, Input, Switch } from "@heroui/react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { api, clone, outPaths } from "../api";
 import type { CardsWidget, ChipsWidget, OverlayConfig, TextWidget } from "../types";
@@ -203,6 +203,56 @@ export default function EditorPage({ shared }: { shared: Shared }) {
             />
           </div>
           <Hint className="pb-3">要和 OBS 浏览器源里填的宽高一致。</Hint>
+        </div>
+
+        {/* 顶部装饰命令行：整行可开关，内容/字号/光标可改 */}
+        <div className="mt-2 flex flex-wrap items-end gap-5">
+          <div className="flex flex-col gap-2">
+            <FieldLabel>顶部命令行装饰</FieldLabel>
+            <div className="flex h-12 items-center">
+              <Switch size="sm" aria-label="显示顶部命令行装饰"
+                isSelected={!!draft.prompt}
+                onValueChange={b => {
+                  if (b) {
+                    draft.prompt = { user: "streamer@pc", cmd: "./sysmon --source=aida64 --interval=1s", cursor: true, size: 19 };
+                  } else {
+                    delete draft.prompt;
+                  }
+                  setDraft({ ...draft });
+                  onChange();
+                }} />
+            </div>
+          </div>
+          {draft.prompt && (
+            <>
+              <div className="flex flex-col gap-2">
+                <FieldLabel>用户@主机</FieldLabel>
+                <Input aria-label="命令行用户" size="lg" variant="flat" className="w-56 font-poppins"
+                  value={draft.prompt.user ?? ""}
+                  onValueChange={v => { draft.prompt!.user = v; setDraft({ ...draft }); onChange(); }} />
+              </div>
+              <div className="flex min-w-0 flex-1 flex-col gap-2">
+                <FieldLabel>命令行文本</FieldLabel>
+                <Input aria-label="命令行文本" size="lg" variant="flat" className="min-w-[280px] font-poppins"
+                  value={draft.prompt.cmd ?? ""}
+                  onValueChange={v => { draft.prompt!.cmd = v; setDraft({ ...draft }); onChange(); }} />
+              </div>
+              <div className="flex flex-col gap-2">
+                <FieldLabel>命令行字号</FieldLabel>
+                <Input aria-label="命令行字号" type="number" size="lg" variant="flat" className="w-24 font-poppins"
+                  value={String(draft.prompt.size ?? 19)}
+                  onValueChange={v => { draft.prompt!.size = +v || 19; setDraft({ ...draft }); onChange(); }} />
+              </div>
+              <div className="flex flex-col gap-2 pb-3">
+                <FieldLabel>闪烁光标</FieldLabel>
+                <div className="flex h-12 items-center">
+                  <Switch size="sm" aria-label="闪烁光标"
+                    isSelected={draft.prompt.cursor ?? true}
+                    onValueChange={b => { draft.prompt!.cursor = b; setDraft({ ...draft }); onChange(); }} />
+                </div>
+              </div>
+            </>
+          )}
         </div>
 
         <div className="mt-4 flex flex-col gap-3">
