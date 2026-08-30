@@ -1,5 +1,5 @@
-import { useCallback, useEffect, useState } from "react";
 import { Button, Checkbox, Input } from "@heroui/react";
+import { useCallback, useEffect, useState } from "react";
 import { api } from "../api";
 import type { Metric, UnknownSensor } from "../types";
 import type { Shared } from "../App";

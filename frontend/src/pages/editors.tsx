@@ -1,10 +1,8 @@
+import { Accordion, AccordionItem, Button, Checkbox, Input, Select, SelectItem } from "@heroui/react";
 /** 版式编辑器的子组件：指标选择器、槽位编辑、卡片/chips/text 部件编辑器。
  * 控件一律用 HeroUI。草稿对象直接原地改，改完调 onChange() 触发上层重渲染 + 防抖校验。 */
 
 import { useState } from "react";
-import {
-  Accordion, AccordionItem, Button, Checkbox, Input, Select, SelectItem,
-} from "@heroui/react";
 import type { CardItem, CardsWidget, ChipsWidget, GroupDef, Metric, TextWidget } from "../types";
 
 const GROUP_TITLES: Record<string, string> = {

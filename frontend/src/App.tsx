@@ -1,5 +1,6 @@
-import { useCallback, useEffect, useRef, useState } from "react";
 import { Button, Switch } from "@heroui/react";
+import { useCallback, useEffect, useRef, useState } from "react";
+import { House, Activity, LayoutGrid, FlaskConical, Table2, RefreshCw, ExternalLink } from "lucide-react";
 import { api } from "./api";
 import type { AidaStatus, HW, LayoutCheck, Metric } from "./types";
 import WizardPage from "./pages/WizardPage";
@@ -9,22 +10,11 @@ import CustomMetricsPage from "./pages/CustomMetricsPage";
 import MetricsTablePage from "./pages/MetricsTablePage";
 
 const NAV = [
-  { id: "start", label: "开始使用", icon: <circle cx="8" cy="8" r="6.5" /> },
-  { id: "status", label: "状态总览", icon: <path d="M1 8.5h3l2-5 3.5 9 2-4H15" /> },
-  {
-    id: "editor",
-    label: "版式编辑",
-    icon: (
-      <>
-        <rect x="1.5" y="1.5" width="5.5" height="5.5" rx="1" />
-        <rect x="9" y="1.5" width="5.5" height="5.5" rx="1" />
-        <rect x="1.5" y="9" width="5.5" height="5.5" rx="1" />
-        <path d="M9 11.5h5.5M11.75 9v5.5" />
-      </>
-    ),
-  },
-  { id: "custom", label: "自定义指标", icon: <path d="M8 1.5v13M1.5 8h13" /> },
-  { id: "metrics", label: "指标总表", icon: <path d="M2 4h12M2 8h12M2 12h8" /> },
+  { id: "start", label: "开始使用", Icon: House },
+  { id: "status", label: "状态总览", Icon: Activity },
+  { id: "editor", label: "版式编辑", Icon: LayoutGrid },
+  { id: "custom", label: "自定义指标", Icon: FlaskConical },
+  { id: "metrics", label: "指标总表", Icon: Table2 },
 ];
 
 export interface Shared {
@@ -102,14 +92,10 @@ export default function App() {
                   : "text-default-400 hover:bg-content2 hover:text-foreground"
               }`}
             >
-              <svg
-                viewBox="0 0 16 16"
-                className={`h-[18px] w-[18px] flex-none ${view === item.id ? "stroke-primary" : ""}`}
-                fill="none" stroke="currentColor" strokeWidth="1.4"
-                strokeLinejoin="round" strokeLinecap="round"
-              >
-                {item.icon}
-              </svg>
+              <item.Icon
+                className={`h-[18px] w-[18px] flex-none ${view === item.id ? "text-primary" : ""}`}
+                size={18}
+              />
               {item.label}
             </button>
           ))}
@@ -119,11 +105,12 @@ export default function App() {
           <Switch size="sm" isSelected={auto} onValueChange={setAuto}>
             <span className="text-xs text-default-500">自动刷新</span>
           </Switch>
-          <Button size="sm" variant="flat" onPress={() => refreshAll()}>刷新数据</Button>
-          <Button
-            size="sm" variant="flat"
+          <Button size="sm" variant="flat" startContent={<RefreshCw size={14} />}
+            onPress={() => refreshAll()}>刷新数据</Button>
+          <Button size="sm" variant="flat"
+            startContent={<ExternalLink size={14} />}
             onPress={() => window.open("/", "_blank")}
-          >打开叠加层 ↗</Button>
+          >打开叠加层</Button>
         </div>
       </aside>
 

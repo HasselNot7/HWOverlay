@@ -1,5 +1,5 @@
+import { addToast, Button, Input } from "@heroui/react";
 import { useCallback, useEffect, useRef, useState } from "react";
-import { Button, Input } from "@heroui/react";
 import { api, clone, outPaths } from "../api";
 import type { CardsWidget, ChipsWidget, OverlayConfig, TextWidget } from "../types";
 import type { Shared } from "../App";
@@ -60,12 +60,14 @@ export default function EditorPage({ shared }: { shared: Shared }) {
     const rep = await api.saveConfig(draft);
     if (!rep.saved) {
       setMsg({ text: `✗ 保存失败：${(rep.errors || []).join("；")}`, kind: "bad" });
+      addToast({ title: "保存失败", description: (rep.errors || []).join("；"), color: "danger" });
       return;
     }
     setCfg(clone(draft));
     setDirty(false);
     setPvKey(k => k + 1);
     setMsg({ text: "✓ 已保存。OBS 里若没变化，点浏览器源的“刷新缓存”。", kind: "ok" });
+    addToast({ title: "已保存", description: "OBS 里若没变化，点浏览器源的“刷新缓存”。", color: "success" });
     try {
       const c = await api.layoutCheck();
       setCheck(c);
@@ -82,6 +84,7 @@ export default function EditorPage({ shared }: { shared: Shared }) {
     await loadConfig();
     setPvKey(k => k + 1);
     setMsg({ text: "✓ 已还原到上一版", kind: "ok" });
+    addToast({ title: "已还原到上一版", color: "success" });
   };
 
   // 预览缩放：跟随容器实际宽度，窗口变化时重算

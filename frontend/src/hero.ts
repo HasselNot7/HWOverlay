@@ -1,4 +1,4 @@
-import { heroui } from "@heroui/react";
+import { heroui } from "@heroui/theme";
 
 /** HeroUI 主题：主色保持默认蓝（和参考应用同款），暗色底学它的近黑 + 灰阶分层。 */
 export default heroui({
