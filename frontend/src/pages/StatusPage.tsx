@@ -90,7 +90,7 @@ export default function StatusPage({ shared }: { shared: Shared }) {
           <Row k="内容预估高" v={`${check?.est_height ?? "—"} px`} />
         </div>
         <Hint className="mt-2">
-          OBS → 添加“浏览器”源 → 取消勾选“本地文件” → 填上面的 URL 和尺寸。
+          OBS → 浏览器源 → 取消勾选“本地文件” → 填上面的 URL 和尺寸。
         </Hint>
       </Section>
     </Page>

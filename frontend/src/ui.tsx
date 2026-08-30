@@ -52,7 +52,7 @@ export const FieldLabel = ({ children }: { children: React.ReactNode }) => (
 export const Hint = ({ children, className = "" }: {
   children: React.ReactNode;
   className?: string;
-}) => <p className={`text-sm text-color-desc ${className}`}>{children}</p>;
+}) => <p className={`text-sm leading-6 text-color-desc ${className}`}>{children}</p>;
 
 /** Now Playing 卡片底：近黑底 + 极淡描边 + rounded-xl，悬停微亮。 */
 export const CARD_CLS = "rounded-xl border border-white/[0.04] bg-[#1a1a1d]";

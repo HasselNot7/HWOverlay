@@ -135,12 +135,11 @@ function SlotRow({ arr, i, allowLabel, metrics, onChange, rebuild }: {
 }
 
 /** 大数字（allowLabel=false）与小字（allowLabel=true）槽位。 */
-export function SlotEditor({ card, defKey, title, allowLabel, note, metrics, onChange }: {
+export function SlotEditor({ card, defKey, title, allowLabel, metrics, onChange }: {
   card: CardItem;
   defKey: "value" | "sub";
   title: string;
   allowLabel: boolean;
-  note?: string;
   metrics: Metric[];
   onChange: () => void;
 }) {
@@ -167,7 +166,7 @@ export function SlotEditor({ card, defKey, title, allowLabel, note, metrics, onC
         <div className="mt-1">
           <MiniBtn title={allowLabel ? "这一行再加一个值" : "这一格再加一个值"} onClick={addItem}>+ 加指标</MiniBtn>
         </div>
-        {note && <div className="mt-1 text-xs text-color-desc">{note}</div>}
+        {!allowLabel && <div className="mt-1 text-xs text-color-desc">只显示数值；要加前缀字，放小字行</div>}
       </div>
     </div>
   );
@@ -248,8 +247,7 @@ function CardEditor({ w, card, index, metrics, onChange }: {
         </label>
       </div>
 
-      <SlotEditor card={card} defKey="value" title="大数字（右上）" allowLabel={false} metrics={metrics}
-        note="这一格只显示数值不加名字；想给值加“核心”这样的前缀字，放进小字行" onChange={onChange} />
+      <SlotEditor card={card} defKey="value" title="大数字（右上）" allowLabel={false} metrics={metrics} onChange={onChange} />
       <ValueGroupEditor card={card} onChange={onChange} />
       <SlotEditor card={card} defKey="sub" title="小字（下方一行）" allowLabel metrics={metrics} onChange={onChange} />
     </div>
@@ -259,9 +257,7 @@ function CardEditor({ w, card, index, metrics, onChange }: {
 export function CardsEditor({ w, metrics, onChange }: { w: CardsWidget; metrics: Metric[]; onChange: () => void }) {
   return (
     <div>
-      <Hint className="mb-2 text-xs">
-        每张卡片：左边标题，右上角大数字，中间一条进度条，下面一行小字和迷你曲线。哪个格显示什么指标都能换。
-      </Hint>
+      <Hint className="mb-2">标题 + 进度条 + 右上大数字 + 下方小字，每个格都能换指标。</Hint>
       {w.items.map((c, i) => (
         <CardEditor key={c.key ?? i} w={w} card={c} index={i} metrics={metrics} onChange={onChange} />
       ))}
@@ -290,9 +286,7 @@ export function ChipsEditor({ w, metrics, onChange }: { w: ChipsWidget; metrics:
   }
   return (
     <div>
-      <Hint className="mb-2 text-xs">
-        叠加层底部那一行小指标。勾谁谁出现，顺序跟着勾的先后走；放不下会自动缩小一号。
-      </Hint>
+      <Hint className="mb-2">勾谁谁出现，放不下自动缩小一号。</Hint>
       <div className="flex items-center gap-2.5">
         <span className="text-xs text-color-desc">字号</span>
         <Input
@@ -335,7 +329,7 @@ export function ChipsEditor({ w, metrics, onChange }: { w: ChipsWidget; metrics:
                       }}
                     >
                       <span className="text-sm">{m?.name ?? p}
-                        <span className="ml-1 font-poppins text-[11px] text-default-500">{p}</span>
+                        <span className="ml-1 font-poppins text-xs text-default-500">{p}</span>
                       </span>
                     </Checkbox>
                   );
@@ -354,10 +348,7 @@ const QUICK = ["cpu.usage", "cpu.temp", "gpu.usage", "gpu.temp", "ram.used", "ra
 export function TextEditor({ w, metrics, onChange }: { w: TextWidget; metrics: Metric[]; onChange: () => void }) {
   return (
     <div>
-      <Hint className="mb-2 text-xs">
-        想写什么就写什么，指标值用花括号插进去：正文里放 {"{cpu.usage}"}，
-        直播时它就变成 CPU 使用率的实时数字，没有数据时显示 --。
-      </Hint>
+      <Hint className="mb-2">花括号里填指标路径（如 {"{cpu.usage}"}），没数据显示 --。</Hint>
       <Input
         aria-label="正文" size="sm" variant="flat" placeholder="想写的话 + {指标} 占位符"
         defaultValue={w.text ?? ""} className="max-w-xl font-poppins"

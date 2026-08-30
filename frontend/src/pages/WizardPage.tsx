@@ -96,8 +96,7 @@ export default function WizardPage({ shared }: { shared: Shared }) {
         </>
       }>
       <Hint>
-        各家机器的 AIDA64 传感器名不一样，所以不预置任何指标：先在「自定义指标」把传感器
-        注册成指标（新机器可一键加载默认指标集），再去「版式编辑」排版。
+        传感器名因机器而异：先去「自定义指标」注册（新机器可一键加载默认指标集），再来排版。
       </Hint>
     </StepCard>
   );
@@ -109,9 +108,9 @@ export default function WizardPage({ shared }: { shared: Shared }) {
       <Hint>
         URL <code className="rounded-md bg-default-100 px-1.5 py-0.5 font-poppins text-xs">{location.origin}/</code>
         　宽 {check?.canvas_w ?? "—"} × 高 {check?.canvas_h ?? "—"}
-        {!laid && " —— 版式还是空的，先去排版，否则 OBS 里只有一条装饰命令行"}
+        {!laid && " —— 版式还是空的，先去排版"}
         <br />
-        改过版式后要在浏览器源属性里点“刷新缓存”，否则 OBS 还是旧页面。
+        改过版式后，在浏览器源属性里点“刷新缓存”。
       </Hint>
     </StepCard>
   );

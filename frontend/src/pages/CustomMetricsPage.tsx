@@ -64,10 +64,8 @@ export default function CustomMetricsPage({ shared }: { shared: Shared }) {
           </Button>
         }>
         <Hint>
-          AIDA64 导出的、还没注册成指标的传感器都在这里 —— 各家机器传感器名不一样，
-          所以挑你想要的注册即可，也可以一键加载内置的默认指标集（CPU/显卡/内存/网络
-          常见项，幂等，已有名称或改名后的自定义指标不会被覆盖）。注册后编辑器的下拉
-          和勾选列表里就能选它，叠加层才能显示。
+          AIDA64 导出了但还没注册的传感器。挑着注册，或一键加载默认指标集；
+          注册后编辑器和总表立即可见。
         </Hint>
 
         {customs.length > 0 && (
@@ -83,7 +81,7 @@ export default function CustomMetricsPage({ shared }: { shared: Shared }) {
                 }
               >
                 <span className="text-sm">{m.name}
-                  <span className="ml-1.5 font-poppins text-[11px] text-default-500">{m.out}</span>
+                  <span className="ml-1.5 font-poppins text-xs text-default-500">{m.out}</span>
                 </span>
               </Chip>
             ))}
@@ -96,7 +94,7 @@ export default function CustomMetricsPage({ shared }: { shared: Shared }) {
           ) : !unknown.ok ? (
             <div className="py-1 text-sm text-danger">{unknown.error}</div>
           ) : unknown.unknown.length === 0 ? (
-            <div className="py-1 text-sm text-success">✓ 没有未知传感器 —— AIDA64 导出的都有归属。</div>
+            <div className="py-1 text-sm text-success">✓ 没有未知传感器。</div>
           ) : (
             <table className="w-full text-sm">
               <thead>

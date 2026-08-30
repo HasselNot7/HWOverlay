@@ -32,7 +32,7 @@ export default function MetricsTablePage({ shared }: { shared: Shared }) {
       }
       addToast({
         title: `已删除「${m.name}」`,
-        description: "它的传感器回到了「自定义指标」的未知池；版式里引用它的地方会显示 --",
+        description: "传感器已回未知池",
         color: "success",
       });
       await shared.reloadMetrics();
@@ -62,7 +62,7 @@ export default function MetricsTablePage({ shared }: { shared: Shared }) {
               <TableColumn> </TableColumn>
             </TableHeader>
             <TableBody
-              emptyContent="一个指标都没有 —— 去「自定义指标」注册传感器，或一键加载默认指标集"
+              emptyContent="还没有指标 —— 去「自定义指标」注册，或一键加载默认指标集"
               isLoading={!metrics || !hw}>
               {(metrics || []).map(m => {
                 const out = m.out || m.id;
@@ -92,8 +92,7 @@ export default function MetricsTablePage({ shared }: { shared: Shared }) {
           </Table>
         </div>
         <Hint className="mt-2 text-xs">
-          ⚠ = 速率类，单位由 AIDA64 自动换算且不带字段，已按实测标定；灰色行是版式没用到的指标。
-          删除只影响本软件的注册表，不会碰 AIDA64 的配置。
+          灰色行是版式没用的指标；删除只影响本软件的注册表，不碰 AIDA64。
         </Hint>
       </Section>
 
@@ -104,8 +103,7 @@ export default function MetricsTablePage({ shared }: { shared: Shared }) {
               <ModalHeader className="flex-col gap-1">删除「{pending?.name}」？</ModalHeader>
               <ModalBody>
                 <p className="text-sm leading-6 text-color-desc">
-                  删除后它的传感器回到「自定义指标」的未知池，随时可以再注册回来；
-                  版式里引用它的地方会显示 --。AIDA64 那边不受任何影响。
+                  传感器回未知池，随时可再注册；版式引用处会显示 --。
                 </p>
               </ModalBody>
               <ModalFooter>

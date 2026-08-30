@@ -121,8 +121,8 @@ export default function App() {
         <div className="max-w-md px-6 text-center">
           <Power size={40} strokeWidth={1.5} className="mx-auto mb-4 text-default-400" />
           <h1 className="text-3xl font-bold leading-9 text-white">HWOverlay 已退出</h1>
-          <p className="mt-3 text-sm leading-7 text-color-desc">
-            服务已停止，OBS 里的叠加层会变空白。要再次启动，双击 HWOverlay.exe 即可；本页面现在可以关掉了。
+          <p className="mt-3 text-sm leading-6 text-color-desc">
+            OBS 叠加层已停止。要再启动，双击 HWOverlay.exe；本页面可以关掉了。
           </p>
         </div>
       </div>
@@ -172,8 +172,7 @@ export default function App() {
               <ModalHeader className="flex-col gap-1">退出 HWOverlay？</ModalHeader>
               <ModalBody>
                 <p className="text-sm leading-6 text-color-desc">
-                  服务停止后，OBS 里的叠加层会变空白，管理页也读不到新数据。
-                  要再启动，双击 HWOverlay.exe 即可。
+                  OBS 里的叠加层会变空白。要再启动，双击 HWOverlay.exe。
                 </p>
               </ModalBody>
               <ModalFooter>

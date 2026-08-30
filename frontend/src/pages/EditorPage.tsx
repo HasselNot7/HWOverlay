@@ -67,8 +67,8 @@ export default function EditorPage({ shared }: { shared: Shared }) {
     setCfg(clone(draft));
     setDirty(false);
     setPvKey(k => k + 1);
-    setMsg({ text: "✓ 已保存。OBS 里若没变化，点浏览器源的“刷新缓存”。", kind: "ok" });
-    addToast({ title: "已保存", description: "OBS 里若没变化，点浏览器源的“刷新缓存”。", color: "success" });
+    setMsg({ text: "✓ 已保存", kind: "ok" });
+    addToast({ title: "已保存", description: "OBS 里没变化就点「刷新缓存」", color: "success" });
     try {
       const c = await api.layoutCheck();
       setCheck(c);
@@ -141,8 +141,7 @@ export default function EditorPage({ shared }: { shared: Shared }) {
       onChange();
       addToast({
         title: "默认样式已装进草稿",
-        description: seeded.added ? `顺带注册了 ${seeded.added} 个默认指标，满意后点「保存」生效`
-          : "默认指标集本来就在，满意后点「保存」生效",
+        description: seeded.added ? `已顺带注册 ${seeded.added} 个默认指标` : undefined,
         color: "success",
       });
     } catch (e) {
@@ -154,15 +153,15 @@ export default function EditorPage({ shared }: { shared: Shared }) {
     <Page title="版式编辑">
       {!metrics.length && (
         <div className="rounded-xl border border-warning/40 bg-warning/10 px-4 py-3 text-sm text-warning">
-          还没有注册任何指标 —— 去「自定义指标」页注册传感器，或点下面的"加载默认样式"（会顺带注册默认指标集）。
+          还没有注册任何指标 —— 去「自定义指标」注册，或点下面"加载默认样式"。
         </div>
       )}
       <Section title="版式校验">
         {draft.widgets.length === 0 && (
           <div className="flex flex-col gap-2">
-            <Hint>画布是空的 —— 每个人的显示尺寸和想看的东西都不一样，所以默认不预置任何部件。</Hint>
+            <Hint>画布是空的。</Hint>
             <Button variant="flat" size="lg" className="w-fit bg-[#27272a]" onPress={loadPreset}>
-              加载默认样式（四张指标卡片 + 底部小指标行，顺带注册默认指标集）
+              加载默认样式
             </Button>
           </div>
         )}
@@ -178,10 +177,7 @@ export default function EditorPage({ shared }: { shared: Shared }) {
       </Section>
 
       <Section title="编辑器">
-        <Hint>
-          部件从上往下排，就是叠加层从上到下的样子。点保存后下面的预览会刷新；
-          确认效果后，再到 OBS 浏览器源里点一次“刷新缓存”即可生效。
-        </Hint>
+        <Hint>部件从上往下排；保存后在 OBS 浏览器源里点"刷新缓存"生效。</Hint>
 
         <div className="mt-2 flex flex-wrap items-end gap-5">
           <div className="flex flex-col gap-2">
@@ -202,7 +198,7 @@ export default function EditorPage({ shared }: { shared: Shared }) {
               onValueChange={v => { draft.canvas.h = +v || draft.canvas.h; setDraft({ ...draft }); onChange(); }}
             />
           </div>
-          <Hint className="pb-3">要和 OBS 浏览器源里填的宽高一致。</Hint>
+          <Hint className="pb-3">与 OBS 浏览器源里的宽高保持一致。</Hint>
         </div>
 
         {/* 顶部装饰命令行：整行可开关，内容/字号/光标可改 */}
