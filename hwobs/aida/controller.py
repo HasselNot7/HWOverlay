@@ -1,10 +1,11 @@
 """AIDA64 导出清单的只读对比。
 
-本模块**不会写 aida64.ini，也不会启停 AIDA64**（全项目唯一动外部进程的
-地方只剩 ini.find_install 的只读反查）。原因：HWMonExtAppItems 是 AIDA64
-的配置，OSD、看板等其他软件也在读同一份共享内存，删谁留谁必须由用户自己
-决定 —— 这里只负责"版式需要什么、AIDA64 现在有什么、缺什么"，并拼出一条
-用户可自行粘贴的补全行（见 plan_export）。
+本模块**不会写 aida64.ini，也不会启停 AIDA64**；对 AIDA64 的接触只有
+两件事：读共享内存、用 PowerShell 只读地查一下进程在不在（_ps 带超时
+与异常兜底）。原因：HWMonExtAppItems 是 AIDA64 的配置，OSD、看板等
+其他软件也在读同一份共享内存，删谁留谁必须由用户自己决定 —— 这里只
+负责"版式需要什么、AIDA64 现在有什么、缺什么"，并拼出一条用户可自行
+粘贴的补全行（见 plan_export）。
 
 历史上曾有过 apply() 状态机（确认 → 停进程 → 写 ini → 校验 → 重启 → 回读
 回滚），已删除：替用户改第三方软件的清单属于越权，且分发场景下别的用户
@@ -19,41 +20,65 @@ from ..metrics import DISK_RX, NIC_RX
 from ..sources import aida64
 from . import ini
 
+PS_TIMEOUT = 10.0
+
+
+def _ps(command):
+    """跑一条 PowerShell 只读查询。超时/缺失/被安全软件拦截一律返回空串：
+    状态接口靠它判断 AIDA64 在不在，绝不能被它拖死或炸成 500
+    （否则管理页永远停在"检测中"）。"""
+    try:
+        return subprocess.run(["powershell", "-NoProfile", "-Command", command],
+                              capture_output=True, text=True,
+                              timeout=PS_TIMEOUT).stdout.strip()
+    except (OSError, subprocess.TimeoutExpired):
+        return ""
+
 
 def _proc_path():
-    return ini.find_install()
+    return ini.install_from_path(
+        _ps("Get-Process aida64 -ErrorAction SilentlyContinue | Select-Object -First 1 -Expand Path"))
 
 
 def _running():
-    out = subprocess.run(["powershell", "-NoProfile", "-Command",
-                          "Get-Process aida64 -ErrorAction SilentlyContinue | Measure-Object | Select -Expand Count"],
-                         capture_output=True, text=True).stdout.strip()
+    out = _ps("Get-Process aida64 -ErrorAction SilentlyContinue | Measure-Object | Select -Expand Count")
     return out.isdigit() and int(out) > 0
 
 
 def status():
-    """只读体检：不启停任何进程、不写任何文件。"""
-    install = _proc_path()
-    running = _running()
-    sensors, used = aida64.read_sensors()
-    cur = []
-    ini_path = None
-    if install:
-        cand = install / "aida64.ini"
-        if cand.is_file():
-            ini_path = cand
-            cur = ini.get_items(ini.load(cand))
-    return {
-        "running": running,
-        "install": str(install) if install else None,
-        "ini": str(ini_path) if ini_path else None,
-        "exported_ids": cur,
-        "shm_bytes": used,
-        "shm_limit": aida64.SHM_SIZE,
-        "shm_pct": round(used / aida64.SHM_SIZE * 100) if used else 0,
-        "shm_readable": sensors is not None,
-        "usable_bytes": budget.usable(),
+    """只读体检：不启停任何进程、不写任何文件。
+
+    任何一步失败都不许把 /api/aida/status 炸成 500 —— 管理页向导靠它
+    显示真实原因，接口一炸前端就只能永远停在"检测中"。
+    """
+    out = {
+        "running": False, "install": None, "ini": None, "exported_ids": [],
+        "shm_bytes": 0, "shm_limit": aida64.SHM_SIZE, "shm_pct": 0,
+        "shm_readable": False, "usable_bytes": budget.usable(),
+        "error": None,
     }
+    try:
+        install = _proc_path()
+        sensors, used = aida64.read_sensors()
+        cur = []
+        ini_path = None
+        if install:
+            cand = install / "aida64.ini"
+            if cand.is_file():
+                ini_path = cand
+                cur = ini.get_items(ini.load(cand))
+        out.update({
+            "running": _running(),
+            "install": str(install) if install else None,
+            "ini": str(ini_path) if ini_path else None,
+            "exported_ids": cur,
+            "shm_bytes": used,
+            "shm_pct": round(used / aida64.SHM_SIZE * 100) if used else 0,
+            "shm_readable": sensors is not None,
+        })
+    except Exception as e:      # noqa: BLE001
+        out["error"] = f"{type(e).__name__}: {e}"
+    return out
 
 
 def runtime_ids(sensors):

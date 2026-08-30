@@ -115,6 +115,8 @@ export interface AidaStatus {
   shm_pct: number;
   shm_readable: boolean;
   usable_bytes: number;
+  /** 读取过程出错时的原因（接口永远 200，错误写在这里） */
+  error?: string | null;
   windows_net_sampler?: {
     sampling: boolean;
     error: string | null;

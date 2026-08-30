@@ -114,11 +114,18 @@ export default function WizardPage({ shared }: { shared: Shared }) {
   };
 
   const step1 = !status ? (
-    <Step kind="todo" title="① 连接 AIDA64"><Hint>检测中…</Hint></Step>
+    <Step kind="todo" title="① 连接 AIDA64">
+      <Hint>状态接口还没读到 —— 服务可能刚启动，点侧栏「刷新数据」重试。</Hint>
+    </Step>
+  ) : status.error ? (
+    <Step kind="bad" title="① 连接 AIDA64">
+      <Hint>读取状态时出错：{status.error}</Hint>
+    </Step>
   ) : !status.running || !status.ini ? (
     <Step kind="bad" title="① 连接 AIDA64">
       <Hint>
         {status.running ? "AIDA64 在跑，但共享内存读不到" : "AIDA64 没在运行"}
+        {status.running && !status.shm_readable ? " —— 请确认 AIDA64 里开了共享内存（文件 → 设置 → 硬件监视工具 → 外部程序）" : ""}
         <br />
         {status.install || "没找到安装目录（绿色版请先启动一次 AIDA64）"}
       </Hint>

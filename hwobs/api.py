@@ -113,7 +113,10 @@ def create_app() -> FastAPI:
     @app.get("/api/aida/status")
     def aida_status():
         st = controller.status()
-        st["windows_net_sampler"] = winapi.net_state()
+        try:
+            st["windows_net_sampler"] = winapi.net_state()
+        except Exception as e:      # noqa: BLE001
+            st["windows_net_sampler"] = {"sampling": False, "error": f"{type(e).__name__}: {e}"}
         return st
 
     @app.get("/api/aida/plan")

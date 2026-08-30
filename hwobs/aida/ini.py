@@ -7,6 +7,7 @@ HWMonExtAppItems 列着它写进共享内存的传感器，OSD、看板等其他
 改 ini 必须先关 AIDA64（它退出时会把整份配置写回去，运行中改的会被覆盖）。
 """
 
+import locale
 import subprocess
 from pathlib import Path
 
@@ -14,12 +15,9 @@ ENCODING = "utf-16"
 ITEMS_KEY = "HWMonExtAppItems"
 
 
-def find_install():
-    """从正在运行的进程反查安装目录；没运行则返回 None。只读，不启停进程。"""
-    out = subprocess.run(
-        ["powershell", "-NoProfile", "-Command",
-         "Get-Process aida64 -ErrorAction SilentlyContinue | Select-Object -First 1 -Expand Path"],
-        capture_output=True, text=True).stdout.strip()
+def install_from_path(out):
+    """把 PowerShell 查到的 aida64.exe 全路径转成安装目录。纯函数，不碰进程。"""
+    out = (out or "").strip()
     return Path(out).parent if out else None
 
 
@@ -28,9 +26,21 @@ def load(ini_path):
 
     必须禁用换行归一化：read_text() 默认把 CRLF 变成 LF，
     每行少 2 字节且 split("\r\n") 会切不出行。
+    编码：AIDA64 标准是 UTF-16LE+BOM，但别的机器上见过 UTF-8/ANSI 变体 ——
+    按 BOM 探测，退 utf-8 再退本地编码（中文系统是 GBK），坏字容忍：
+    这里只取 HWMonExtAppItems 等键行，全是 ASCII，错别字不影响结果，
+    无论如何不能抛异常（状态接口要靠它显示真实原因）。
     """
-    with open(ini_path, encoding=ENCODING, newline="") as f:
-        return f.read().split("\r\n")
+    raw = Path(ini_path).read_bytes()
+    if raw[:2] in (b"\xff\xfe", b"\xfe\xff"):
+        text = raw.decode("utf-16", errors="replace")
+    else:
+        try:
+            text = raw.decode("utf-8")
+        except UnicodeDecodeError:
+            text = raw.decode(locale.getpreferredencoding(False) or "gbk",
+                              errors="replace")
+    return text.split("\r\n")
 
 
 def get_items(lines, key=ITEMS_KEY):

@@ -48,6 +48,17 @@ def t_ini_readonly():
     check("本模块没有写回函数（防误用）",
           not any(hasattr(ini, n) for n in ("set_items", "replace_line", "verify_untouched")))
 
+    # 编码兜底：别的机器见过非 UTF-16 的 ini 变体，读清单绝不能抛异常
+    import tempfile
+    with tempfile.TemporaryDirectory() as td:
+        p = Path(td) / "a.ini"
+        p.write_bytes("HWMonExtAppItems=A B C\r\n[Page]\r\nFoo=温度".encode("utf-16"))
+        check("UTF-16LE+BOM 照常解析", ini.get_items(ini.load(p)) == ["A", "B", "C"])
+        p.write_bytes("HWMonExtAppItems=A B C\r\nFoo=bar".encode("utf-8"))
+        check("无 BOM 的 UTF-8 ini 也读得出清单", ini.get_items(ini.load(p)) == ["A", "B", "C"])
+        p.write_bytes("HWMonExtAppItems=A B C\r\nFoo=温度".encode("gbk"))
+        check("ANSI/GBK ini 走本地编码兜底", ini.get_items(ini.load(p)) == ["A", "B", "C"])
+
 
 def t_budget():
     print("\n[预算模型]")
