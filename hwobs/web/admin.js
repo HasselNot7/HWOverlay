@@ -385,6 +385,31 @@ function fillSlot(items, card, defKey, rebuild, allowLabel) {
   if (note) items.append(note);
 }
 
+/* 大数字格的组级设置：分隔符 + 单位显示策略（渲染按 def.sep / def.unit_policy 取用） */
+function valueGroupEditor(card) {
+  const ensure = () => { if (!card.value) card.value = { metrics: [] }; return card.value; };
+  const form = el('div', 'form');
+
+  const sep = el('input'); sep.type = 'text'; sep.value = card.value?.sep ?? ' · '; sep.size = 8;
+  sep.title = '多个值之间的分隔文字；清空则用默认的 " · "';
+  sep.addEventListener('input', () => { ensure().sep = sep.value; onChange(); });
+
+  const policy = el('select');
+  for (const [v, t] of [["last", "只最后一个值带单位"], ["all", "每个值都带单位"]]) {
+    const o = el('option', null, t);
+    o.value = v;
+    policy.append(o);
+  }
+  policy.value = card.value?.unit_policy ?? 'last';
+  policy.title = '单位挂在哪些值后面';
+  policy.addEventListener('change', () => { ensure().unit_policy = policy.value; onChange(); });
+
+  form.append(
+    el('div', 'field', [el('span', 'src', '分隔符'), sep]),
+    el('div', 'field', [el('span', 'src', '单位'), policy]));
+  return form;
+}
+
 function cardEditor(w, c, i, rebuildCards) {
   const fs = el('fieldset', 'card-edit');
   const legend = el('legend', null, `卡 ${i + 1}`);
@@ -406,6 +431,10 @@ function cardEditor(w, c, i, rebuildCards) {
 
   fs.append(slotEditor(c, 'value', '大数字（右上）', false,
     '这一格只显示数值不加名字；想给值加"核心"这样的前缀字，放进小字行'));
+  const vg = el('div', 'slot');
+  vg.append(el('span', 'src', '分隔符/单位'));
+  vg.append(valueGroupEditor(c));
+  fs.append(vg);
   fs.append(slotEditor(c, 'sub', '小字（下方一行）', true));
   return fs;
 }
