@@ -34,6 +34,9 @@ metrics.user.json
 # 运行时版式配置（每台机器屏幕不同，由程序首启生成；随包分发的只有预设）
 overlays/monitor.json
 
+# 测试不随仓库发布（本地保留）
+tests/
+
 # 前端构建产物与依赖
 frontend/node_modules/
 frontend/dist/

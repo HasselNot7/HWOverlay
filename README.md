@@ -98,7 +98,6 @@ python hw_server.py --open        # 管理页 http://127.0.0.1:8765/admin
 |:---:|:---|
 | 起后端 | `python hw_server.py`（127.0.0.1:8765） |
 | 前端开发 | `cd frontend && npm ci && npm run dev`（5173，API 自动代理到 8765） |
-| 跑测试 | `for t in tests/test_*.py tests/compare_snapshot.py; do python "$t"; done` |
 | 打包 exe | `python -m pip install -r requirements-dev.txt && python build.py` |
 
 构建期需要 Node.js ≥ 18；运行期不需要。
@@ -167,11 +166,6 @@ python hw_server.py --open        # 管理页 http://127.0.0.1:8765/admin
    注册新指标用 `agg` 正则而不是写死 ID；温度读到 0 当"无数据"。
 3. **速率类传感器不带单位**。`python -m hwobs.calibrate --long` 与 Windows
    计数器对拍标定；流量不足会明确说"区分不开"。
-
-### 测试
-
-纯脚本测试，无 pytest 依赖。`compare_snapshot.py` 用冻结的旧实现当活 oracle
-逐字段对比 `/hw.json` —— 改 `/hw.json` 字段必须在同一提交里复跑并在正文写结果。
 
 </details>
 
