@@ -175,3 +175,9 @@ python hw_server.py --open        # 管理页 http://127.0.0.1:8765/admin
 
 </details>
 
+---
+
+## 许可证
+
+[MIT](LICENSE)。数据取自你本机的 AIDA64，本软件不联网、不上传任何东西。
+
