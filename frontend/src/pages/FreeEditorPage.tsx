@@ -54,19 +54,70 @@ const stretchable = (t: string) => t === "cards" || t === "chips" || t === "text
 const heightEditable = (t: string) => t === "html" || t === "progress";
 /** 吸附判定距离（画布像素）：拖动时边缘靠得比这近就吸上去 */
 const SNAP_PX = 8;
-/** 网格尺寸（画布像素）：网格开时位置就近吸附到网格线 */
-const GRID_PX = 40;
+/** 自适应网格：基准步长 = 画布宽按约 50 格取整到 1/2/4/5 系列；
+ * 再按缩放沿该系列换档，屏幕上每格始终落在 16~96 像素的舒适区。 */
+const GRID_TARGET_COLS = 50;
+const GRID_MIN_CANVAS = 4;   // 画布像素下限（极小画布也别切太碎）
+const GRID_MAX_CANVAS = 400; // 画布像素上限（超大画布也别懒到只剩几根线）
+const GRID_MIN_SCREEN = 16;  // 屏幕像素下限：比这密就换更大档位
+const GRID_MAX_SCREEN = 96;  // 屏幕像素上限：比这疏就换更小档位
+
+function niceStep(x: number): number {
+  const exp = Math.floor(Math.log10(x));
+  const f = x / 10 ** exp;
+  // 档位 1/2/4/5：按对数中点就近取整（sqrt 边界），40 这类常用间距能原样保留
+  const n = f < 1.42 ? 1 : f < 2.83 ? 2 : f < 4.48 ? 4 : f < 7.08 ? 5 : 10;
+  return n * 10 ** exp;
+}
+const NICE_DIGITS = [1, 2, 4, 5] as const;
+const NICE_DIGITS_UP = [...NICE_DIGITS].reverse();
+
+function niceAbove(s: number): number {
+  const e0 = Math.floor(Math.log10(s));
+  for (let e = e0; e <= e0 + 2; e++)
+    for (const d of NICE_DIGITS) {
+      const v = d * 10 ** e;
+      if (v > s * 1.001) return v;
+    }
+  return s * 10;
+}
+
+function niceBelow(s: number): number {
+  const e0 = Math.ceil(Math.log10(s));
+  for (let e = e0; e >= e0 - 2; e--)
+    for (const d of NICE_DIGITS_UP) {
+      const v = d * 10 ** e;
+      if (v < s * 0.999) return v;
+    }
+  return s / 10;
+}
+
+/** 画布像素步长：先按宽度取基准档，再按当前缩放换档 */
+function gridStepFor(canvasW: number, scale: number): number {
+  let s = niceStep(Math.min(GRID_MAX_CANVAS, Math.max(GRID_MIN_CANVAS, canvasW / GRID_TARGET_COLS)));
+  for (let g = 0; g < 8; g++) {
+    if (s * scale < GRID_MIN_SCREEN && s < canvasW) s = niceAbove(s);
+    else if (s * scale > GRID_MAX_SCREEN && s > 1) s = niceBelow(s);
+    else break;
+  }
+  return s;
+}
 /** 右侧浮动面板宽度（px）：适配缩放时给画布留出的空间 */
 const PANEL_W = 440;
 /** 面板收起记忆的 localStorage 键 */
 const PANEL_KEY = "hwobs.freePanel";
 
-/** 草稿转自由画布：mode=free + 给缺坐标的部件排初始位置（margin_top 折算进 y） */
+/** 草稿转自由画布：mode=free + 给缺坐标的部件排初始位置（margin_top 折算进 y）。
+ * 装饰命令行也落成显式 x/y（默认落在内边距处），从此和部件一样可拖。 */
 function toFree(d: OverlayConfig) {
   d.canvas.mode = "free";
   const pad = d.canvas.padding || [12, 24];
   let y = pad[0];
-  if (d.prompt) y += Math.round((d.prompt.size ?? 19) * 1.2) + 10;
+  if (d.prompt) {
+    y += Math.round((d.prompt.size ?? 19) * 1.2) + 10;
+    if (d.prompt.x === undefined) d.prompt.x = pad[1];
+    if (d.prompt.y === undefined) d.prompt.y = pad[0];
+  }
   for (const w of d.widgets) {
     const p = w as FreePos;
     if (p.x === undefined || p.y === undefined) {
@@ -78,6 +129,7 @@ function toFree(d: OverlayConfig) {
 }
 
 interface DragState {
+  target: "widget" | "prompt";
   i: number;
   mode: "move" | "resize";
   sx: number; sy: number;
@@ -99,15 +151,20 @@ export default function FreeEditorPage({ shared }: { shared: Shared }) {
   const [zoom, setZoom] = useState<number | null>(null);
   const [snapOn, setSnapOn] = useState(true);
   const [gridOn, setGridOn] = useState(true);
+  /** 自适应网格的当前步长（画布像素），随画布尺寸与缩放重算 */
+  const [gridStep, setGridStep] = useState(50);
   /** 右侧参数面板：收起后画布吃满整行（记住上次的选择） */
   const [panelOpen, setPanelOpen] = useState(() => localStorage.getItem(PANEL_KEY) !== "0");
   const [selected, setSelected] = useState<number | null>(null);
+  /** 装饰命令行的选中态（与部件选中互斥，它不在 widgets 里） */
+  const [selPrompt, setSelPrompt] = useState(false);
   const [rects, setRects] = useState<(Rect | null)[]>([]);
-  /** 顶部装饰命令行的真实几何：作为吸附目标，部件好对齐它的首部 */
+  /** 顶部装饰命令行的真实几何：可拖可吸，和部件互相当磁铁 */
   const [promptRect, setPromptRect] = useState<Rect | null>(null);
   const wrapRef = useRef<HTMLDivElement>(null);
   const frameRef = useRef<HTMLIFrameElement>(null);
   const boxRefs = useRef(new Map<number, HTMLDivElement>());
+  const promptBoxRef = useRef<HTMLDivElement>(null);
   const dragRef = useRef<DragState | null>(null);
   const scaleRef = useRef(pvScale);
   const draftRef = useRef<OverlayConfig | null>(null);
@@ -115,6 +172,7 @@ export default function FreeEditorPage({ shared }: { shared: Shared }) {
   const promptRef = useRef<Rect | null>(null);
   const snapRef = useRef(true);
   const gridRef = useRef(false);
+  const gridStepRef = useRef(50);
   const vgRef = useRef<HTMLDivElement>(null);
   const hgRef = useRef<HTMLDivElement>(null);
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -128,6 +186,7 @@ export default function FreeEditorPage({ shared }: { shared: Shared }) {
   promptRef.current = promptRect;
   snapRef.current = snapOn;
   gridRef.current = gridOn;
+  gridStepRef.current = gridStep;
 
   const loadConfig = useCallback(async () => {
     const c = await api.overlay();
@@ -147,6 +206,7 @@ export default function FreeEditorPage({ shared }: { shared: Shared }) {
     setCfg(c);
     setDraft(d);
     setSelected(null);
+    setSelPrompt(false);
     setRects([]);
     setPromptRect(null);
     histRef.current = [];
@@ -213,6 +273,7 @@ export default function FreeEditorPage({ shared }: { shared: Shared }) {
     const d = JSON.parse(snap) as OverlayConfig;
     draftRef.current = d;
     setSelected(null);
+    setSelPrompt(false);
     onChange();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [onChange]);
@@ -267,6 +328,13 @@ export default function FreeEditorPage({ shared }: { shared: Shared }) {
   useEffect(() => {
     if (zoom !== null) setPvScale(Math.max(0.15, Math.min(2, zoom)));
   }, [zoom]);
+
+  // 网格步长：画布尺寸定基准档（约 50 列），缩放再换档，屏幕上永远看得清、吸得准
+  useEffect(() => {
+    const W = draft?.canvas.w, H = draft?.canvas.h;
+    if (!W || !H) return;
+    setGridStep(gridStepFor(W, pvScale));
+  }, [draft?.canvas.w, draft?.canvas.h, pvScale]);
 
   const save = useCallback(async () => {
     const d = draftRef.current;
@@ -380,6 +448,30 @@ export default function FreeEditorPage({ shared }: { shared: Shared }) {
     onChange();
   };
 
+  /** 方向键微调装饰命令行（和部件同一套边界口径） */
+  const nudgePrompt = (dx: number, dy: number) => {
+    const d = draftRef.current;
+    const p = d?.prompt;
+    if (!d || !p) return;
+    if (Date.now() - lastPushRef.current > 500) pushHistory();
+    const pad = d.canvas.padding || [12, 24];
+    p.x = Math.max(0, Math.min((p.x ?? pad[1]) + dx, d.canvas.w - 24));
+    p.y = Math.max(0, Math.min((p.y ?? pad[0]) + dy, d.canvas.h - 8));
+    setDraft({ ...d });
+    onChange();
+  };
+
+  /** 删除装饰命令行（Delete 键也走这里） */
+  const removePrompt = () => {
+    const d = draftRef.current;
+    if (!d || !d.prompt) return;
+    pushHistory();
+    delete d.prompt;
+    setSelPrompt(false);
+    setDraft({ ...d });
+    onChange();
+  };
+
   // 快捷键：Ctrl+S 保存 · Ctrl+Z 撤销 · Ctrl+D 复制 · Delete 删除 · 方向键微调
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
@@ -389,35 +481,63 @@ export default function FreeEditorPage({ shared }: { shared: Shared }) {
       const k = e.key.toLowerCase();
       if (ctrl && k === "s") { e.preventDefault(); save(); return; }
       if (ctrl && k === "z" && !typing) { e.preventDefault(); undoEdit(); return; }
-      if (e.key === "Escape" && !typing) { setSelected(null); return; }
-      if (selected == null) return;
-      if (ctrl && k === "d" && !typing) { e.preventDefault(); duplicateWidget(selected); return; }
-      if (e.key === "Delete" && !typing) { removeWidget(selected); return; }
+      if (e.key === "Escape" && !typing) { setSelected(null); setSelPrompt(false); return; }
+      if (selected == null && !selPrompt) return;
+      if (ctrl && k === "d" && !typing) {
+        e.preventDefault();
+        if (selected != null) duplicateWidget(selected);
+        else addToast({ title: "命令行装饰只有一个，不支持复制", color: "default" });
+        return;
+      }
+      if (e.key === "Delete" && !typing) {
+        if (selected != null) removeWidget(selected);
+        else removePrompt();
+        return;
+      }
       if (!typing && ["ArrowUp", "ArrowDown", "ArrowLeft", "ArrowRight"].includes(e.key)) {
         e.preventDefault();
         const step = e.shiftKey ? 10 : 1;
-        nudge(selected,
-          e.key === "ArrowLeft" ? -step : e.key === "ArrowRight" ? step : 0,
-          e.key === "ArrowUp" ? -step : e.key === "ArrowDown" ? step : 0);
+        const dx = e.key === "ArrowLeft" ? -step : e.key === "ArrowRight" ? step : 0;
+        const dy = e.key === "ArrowUp" ? -step : e.key === "ArrowDown" ? step : 0;
+        if (selected != null) nudge(selected, dx, dy);
+        else nudgePrompt(dx, dy);
       }
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [selected, save, undoEdit]);
+  }, [selected, selPrompt, save, undoEdit]);
 
   const onDown = (e: React.MouseEvent, i: number, mode: "move" | "resize") => {
     e.stopPropagation();
     if (!draft) return;
     setSelected(i);
+    setSelPrompt(false);
     const w = draft.widgets[i] as FreePos;
     const r = rects[i];
     dragRef.current = {
-      i, mode,
+      target: "widget", i, mode,
       sx: e.clientX, sy: e.clientY,
       ox: w.x ?? r?.x ?? 0, oy: w.y ?? r?.y ?? 0,
       ow: w.w ?? r?.w ?? 300, oh: r?.h ?? 24,
       stretch: stretchable(draft.widgets[i].type) && w.w === undefined,
+    };
+  };
+
+  /** 装饰命令行：只能整体挪动（宽度由文字内容决定），吸附与部件同等待遇 */
+  const onPromptDown = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    const d = draft;
+    if (!d?.prompt || !promptRect) return;
+    setSelected(null);
+    setSelPrompt(true);
+    const pad = d.canvas.padding || [12, 24];
+    dragRef.current = {
+      target: "prompt", i: -1, mode: "move",
+      sx: e.clientX, sy: e.clientY,
+      ox: d.prompt.x ?? pad[1], oy: d.prompt.y ?? pad[0],
+      ow: promptRect.w, oh: promptRect.h,
+      stretch: false,
     };
   };
 
@@ -492,7 +612,8 @@ export default function FreeEditorPage({ shared }: { shared: Shared }) {
           ys.push(r.y, r.y + r.h, Math.round(r.y + r.h / 2));
         }
         // 顶部装饰命令行也是磁铁：部件好对齐它的首部（左缘）和基线
-        const pr = promptRef.current;
+        // （拖它本人的时候它不能当磁铁，不然永远零差值把自己钉死）
+        const pr = d.target === "widget" ? promptRef.current : null;
         if (pr) {
           xs.push(pr.x, pr.x + pr.w, Math.round(pr.x + pr.w / 2));
           ys.push(pr.y, pr.y + pr.h, Math.round(pr.y + pr.h / 2));
@@ -518,15 +639,18 @@ export default function FreeEditorPage({ shared }: { shared: Shared }) {
           }
         }
       }
-      // 网格兜底：位置就近吸附到网格线。只认「网格」开关；若对象吸附已命中该轴则让位。
+      // 网格兜底：位置就近吸附到网格线（步长是自适应的）。只认「网格」开关；若对象吸附已命中该轴则让位。
       if (gridRef.current && d.mode === "move") {
-        const gx = Math.round(nx / GRID_PX) * GRID_PX;
-        const gy = Math.round(ny / GRID_PX) * GRID_PX;
+        const gs = gridStepRef.current;
+        const gx = Math.round(nx / gs) * gs;
+        const gy = Math.round(ny / gs) * gs;
         if (snX == null && gx !== nx) { nx = Math.max(0, Math.min(gx, W - 24)); }
         if (snY == null && gy !== ny) { ny = Math.max(0, Math.min(gy, H - 8)); }
       }
       d.nx = nx; d.ny = ny; d.nw = nw; d.nh = nh;
-      const host = frameRef.current?.contentDocument?.querySelector(`[data-wi="${d.i}"]`) as HTMLElement | null;
+      const host = frameRef.current?.contentDocument?.querySelector(
+        d.target === "prompt" ? "[data-prompt]" : `[data-wi="${d.i}"]`,
+      ) as HTMLElement | null;
       if (host) {
         host.style.left = fx + "px";
         host.style.top = fy + "px";
@@ -536,7 +660,7 @@ export default function FreeEditorPage({ shared }: { shared: Shared }) {
           if (t && heightEditable(t)) host.style.height = nh + "px";
         }
       }
-      const node = boxRefs.current.get(d.i);
+      const node = d.target === "prompt" ? promptBoxRef.current : boxRefs.current.get(d.i);
       if (node) {
         node.style.left = fx * scale + "px";
         node.style.top = fy * scale + "px";
@@ -561,15 +685,19 @@ export default function FreeEditorPage({ shared }: { shared: Shared }) {
       const cur = draftRef.current;
       if (!d || !cur || d.nx === undefined) return;
       pushHistory();
-      const w = cur.widgets[d.i] as FreePos | undefined;
-      if (!w) return;
-      if (d.mode === "move") {
-        w.x = d.nx;
-        w.y = d.ny;
+      if (d.target === "prompt") {
+        if (cur.prompt) { cur.prompt.x = d.nx; cur.prompt.y = d.ny; }
       } else {
-        w.w = d.nw;
-        if (cur.widgets[d.i].type === "html") (w as HtmlWidget).h = d.nh;
-        if (cur.widgets[d.i].type === "progress") (w as ProgressWidget).height = d.nh;
+        const w = cur.widgets[d.i] as FreePos | undefined;
+        if (!w) return;
+        if (d.mode === "move") {
+          w.x = d.nx;
+          w.y = d.ny;
+        } else {
+          w.w = d.nw;
+          if (cur.widgets[d.i].type === "html") (w as HtmlWidget).h = d.nh;
+          if (cur.widgets[d.i].type === "progress") (w as ProgressWidget).height = d.nh;
+        }
       }
       setDraft({ ...cur });
       onChange();
@@ -620,7 +748,7 @@ export default function FreeEditorPage({ shared }: { shared: Shared }) {
           title="拖近画布边缘或其他部件的边缘/中线时自动对齐"
           onPress={() => setSnapOn(s => !s)}>吸附{snapOn ? "开" : "关"}</Button>
         <Button size="sm" variant="flat" color={gridOn ? "primary" : "default"}
-          title={`显示 ${GRID_PX}px 网格，拖动就近对齐到网格线`}
+          title={`自适应网格：按画布宽度分档（当前 ${gridStep}px，屏幕约 ${Math.round(gridStep * pvScale)}px），拖动就近对齐到网格线`}
           onPress={() => setGridOn(g => !g)}>网格{gridOn ? "开" : "关"}</Button>
         <Button size="sm" variant="flat" className="h-8 w-8 min-w-0 bg-[#27272a] px-0"
           title={panelOpen ? "收起右侧参数面板，画布占满整行" : "展开右侧参数面板"}
@@ -637,7 +765,10 @@ export default function FreeEditorPage({ shared }: { shared: Shared }) {
         <div ref={wrapRef}
           className="absolute inset-0 select-none overflow-auto p-6"
           style={{ paddingRight: panelOpen ? PANEL_W + 24 : 24 }}
-          onMouseDown={e => { if (e.button === 1) startPan(e); else setSelected(null); }}>
+          onMouseDown={e => {
+            if (e.button === 1) startPan(e);
+            else { setSelected(null); setSelPrompt(false); }
+          }}>
           <div className="flex min-h-full min-w-full items-center justify-center">
             <div className="relative"
               style={{ width: Math.ceil(draft.canvas.w * pvScale), height: Math.ceil(draft.canvas.h * pvScale) }}>
@@ -659,7 +790,7 @@ export default function FreeEditorPage({ shared }: { shared: Shared }) {
                   style={{
                     backgroundImage:
                       "linear-gradient(#3a3f4a 1px, transparent 1px), linear-gradient(90deg, #3a3f4a 1px, transparent 1px)",
-                    backgroundSize: `${GRID_PX * pvScale}px ${GRID_PX * pvScale}px`,
+                    backgroundSize: `${gridStep * pvScale}px ${gridStep * pvScale}px`,
                   }} />
               )}
               {/* 对齐参考线：拖动吸附时显示，直改 DOM 不走 React */}
@@ -702,6 +833,27 @@ export default function FreeEditorPage({ shared }: { shared: Shared }) {
                   </div>
                 );
               })}
+              {/* 装饰命令行：和部件同款手柄盒，可拖可选中（只有整体挪动，没有改大小） */}
+              {draft.prompt && promptRect && (
+                <div ref={promptBoxRef}
+                  className={`absolute cursor-move border transition-colors ${
+                    selPrompt
+                      ? "border-primary bg-primary/10 shadow-[0_0_0_1px_rgba(56,132,255,0.5)]"
+                      : "border-white/25 hover:border-white/60"}`}
+                  style={{
+                    left: promptRect.x * pvScale, top: promptRect.y * pvScale,
+                    width: Math.max(promptRect.w * pvScale, 48),
+                    height: Math.max(promptRect.h * pvScale, 22),
+                    zIndex: selPrompt ? 30 : 0,
+                  }}
+                  onMouseDown={e => onPromptDown(e)}>
+                  {selPrompt && (
+                    <span className="pointer-events-none absolute left-0 top-0 -translate-y-full truncate bg-primary px-1.5 py-0.5 text-[11px] leading-4 text-white">
+                      命令行装饰
+                    </span>
+                  )}
+                </div>
+              )}
               {draft.widgets.length > 0 && !rects.some(Boolean) && (
                 <div className="absolute inset-0 flex items-center justify-center">
                   <span className="text-sm text-default-500">正在连接画布…</span>
@@ -831,6 +983,45 @@ export default function FreeEditorPage({ shared }: { shared: Shared }) {
                 </div>
               </div>
             );
+          })() : selPrompt && draft.prompt ? (() => {
+            const p = draft.prompt;
+            const pad = draft.canvas.padding || [12, 24];
+            const pnum = (label: string, key: "x" | "y", val: number) => (
+              <div className="flex flex-col gap-1.5">
+                <FieldLabel>{label}</FieldLabel>
+                <Input type="number" size="sm" variant="flat" className="w-20 font-poppins"
+                  value={String(val)}
+                  onValueChange={v => {
+                    p[key] = Math.max(0, +v || 0);
+                    setDraft({ ...draft });
+                    onChange();
+                  }} />
+              </div>
+            );
+            return (
+              <div className="flex flex-col gap-3">
+                <SubTitle>命令行装饰</SubTitle>
+                <div className="flex flex-wrap items-end gap-3">
+                  {pnum("X", "x", p.x ?? pad[1])}
+                  {pnum("Y", "y", p.y ?? pad[0])}
+                </div>
+                <div className="flex flex-wrap gap-2">
+                  <Button size="sm" variant="flat" className="bg-[#27272a]"
+                    title="回到画布内边距处"
+                    onPress={() => {
+                      pushHistory();
+                      p.x = pad[1]; p.y = pad[0];
+                      setDraft({ ...draft });
+                      onChange();
+                    }}>回到默认位置</Button>
+                  <Button size="sm" variant="flat" className="bg-danger/20 text-danger-400"
+                    title="Delete" onPress={removePrompt}>删除</Button>
+                </div>
+                <div className="border-t border-white/[0.06] pt-3">
+                  <PromptBar draft={draft} onChange={onChange} compact />
+                </div>
+              </div>
+            );
           })() : (
             <div className="flex flex-col gap-3">
               <SubTitle>画布设置</SubTitle>
@@ -853,8 +1044,9 @@ export default function FreeEditorPage({ shared }: { shared: Shared }) {
               <div className="border-t border-white/[0.06] pt-3">
                 <SubTitle>快捷键</SubTitle>
                 <Hint className="text-xs">
-                  拖动挪位置 · 右下角改大小 · 中键拖动画布<br />
-                  拖近边缘自动吸附 · 选中后可一键「对齐命令行」<br />
+                  拖动挪位置（部件和命令行装饰一样可拖） · 右下角改大小 · 中键拖动画布<br />
+                  拖近边缘自动吸附 · 网格按画布尺寸与缩放自适应分档<br />
+                  选中后可一键「对齐命令行」<br />
                   方向键微调（Shift = 10px）<br />
                   Ctrl+Z 撤销 · Ctrl+D 复制部件<br />
                   Delete 删除 · Esc 取消选中 · Ctrl+S 保存

@@ -30,8 +30,9 @@ def _canvas_check(cfg, errors):
     return width, height, pad[0] * 2
 
 
-def _prompt_check(cfg, errors):
-    """顶部提示行。有 prompt 才占高；字号非法就报错并按默认 19px 算。"""
+def _prompt_check(cfg, errors, free, width=None, height=None):
+    """顶部提示行。流式：有 prompt 才占高，字号非法报错并按默认 19px 算。
+    自由画布：不占高，但写了 x/y 就得是非负整数且不越画布的界（与部件同口径）。"""
     p = cfg.get("prompt")
     if not p:
         return 0
@@ -39,6 +40,16 @@ def _prompt_check(cfg, errors):
     if not isinstance(size, int) or not 8 <= size <= 60:
         errors.append(f"prompt.size 必须是 8~60 的整数（现在是 {size!r}）")
         size = 19
+    if free:
+        for k, dim, lim in (("x", "宽", width), ("y", "高", height)):
+            v = p.get(k)
+            if v is None:
+                continue
+            if not isinstance(v, int) or isinstance(v, bool) or v < 0:
+                errors.append(f"prompt.{k} 需要非负整数（现在是 {v!r}）")
+            elif lim and v >= lim:
+                errors.append(f"prompt.{k}={v} 在画布{dim} {lim} 之外")
+        return 0
     # 量测口径与部件一致：字号行高 1.2 + margin 10
     return round(size * 1.2) + 10
 
@@ -56,8 +67,8 @@ def check(cfg, reg=None, plan=None):
 
     width, height, pad_v = _canvas_check(cfg, errors)
     free = isinstance(cfg.get("canvas"), dict) and cfg["canvas"].get("mode") == "free"
-    used = 0 if free else pad_v
-    used += 0 if free else _prompt_check(cfg, errors)
+    prompt_h = _prompt_check(cfg, errors, free, width, height)
+    used = 0 if free else pad_v + prompt_h
     known = _known_paths(reg)
     referenced = []
 

@@ -313,6 +313,7 @@
       ]);
       if (p.size) line.style.fontSize = p.size + 'px';
       if (p.cursor) line.appendChild(el('div', 'cursor'));
+      line.dataset.prompt = '1';   // 编辑器拖拽手柄靠它直改这个节点的样式跟手
       document.body.appendChild(line);
     }
 
@@ -651,11 +652,11 @@
       if (layout.prompt) {
         buildPrompt(layout.prompt);
         if (free) {
-          // 自由画布下装饰命令行也按内边距定位
+          // 自由画布下装饰命令行也是可拖动的部件：写了 x/y 按坐标摆，没写回退内边距
           const pad = layout.canvas.padding || [12, 24];
           const pl = document.body.querySelector('.prompt-line');
-          pl.style.left = pad[1] + 'px';
-          pl.style.top = pad[0] + 'px';
+          pl.style.left = (Number.isInteger(layout.prompt.x) ? layout.prompt.x : pad[1]) + 'px';
+          pl.style.top = (Number.isInteger(layout.prompt.y) ? layout.prompt.y : pad[0]) + 'px';
         }
       }
       instances = [];

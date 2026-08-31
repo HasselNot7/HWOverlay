@@ -82,5 +82,24 @@ check("带标签 = 直径 + 20", g["height"]({"size": 120, "label": "CPU"}) == 1
 check("无标签 = 直径", g["height"]({"size": 150}) == 150)
 check("缺 size 用默认 120", g["height"]({}) == 120)
 
+print("\n[装饰命令行的定位校验]")
+ok = dict(FREE, prompt={"user": "a@pc", "cmd": "ls", "size": 19, "x": 20, "y": 8})
+rep = layout.check(ok)
+check("free 下 prompt 带合法 x/y：无错误且不占纵向预算",
+      not rep["errors"] and rep["est_height"] == 0, str(rep["errors"]))
+rep = layout.check(dict(FREE, prompt={"user": "a@pc", "cmd": "ls", "x": 5000, "y": 8}))
+check("prompt.x 越界被点名", any("prompt.x" in e for e in rep["errors"]), str(rep["errors"]))
+rep = layout.check(dict(FREE, prompt={"user": "a@pc", "cmd": "ls", "x": 20, "y": 9999}))
+check("prompt.y 越界被点名", any("prompt.y" in e for e in rep["errors"]), str(rep["errors"]))
+rep = layout.check(dict(FREE, prompt={"user": "a@pc", "cmd": "ls", "x": -4}))
+check("prompt.x 负数/非整数被点名", any("prompt.x" in e for e in rep["errors"]), str(rep["errors"]))
+rep = layout.check(dict(FREE, prompt={"user": "a@pc", "cmd": "ls", "size": 999}))
+check("free 下 prompt.size 非法也报错（以前直接跳过）",
+      any("prompt.size" in e for e in rep["errors"]), str(rep["errors"]))
+flow = {"version": 2, "canvas": {"w": 1920, "h": 400},
+        "prompt": {"user": "a@pc", "cmd": "ls", "size": 19}, "widgets": []}
+rep = layout.check(flow)
+check("流式下 prompt 仍占高（padding 24 + prompt 33）", rep["est_height"] == 57, str(rep["est_height"]))
+
 print(f"\n通过 {passed}，失败 {len(failed)}")
 raise SystemExit(1 if failed else 0)

@@ -108,7 +108,12 @@ export interface OverlayConfig {
   version: number;
   name?: string;
   canvas: Canvas;
-  prompt?: { user?: string; cmd?: string; cursor?: boolean; size?: number };
+  prompt?: {
+    user?: string; cmd?: string; cursor?: boolean; size?: number;
+    /** 自由画布专用：可拖到任意位置，不写回退画布内边距 */
+    x?: number;
+    y?: number;
+  };
   widgets: Widget[];
 }
 
