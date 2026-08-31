@@ -41,5 +41,8 @@ tests/
 frontend/node_modules/
 frontend/dist/
 
+# 图标生成的预览图（app.ico 入库，预览图仅本地看效果用）
+assets/app_preview.png
+
 # ZCode 会话产物
 .zcode/

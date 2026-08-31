@@ -18,6 +18,7 @@ from hwobs import __version__          # noqa: E402
 
 ROOT = pathlib.Path(SPECPATH)
 FRONTEND_DIST = ROOT / "frontend" / "dist"
+ICON = str(ROOT / "assets" / "app.ico")   # python scripts/make_icon.py 生成
 
 datas = [
     ('web/monitor.html', 'web'),
@@ -67,7 +68,7 @@ exe = EXE(
     strip=None,
     upx=False,
     console=False,            # 无控制台窗口；异常一律落 crash.log
-    icon=None,
+    icon=ICON,
 )
 
 coll = COLLECT(

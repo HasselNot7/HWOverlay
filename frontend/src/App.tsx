@@ -2,7 +2,7 @@ import { addToast, Button, Modal, ModalBody, ModalContent, ModalFooter, ModalHea
 import { useCallback, useEffect, useRef, useState } from "react";
 import {
   House, Activity, LayoutGrid, Move, FlaskConical, Table2, RefreshCw,
-  ExternalLink, AudioLines, Power,
+  ExternalLink, Power,
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import { api } from "./api";
@@ -22,6 +22,19 @@ const NAV = [
   { id: "custom", label: "自定义指标", Icon: FlaskConical },
   { id: "metrics", label: "指标总表", Icon: Table2 },
 ];
+
+/** 品牌图标：CPU 芯片轮廓 + 中间一条监控心跳线。跟 frontend/public/favicon.svg 同款。 */
+function LogoMark({ size = 24 }: { size?: number }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none"
+      className="shrink-0 text-primary"
+      stroke="currentColor" strokeWidth={1.9} strokeLinecap="round" strokeLinejoin="round">
+      <rect x="6.5" y="6.5" width="11" height="11" rx="2.6" />
+      <path d="M9.5 6.5V3.6M12 6.5V3.6M14.5 6.5V3.6M9.5 17.5v2.9M12 17.5v2.9M14.5 17.5v2.9M6.5 9.5H3.6M6.5 12H3.6M6.5 14.5H3.6M17.5 9.5h2.9M17.5 12h2.9M17.5 14.5h2.9" />
+      <path d="M8.7 12h1.3l1.1-2.4 1.7 4.7 1.1-2.3h1.5" strokeWidth={1.7} />
+    </svg>
+  );
+}
 
 export interface Shared {
   metrics: Metric[] | null;
@@ -139,7 +152,7 @@ export default function App() {
       <aside className="fixed inset-y-0 left-0 z-20 h-screen w-72 border-r border-divider bg-background">
         <div className="flex h-full flex-col p-6">
           <div className="mb-14 mt-4 flex items-center gap-2 px-3">
-            <AudioLines size={24} strokeWidth={2.25} className="shrink-0 text-primary" />
+            <LogoMark size={24} />
             <span className="text-[19px] font-bold tracking-tight">HWOverlay</span>
           </div>
 
