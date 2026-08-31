@@ -25,7 +25,7 @@ from .sources import aida64, winapi
 
 HTML_FILE = paths.resource("web/monitor.html")
 FRONTEND_DIST = paths.resource("frontend/dist")
-LAYOUT_PRESET_FILE = paths.resource("overlays/layout.preset.json")
+LAYOUT_PRESETS_FILE = paths.resource("overlays/presets.json")
 
 MAX_BODY = 64 * 1024      # 版式配置远小于这个数，超了就是乱发
 
@@ -135,12 +135,12 @@ def create_app() -> FastAPI:
             return JSONResponse({"added": 0, "ids": [], "error": f"服务端处理失败：{e}"}, status_code=500)
         return {"added": len(added), "ids": added}
 
-    @app.get("/api/layout/preset")
-    def layout_preset():
-        """编辑器"加载默认样式"用的预设版式。"""
-        if not LAYOUT_PRESET_FILE.is_file():
-            return JSONResponse({"error": "包里没有 layout.preset.json"}, status_code=404)
-        return json.loads(LAYOUT_PRESET_FILE.read_text(encoding="utf-8"))
+    @app.get("/api/layout/presets")
+    def layout_presets():
+        """模板库：一组不同尺寸的常用版式，编辑器"从模板加载"用。"""
+        if not LAYOUT_PRESETS_FILE.is_file():
+            return JSONResponse({"error": "包里没有 presets.json"}, status_code=404)
+        return json.loads(LAYOUT_PRESETS_FILE.read_text(encoding="utf-8"))
 
     @app.get("/api/sensors/unknown")
     def sensors_unknown():

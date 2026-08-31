@@ -5,6 +5,7 @@ import type {
   AidaStatus,
   HW,
   LayoutCheck,
+  LayoutPreset,
   Metric,
   OverlayConfig,
   UnknownSensor,
@@ -45,7 +46,7 @@ export const api = {
     getJSON<{ ok: boolean; error?: string; unknown: UnknownSensor[] }>("/api/sensors/unknown"),
   seedPresetMetrics: () =>
     sendJSON<{ added: number; ids: string[]; error?: string }>("/api/metrics/preset", "POST", {}),
-  layoutPreset: () => getJSON<OverlayConfig>("/api/layout/preset"),
+  layoutPresets: () => getJSON<{ presets: LayoutPreset[] }>("/api/layout/presets"),
   addCustomMetric: (spec: { sensor_id: string; name: string; unit: string; digits: number; na_zero: boolean }) =>
     sendJSON<{ saved: boolean; error?: string }>("/api/metrics/custom", "POST", spec),
   removeCustomMetric: async (id: string) => {

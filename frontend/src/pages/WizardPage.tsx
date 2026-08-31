@@ -91,7 +91,7 @@ export default function WizardPage({ shared }: { shared: Shared }) {
           </Button>
           <Button size="sm" variant="flat" className="bg-[#27272a]"
             endContent={<ArrowRight size={14} />} onPress={() => shared.goto("editor")}>
-            去排版（{laid ? `已 ${widgetCount} 个部件` : "空白画布，可一键加载默认样式"}）
+            去排版（{laid ? `已 ${widgetCount} 个部件` : "空白画布，可从模板一键加载"}）
           </Button>
         </>
       }>

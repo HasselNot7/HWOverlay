@@ -3,7 +3,7 @@ import { PanelRightClose, PanelRightOpen } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { api, clone, outPaths } from "../api";
 import type {
-  CardsWidget, ChipsWidget, FreePos, GaugeWidget, HtmlWidget, OverlayConfig,
+  CardsWidget, ChipsWidget, FreePos, GaugeWidget, HtmlWidget, LayoutPreset, OverlayConfig,
   ProgressWidget, StatWidget, TextWidget, Widget,
 } from "../types";
 import type { Shared } from "../App";
@@ -11,7 +11,7 @@ import { CARD_CLS, FieldLabel, Hint, SubTitle } from "../ui";
 import { clearDraft, loadDraft, saveDraft } from "../draftStore";
 import {
   CanvasFields, CardsEditor, ChipsEditor, GaugeEditor, HtmlEditor, PromptBar,
-  ProgressEditor, StatEditor, TextEditor,
+  ProgressEditor, StatEditor, TemplatePicker, TextEditor,
 } from "./editors";
 
 /** 全屏自由排版工作台：画布（真实渲染的 monitor.html 预览 iframe）铺满主体，
@@ -158,6 +158,7 @@ export default function FreeEditorPage({ shared }: { shared: Shared }) {
   const [selected, setSelected] = useState<number | null>(null);
   /** 装饰命令行的选中态（与部件选中互斥，它不在 widgets 里） */
   const [selPrompt, setSelPrompt] = useState(false);
+  const [tplOpen, setTplOpen] = useState(false);
   const [rects, setRects] = useState<(Rect | null)[]>([]);
   /** 顶部装饰命令行的真实几何：可拖可吸，和部件互相当磁铁 */
   const [promptRect, setPromptRect] = useState<Rect | null>(null);
@@ -383,6 +384,32 @@ export default function FreeEditorPage({ shared }: { shared: Shared }) {
     addToast({ title: "已放弃未保存的改动", color: "default" });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [loadConfig]);
+
+  /** 用一套模板覆盖草稿（流式模板自动换算成自由坐标），顺带注册默认指标集 */
+  const applyPreset = async (p: LayoutPreset) => {
+    const d = draftRef.current;
+    if (!d) return;
+    try {
+      const seeded = await api.seedPresetMetrics();
+      const nd = clone(p.config);
+      toFree(nd);
+      pushHistory();
+      // onChange 从 draftRef.current 取草稿做保存/校验 —— 换新对象必须先同步 ref，
+      // 否则它会把旧草稿又写回去（同帧的 setDraft 还没重渲染）
+      draftRef.current = nd;
+      setDraft(nd);
+      setSelected(null);
+      setSelPrompt(false);
+      onChange();
+      addToast({
+        title: `已载入模板：${p.name}`,
+        description: seeded.added ? `已顺带注册 ${seeded.added} 个默认指标` : undefined,
+        color: "success",
+      });
+    } catch (e) {
+      addToast({ title: "加载模板失败", description: String(e), color: "danger" });
+    }
+  };
 
   /** 在空位落一个新部件并选中它 */
   const addFree = (type: string) => {
@@ -747,6 +774,8 @@ export default function FreeEditorPage({ shared }: { shared: Shared }) {
       {/* 顶部工具栏 */}
       <div className="flex flex-wrap items-center gap-2 border-b border-divider px-5 py-2.5">
         <h1 className="mr-2 text-lg font-bold text-white">自由排版</h1>
+        <Button size="sm" variant="flat" className="bg-[#27272a]" onPress={() => setTplOpen(true)}
+          title="用一套常用尺寸的模板覆盖当前草稿">模板</Button>
         {([["stat", "大数字"], ["progress", "进度条"], ["gauge", "圆环仪表"], ["html", "自定义 HTML"],
            ["cards", "指标卡"], ["chips", "小指标行"], ["text", "文本"]] as const).map(([t, label]) => (
           <Button key={t} size="sm" variant="flat" className="bg-[#27272a]"
@@ -1084,6 +1113,8 @@ export default function FreeEditorPage({ shared }: { shared: Shared }) {
         <span className="flex-1" />
         <span className={`text-sm ${msgColor}`}>{msg.text}</span>
       </div>
+
+      <TemplatePicker isOpen={tplOpen} onOpenChange={setTplOpen} onPick={applyPreset} />
     </main>
   );
 }

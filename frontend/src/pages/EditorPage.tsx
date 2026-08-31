@@ -2,11 +2,11 @@ import { addToast, Button, Input } from "@heroui/react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { api, clone, outPaths } from "../api";
 import { clearDraft, loadDraft, saveDraft } from "../draftStore";
-import type { CardsWidget, ChipsWidget, OverlayConfig, TextWidget } from "../types";
+import type { CardsWidget, ChipsWidget, LayoutPreset, OverlayConfig, TextWidget } from "../types";
 import type { Shared } from "../App";
 import { CARD_CLS, FieldLabel, Hint, Page, Section, SubTitle } from "../ui";
 import {
-  CanvasFields, CardsEditor, ChipsEditor, PromptBar, TextEditor,
+  CanvasFields, CardsEditor, ChipsEditor, PromptBar, TemplatePicker, TextEditor,
 } from "./editors";
 
 /** 流式排版：部件从上往下排。自由摆放（拖拽）在「自由排版」页。 */
@@ -24,6 +24,7 @@ export default function EditorPage({ shared }: { shared: Shared }) {
   const [check, setCheck] = useState<{ errors: string[]; warnings: string[] } | null>(null);
   const [pvKey, setPvKey] = useState(0);
   const [pvScale, setPvScale] = useState(0.45);
+  const [tplOpen, setTplOpen] = useState(false);
   const wrapRef = useRef<HTMLDivElement>(null);
   const frameRef = useRef<HTMLIFrameElement>(null);
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -198,21 +199,20 @@ export default function EditorPage({ shared }: { shared: Shared }) {
 
   const scalePct = Math.round(pvScale * 100);
 
-  /** 一键上手：注册内置指标集 + 把预设版式原地装进草稿（脏状态，看过满意再点保存）。 */
-  const loadPreset = async () => {
+  /** 一键上手：注册内置指标集 + 把模板版式原地装进草稿（脏状态，看过满意再点保存）。 */
+  const applyPreset = async (p: LayoutPreset) => {
     try {
       const seeded = await api.seedPresetMetrics();
-      const preset = await api.layoutPreset();
-      Object.assign(draft, preset);
+      Object.assign(draft, clone(p.config));
       setDraft({ ...draft });
       onChange();
       addToast({
-        title: "默认样式已装进草稿",
-        description: seeded.added ? `已顺带注册 ${seeded.added} 个默认指标` : undefined,
+        title: `已装进草稿：${p.name}`,
+        description: seeded.added ? `已顺带注册 ${seeded.added} 个默认指标` : "满意就点保存",
         color: "success",
       });
     } catch (e) {
-      addToast({ title: "加载默认样式失败", description: String(e), color: "danger" });
+      addToast({ title: "加载模板失败", description: String(e), color: "danger" });
     }
   };
 
@@ -220,15 +220,15 @@ export default function EditorPage({ shared }: { shared: Shared }) {
     <Page title="流式排版">
       {!metrics.length && (
         <div className="rounded-xl border border-warning/40 bg-warning/10 px-4 py-3 text-sm text-warning">
-          还没有注册任何指标 —— 去「自定义指标」注册，或点下面"加载默认样式"。
+          还没有注册任何指标 —— 去「自定义指标」注册，或点下面"从模板加载"。
         </div>
       )}
       <Section title="版式校验">
         {draft.widgets.length === 0 && (
           <div className="flex flex-col gap-2">
             <Hint>画布是空的。</Hint>
-            <Button variant="flat" size="lg" className="w-fit bg-[#27272a]" onPress={loadPreset}>
-              加载默认样式
+            <Button variant="flat" size="lg" className="w-fit bg-[#27272a]" onPress={() => setTplOpen(true)}>
+              从模板加载
             </Button>
           </div>
         )}
@@ -309,10 +309,14 @@ export default function EditorPage({ shared }: { shared: Shared }) {
         <Button size="lg" variant="flat" className="bg-[#27272a]" onPress={undo}>还原上一版</Button>
         <Button size="lg" variant="flat" className="bg-[#27272a]" isDisabled={!dirty} onPress={discardDraft}
           title="丢掉没保存的改动，回到已保存的版式">放弃改动</Button>
+        <Button size="lg" variant="flat" className="bg-[#27272a]" onPress={() => setTplOpen(true)}
+          title="用一套常用尺寸的模板覆盖当前草稿">模板</Button>
         {dirty && <span className="text-sm text-warning">● 有未保存的改动</span>}
         <span className="flex-1" />
         <span className={`text-sm ${msgColor}`}>{msg.text}</span>
       </div>
+
+      <TemplatePicker isOpen={tplOpen} onOpenChange={setTplOpen} onPick={applyPreset} />
     </Page>
   );
 }

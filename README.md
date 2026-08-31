@@ -148,7 +148,7 @@ python -m hwobs --open            # 管理页 http://127.0.0.1:8765/admin
 | GET `/api/aida/status` `/api/aida/plan` | 导出清单状态与只读对比（缺哪些/补全清单；**不写 AIDA64 的 ini**） |
 | PUT `/api/config`；POST `/api/config/rollback` | 版式写盘（校验不过不落盘、备份、原子替换）/ 回滚 |
 | GET `/api/sensors/unknown`；POST/DELETE `/api/metrics/custom` | 自定义指标（删除 = 回未知池） |
-| POST `/api/metrics/preset`；GET `/api/layout/preset` | 一键注册默认指标集 / 读预设版式 |
+| POST `/api/metrics/preset`；GET `/api/layout/presets` | 一键注册默认指标集 / 读模板库（五套常用尺寸） |
 | POST `/api/app/shutdown` | 退出程序（需 `confirm`，管理页按钮用） |
 
 ### 注册表模型（0.3.0 起）

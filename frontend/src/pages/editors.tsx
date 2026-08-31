@@ -1,15 +1,17 @@
 import {
-  Accordion, AccordionItem, Button, Checkbox, Input, Select, SelectItem, Switch, Textarea,
+  Accordion, AccordionItem, Button, Checkbox, Input, Modal, ModalBody, ModalContent,
+  ModalHeader, Select, SelectItem, Switch, Textarea,
 } from "@heroui/react";
-/** 版式编辑器的子组件：指标选择器、槽位编辑、卡片/chips/text 部件编辑器。
+/** 版式编辑器的子组件：指标选择器、槽位编辑、卡片/chips/text 部件编辑器、模板库弹窗。
  * 控件一律用 HeroUI，样式学 Now Playing（淡蓝字段标签、flat 控件、卡片底）。
  * 草稿对象直接原地改，改完调 onChange() 触发上层重渲染 + 防抖校验。 */
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import type {
-  CardItem, CardsWidget, ChipsWidget, GaugeWidget, GroupDef, HtmlWidget, Metric, MetricRef,
-  OverlayConfig, ProgressWidget, StatWidget, TextWidget,
+  CardItem, CardsWidget, ChipsWidget, GaugeWidget, GroupDef, HtmlWidget, LayoutPreset, Metric,
+  MetricRef, OverlayConfig, ProgressWidget, StatWidget, TextWidget, Widget,
 } from "../types";
+import { api } from "../api";
 import { CARD_CLS, FieldLabel, Hint } from "../ui";
 
 const GROUP_TITLES: Record<string, string> = {
@@ -748,4 +750,99 @@ export function PromptBar({ draft, onChange, compact }: {
     );
   }
   return <div className="mt-2 flex flex-wrap items-end gap-5">{toggle}{fields}</div>;
+}
+
+/** 模板缩略图：按画布真实比例画各部件占位块，一眼看清尺寸与布局。 */
+function PresetThumb({ cfg }: { cfg: OverlayConfig }) {
+  const c = cfg.canvas;
+  const line = (px: number) => Math.round(px * 1.2);
+  const estH = (w: Widget): number => {
+    switch (w.type) {
+      case "cards": {
+        const cols = Math.max(1, w.cols ?? 4);
+        const rows = Math.ceil((w.items?.length ?? 0) / cols);
+        return rows * (w.item_height ?? 66) + Math.max(0, rows - 1) * (w.gap ?? 32);
+      }
+      case "chips": return line(w.font ?? 15) + (w.margin_top ?? 10);
+      case "text": return line(w.size ?? 19) + (w.margin_top ?? 0);
+      case "stat": return line(w.size ?? 26);
+      case "progress": return w.height ?? 10;
+      case "html": return w.h ?? 60;
+      case "gauge": return (w.size ?? 120) + (w.label ? 20 : 0);
+      default: return 40;
+    }
+  };
+  const pct = (n: number, dim: number) => `${(n / dim) * 100}%`;
+  const free = c.mode === "free";
+  const pad = c.padding ?? [12, 24];
+  const promptH = cfg.prompt ? line(cfg.prompt.size ?? 19) + 10 : 0;
+  // 流式：从顶部内边距 + 命令行装饰往下堆；自由：按 x/y 绝对定位
+  let cursor = free ? 0 : pad[0] + promptH;
+  return (
+    <div className="relative w-full overflow-hidden border border-white/10 bg-[#0e0f12]"
+      style={{ aspectRatio: `${c.w} / ${c.h}` }}>
+      {!free && cfg.prompt && (
+        <div className="absolute left-0 top-0 h-[6%] w-full bg-primary/25"
+          style={{ marginTop: pct(pad[0], c.h) }} />
+      )}
+      {cfg.widgets.map((w, i) => {
+        const h = estH(w);
+        const pos = w as { x?: number; y?: number; w?: number };
+        const style = free
+          ? {
+              left: pct(pos.x ?? 0, c.w), top: pct(pos.y ?? 0, c.h),
+              width: pct(pos.w ?? (w.type === "gauge" ? (w as GaugeWidget).size ?? 120 : c.w - (pos.x ?? 0)), c.w),
+              height: pct(h, c.h),
+            }
+          : { left: pct(pad[1], c.w), top: pct(cursor, c.h), width: pct(c.w - pad[1] * 2, c.w), height: pct(h, c.h) };
+        if (!free) cursor += h + 8;
+        return <div key={i} className="absolute bg-primary/45" style={style} />;
+      })}
+    </div>
+  );
+}
+
+/** 模板库弹窗：几套不同尺寸的常用版式，点一个装进草稿（两个编辑器共用）。 */
+export function TemplatePicker({ isOpen, onOpenChange, onPick }: {
+  isOpen: boolean;
+  onOpenChange: (v: boolean) => void;
+  onPick: (p: LayoutPreset) => void;
+}) {
+  const [list, setList] = useState<LayoutPreset[] | null>(null);
+  useEffect(() => {
+    if (!isOpen || list) return;
+    api.layoutPresets().then(d => setList(d.presets)).catch(() => setList([]));
+  }, [isOpen, list]);
+  return (
+    <Modal isOpen={isOpen} onOpenChange={onOpenChange} size="2xl">
+      <ModalContent>
+        {(onClose) => (
+          <>
+            <ModalHeader className="flex-col items-start gap-1">从模板加载</ModalHeader>
+            <ModalBody className="max-h-[68vh] overflow-y-auto">
+              {!list && <Hint>加载模板列表…</Hint>}
+              {list?.length === 0 && <Hint>模板库读取失败。</Hint>}
+              <div className="grid grid-cols-2 gap-3">
+                {list?.map(p => (
+                  <button key={p.id} type="button"
+                    className="flex flex-col gap-2 border border-white/10 bg-[#1a1a1d] p-3 text-left transition-colors hover:border-primary/70"
+                    onClick={() => { onPick(p); onClose(); }}>
+                    <PresetThumb cfg={p.config} />
+                    <span className="flex items-baseline gap-2">
+                      <span className="text-sm font-bold text-default-700">{p.name}</span>
+                      <span className="font-poppins text-[11px] text-default-500">
+                        {p.config.canvas.w}×{p.config.canvas.h}
+                        {p.config.canvas.mode === "free" ? " · 自由" : ""}
+                      </span>
+                    </span>
+                    <span className="text-xs leading-5 text-default-500">{p.desc}</span>
+                  </button>
+                ))}
+              </div>
+            </ModalBody>
+          </>
+        )}
+      </ModalContent>
+    </Modal>
+  );
 }

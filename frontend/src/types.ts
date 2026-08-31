@@ -117,6 +117,14 @@ export interface OverlayConfig {
   widgets: Widget[];
 }
 
+/** 模板库里的一条：一个不同尺寸的常用版式。 */
+export interface LayoutPreset {
+  id: string;
+  name: string;
+  desc: string;
+  config: OverlayConfig;
+}
+
 export interface Metric {
   id: string;
   out: string | null;
