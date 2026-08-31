@@ -1,0 +1,18 @@
+# 统一按 LF 入库；Windows 检出时由 core.autocrlf 处理，避免 CRLF/LF 反复横跳
+* text=auto
+
+# 二进制不做换行转换
+*.png binary
+*.jpg binary
+*.ico binary
+*.zip binary
+
+# 这些文件强制 LF（Node/构建工具对 CRLF 敏感）
+*.ts text eol=lf
+*.tsx text eol=lf
+*.js text eol=lf
+*.json text eol=lf
+*.css text eol=lf
+*.html text eol=lf
+*.py text eol=lf
+*.spec text eol=lf

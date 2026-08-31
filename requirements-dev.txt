@@ -1,0 +1,3 @@
+# 开发/打包工具（运行期不需要）
+-r requirements.txt
+pyinstaller

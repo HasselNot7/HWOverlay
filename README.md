@@ -18,7 +18,7 @@ hwobs/              Python 后端（数据装配、版式校验、AIDA64 读写�
 ## 跑起来
 
 ```bash
-python -m pip install fastapi uvicorn     # 运行期 Python 依赖
+python -m pip install -r requirements.txt   # 运行期 Python 依赖
 python hw_server.py                       # 起服务，管理页 http://127.0.0.1:8765/admin
 python hw_server.py --open                # 顺便打开管理页
 ```
@@ -34,7 +34,7 @@ npm run dev            # Vite 开发服务器 5173，API 自动代理到 8765
 ## 打包成 exe
 
 ```bash
-python -m pip install pyinstaller
+python -m pip install -r requirements-dev.txt
 python build.py                # 构建 frontend/dist → PyInstaller → dist/HWOverlay-<版本>-win64.zip
 python build.py --skip-frontend   # 跳过前端构建（已有 dist 时）
 ```
@@ -152,6 +152,9 @@ hwobs/
   budget.py      4096 字节预算    calibrate.py 速率标定    paths.py 定位
 monitor.html     叠加层（零依赖，OBS 浏览器源直接跑）
 frontend/        管理页 React 源码（构建产物 dist/ 由 FastAPI 服务）
-overlays/monitor.json   版式配置（v2）
+overlays/layout.preset.json  编辑器"加载默认样式"的预设版式（v2）
+                   运行时版式 overlays/monitor.json 由程序首启生成，不入库
+tests/           纯脚本测试：python tests/test_xxx.py，无 pytest
 docs/commit-convention.md  提交约定
+requirements.txt / requirements-dev.txt  运行期 / 开发打包依赖
 ```
