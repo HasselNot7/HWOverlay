@@ -865,7 +865,7 @@ export default function FreeEditorPage({ shared }: { shared: Shared }) {
 
         {/* 右侧浮动面板：选中部件 → 参数；没选中 → 画布设置。可整体收起给画布让位 */}
         {panelOpen && (
-        <div className="absolute right-4 top-4 bottom-4 w-[420px] overflow-y-auto rounded-xl border border-white/[0.06] bg-[#141416] p-4 shadow-xl">
+        <div className="absolute right-4 top-4 bottom-4 z-50 w-[420px] overflow-y-auto rounded-xl border border-white/[0.06] bg-[#141416] p-4 shadow-xl">
           {!metrics.length && (
             <div className="mb-3 rounded-lg border border-warning/40 bg-warning/10 px-3 py-2 text-xs text-warning">
               还没有注册任何指标 —— 去「自定义指标」注册。
