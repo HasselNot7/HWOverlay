@@ -15,7 +15,7 @@
 
 ### 核心功能
 
-- **零依赖叠加层**：`monitor.html` 单文件原生页面，OBS 浏览器源直接跑，不吃直播机器性能
+- **零依赖叠加层**：`web/monitor.html` 单文件原生页面，OBS 浏览器源直接跑，不吃直播机器性能
 - **自由排版编辑器**：部件随便拖，边缘/中线自动吸附，网格步长随画布尺寸与缩放自适应
 - **多种内置部件**：指标卡、小指标行、大数字、进度条、圆环仪表、文本、自定义 HTML
 - **自定义组件带脚本**：HTML 部件里可以写 `<script>`，提供 `HWOB` 数据 API（取数 / 历史 / 每帧回调），想要什么图都能自己画
@@ -75,7 +75,7 @@
 
 ```bash
 python -m pip install -r requirements.txt
-python hw_server.py --open        # 管理页 http://127.0.0.1:8765/admin
+python -m hwobs --open            # 管理页 http://127.0.0.1:8765/admin
 ```
 
 ### 在 OBS 里挂载
@@ -96,9 +96,9 @@ python hw_server.py --open        # 管理页 http://127.0.0.1:8765/admin
 
 | 操作 | 命令 |
 |:---:|:---|
-| 起后端 | `python hw_server.py`（127.0.0.1:8765） |
+| 起后端 | `python -m hwobs`（127.0.0.1:8765） |
 | 前端开发 | `cd frontend && npm ci && npm run dev`（5173，API 自动代理到 8765） |
-| 打包 exe | `python -m pip install -r requirements-dev.txt && python build.py` |
+| 打包 exe | `python -m pip install -r requirements-dev.txt && python scripts/build.py` |
 
 构建期需要 Node.js ≥ 18；运行期不需要。
 
@@ -110,7 +110,7 @@ python hw_server.py --open        # 管理页 http://127.0.0.1:8765/admin
 浏览器 ──HTTP──> FastAPI (uvicorn, 127.0.0.1:8765)
                    ├── /api/*        管理页 API
                    ├── /hw.json /overlay.json /metrics.json /sensors
-                   ├── /            叠加层 monitor.html（零依赖原生页面，OBS 用）
+                   ├── /            叠加层 web/monitor.html（零依赖原生页面，OBS 用）
                    └── /admin       管理页（React 构建产物，静态文件）
 ```
 
@@ -136,7 +136,7 @@ python hw_server.py --open        # 管理页 http://127.0.0.1:8765/admin
 }
 ```
 
-内置部件在 `hwobs/widgets.py` 登记校验与几何、`monitor.html` 的 `WIDGET_TYPES`
+内置部件在 `hwobs/widgets.py` 登记校验与几何、`web/monitor.html` 的 `WIDGET_TYPES`
 登记渲染，两边以 type 为契约。几何全部来自配置本身，改字号/内边距校验跟着变。
 
 ### API

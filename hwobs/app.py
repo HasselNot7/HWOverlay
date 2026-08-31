@@ -1,4 +1,4 @@
-"""命令行入口：`python -m hwobs.app` 或 hw_server.py 的 shim 调用。"""
+"""命令行入口：`python -m hwobs`（或等价的 `python -m hwobs.app`）。"""
 
 import os
 import socket
@@ -62,7 +62,7 @@ def main():
     # windowed 打包（console=False）双击运行时没有 stdout/stderr（是 None），
     # uvicorn 的日志格式化器会调 sys.stdout.isatty() 直接崩
     # （ValueError: Unable to configure formatter 'default'）。挂到 devnull 兜底；
-    # 带控制台的启动（python hw_server.py、重定向）不受影响。
+    # 带控制台的启动（python -m hwobs、重定向）不受影响。
     if sys.stdout is None:
         sys.stdout = open(os.devnull, "w", encoding="utf-8")
     if sys.stderr is None:

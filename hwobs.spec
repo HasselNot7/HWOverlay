@@ -5,7 +5,7 @@
 OBS 浏览器源在这期间拿不到响应会黑屏。onefile 只适合当安装引导。
 
 数据文件的落点必须和 hwobs/paths.py 的 resource() 约定一致：
-冻结后 sys._MEIPASS 指向 _internal/，所以 'monitor.html' 的目的地是 '.'。
+冻结后 sys._MEIPASS 指向 _internal/，所以 'web/monitor.html' 的目的地是 'web'。
 """
 
 from PyInstaller.utils.hooks import collect_submodules
@@ -20,7 +20,7 @@ ROOT = pathlib.Path(SPECPATH)
 FRONTEND_DIST = ROOT / "frontend" / "dist"
 
 datas = [
-    ('monitor.html', '.'),
+    ('web/monitor.html', 'web'),
     # 只带编辑器预设；overlays/monitor.json 是各人机器上的运行时版式，不进包
     ('overlays/layout.preset.json', 'overlays'),
     ('hwobs/registry/metrics.json', 'hwobs/registry'),
@@ -44,7 +44,7 @@ hiddenimports = collect_submodules('hwobs') + [
 ]
 
 a = Analysis(
-    ['hw_server.py'],
+    ['hwobs/__main__.py'],
     pathex=[str(ROOT)],
     binaries=[],
     datas=datas,

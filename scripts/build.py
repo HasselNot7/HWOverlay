@@ -1,4 +1,4 @@
-"""打包脚本：`python build.py` 产出一个可直接分发的 onedir zip。
+"""打包脚本：`python scripts/build.py` 产出一个可直接分发的 onedir zip。
 
 不会自动 pip install —— 装依赖属于改你的环境，得你点头。
 """
@@ -10,7 +10,7 @@ import sys
 import zipfile
 from pathlib import Path
 
-ROOT = Path(__file__).resolve().parent
+ROOT = Path(__file__).resolve().parent.parent   # scripts/build.py 的上一级才是仓库根
 
 
 def build_frontend() -> int:
@@ -22,7 +22,7 @@ def build_frontend() -> int:
     npm = shutil.which("npm")
     if not npm:
         print("找不到 npm（构建管理页需要 Node.js）。")
-        print("  - 已有 frontend/dist 的话可以跳过：直接 python build.py --skip-frontend")
+        print("  - 已有 frontend/dist 的话可以跳过：直接 python scripts/build.py --skip-frontend")
         print("  - 或者装好 Node.js 再来")
         return 1
     if not (fe / "node_modules").is_dir():

@@ -8,7 +8,7 @@
   400 + {"saved": False, "errors": [...]} 形状，而不是 FastAPI 默认的 422。
 
 静态页：
-- `/` 永远是叠加层 monitor.html（OBS 填的就是它，URL 不能变）。
+- `/` 永远是叠加层 web/monitor.html（OBS 填的就是它，URL 不能变）。
 - `/admin` 优先服务 frontend/dist（React 构建产物）；没构建过就回落旧
   vanilla 管理页（过渡期并存，前端移植完成后删除）。
 """
@@ -23,7 +23,7 @@ from . import config, overlay, paths, registry
 from .aida import controller
 from .sources import aida64, winapi
 
-HTML_FILE = paths.resource("monitor.html")
+HTML_FILE = paths.resource("web/monitor.html")
 FRONTEND_DIST = paths.resource("frontend/dist")
 LAYOUT_PRESET_FILE = paths.resource("overlays/layout.preset.json")
 
