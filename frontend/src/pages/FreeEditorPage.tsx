@@ -166,6 +166,8 @@ export default function FreeEditorPage({ shared }: { shared: Shared }) {
   const boxRefs = useRef(new Map<number, HTMLDivElement>());
   const promptBoxRef = useRef<HTMLDivElement>(null);
   const dragRef = useRef<DragState | null>(null);
+  /** 拖动期间收到的几何补报：先存着，松手后补应用 */
+  const pendingRectsRef = useRef<{ rects: (Rect | null)[]; prompt: Rect | null } | null>(null);
   const scaleRef = useRef(pvScale);
   const draftRef = useRef<OverlayConfig | null>(null);
   const rectsRef = useRef<(Rect | null)[]>([]);
@@ -295,6 +297,9 @@ export default function FreeEditorPage({ shared }: { shared: Shared }) {
       const d = e.data as { type?: string; rects?: (Rect | null)[]; prompt?: Rect | null };
       if (d?.type === "hwobs-ready") { pushRef.current(); return; }
       if (d?.type === "hwobs-rects" && Array.isArray(d.rects)) {
+        // 拖动中途来的补报（别处实时数据变了）先挂起：直接 setRects 会让
+        // React 把手柄盒拽回旧位置，盖掉正在跟手的吸附位。松手后补应用。
+        if (dragRef.current) { pendingRectsRef.current = { rects: d.rects, prompt: d.prompt ?? null }; return; }
         setRects(d.rects);
         setPromptRect(d.prompt ?? null);
       }
@@ -683,7 +688,18 @@ export default function FreeEditorPage({ shared }: { shared: Shared }) {
       if (vgRef.current) vgRef.current.style.display = "none";
       if (hgRef.current) hgRef.current.style.display = "none";
       const cur = draftRef.current;
-      if (!d || !cur || d.nx === undefined) return;
+      const flush = () => {
+        const p = pendingRectsRef.current;
+        if (p) {
+          pendingRectsRef.current = null;
+          setRects(p.rects);
+          setPromptRect(p.prompt);
+        }
+      };
+      // 没提交就走：重建不会发生，把拖动期间攒下的补报应用掉
+      if (!d || !cur || d.nx === undefined) { flush(); return; }
+      // 提交了就走：重建后必有新鲜补报，攒的旧数据直接作废
+      pendingRectsRef.current = null;
       pushHistory();
       if (d.target === "prompt") {
         if (cur.prompt) { cur.prompt.x = d.nx; cur.prompt.y = d.ny; }

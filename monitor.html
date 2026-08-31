@@ -682,7 +682,7 @@
         }
       });
       document.body.appendChild(probe);
-      if (PREVIEW) reportRects();
+      if (PREVIEW) watchRects();
     }
 
     /** 编辑器协议：每次 build 完，把各部件渲染后的真实几何回报给管理页。
@@ -701,6 +701,24 @@
         : null;
       parent.postMessage({ type: 'hwobs-rects', rects, prompt }, '*');
     }
+
+    /* build 那一刻几何还没定型：网络字体到位后字宽字高会变、实时数据让
+       文字变长变短、chips 换行改行数 —— 宿主节点尺寸一变，编辑器的手柄盒
+       就跟内容错位。用 ResizeObserver 盯住所有宿主，尺寸一变就补报一次；
+       rAF 合帧，一帧内多次变化只报一条。只挪位置不改尺寸不会触发（拖动
+       中宿主只改 left/top，正好不打扰编辑器的手柄）。 */
+    let rectRO = null, rectRAF = 0;
+    function reportRectsSoon() {
+      if (rectRAF) return;
+      rectRAF = requestAnimationFrame(() => { rectRAF = 0; reportRects(); });
+    }
+    function watchRects() {
+      if (!rectRO) rectRO = new ResizeObserver(reportRectsSoon);
+      rectRO.disconnect();
+      document.body.querySelectorAll('[data-wi], .prompt-line').forEach(h => rectRO.observe(h));
+      reportRectsSoon();
+    }
+    if (PREVIEW) document.fonts.ready.then(reportRectsSoon);
 
     function render() {
       document.body.classList.toggle('offline', !HW);
