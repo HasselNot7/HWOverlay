@@ -829,8 +829,7 @@ export default function FreeEditorPage({ shared }: { shared: Shared }) {
                         : "border-white/25 hover:border-white/60"}`}
                     style={{
                       left: r.x * pvScale, top: r.y * pvScale,
-                      width: Math.max(r.w * pvScale, 48),
-                      height: Math.max(r.h * pvScale, 22),
+                      width: r.w * pvScale, height: r.h * pvScale,
                       zIndex: isSel ? 30 : i + 1,
                     }}
                     onMouseDown={e => onDown(e, i, "move")}>
@@ -858,8 +857,7 @@ export default function FreeEditorPage({ shared }: { shared: Shared }) {
                       : "border-white/25 hover:border-white/60"}`}
                   style={{
                     left: promptRect.x * pvScale, top: promptRect.y * pvScale,
-                    width: Math.max(promptRect.w * pvScale, 48),
-                    height: Math.max(promptRect.h * pvScale, 22),
+                    width: promptRect.w * pvScale, height: promptRect.h * pvScale,
                     zIndex: selPrompt ? 30 : 0,
                   }}
                   onMouseDown={e => onPromptDown(e)}>
