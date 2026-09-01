@@ -123,6 +123,8 @@ export interface LayoutPreset {
   name: string;
   desc: string;
   config: OverlayConfig;
+  /** builtin=随包内置（不可删）；user=自己存的，写在使用者机器上 */
+  source?: "builtin" | "user";
 }
 
 export interface Metric {

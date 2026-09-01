@@ -47,6 +47,13 @@ export const api = {
   seedPresetMetrics: () =>
     sendJSON<{ added: number; ids: string[]; error?: string }>("/api/metrics/preset", "POST", {}),
   layoutPresets: () => getJSON<{ presets: LayoutPreset[] }>("/api/layout/presets"),
+  saveLayoutPreset: (spec: { name: string; desc: string; config: OverlayConfig }) =>
+    sendJSON<{ saved: boolean; entry?: LayoutPreset; errors?: string[] }>(
+      "/api/layout/presets", "POST", spec),
+  removeLayoutPreset: async (id: string) => {
+    const r = await fetch(`/api/layout/presets?id=${encodeURIComponent(id)}`, { method: "DELETE" });
+    return r.json() as Promise<{ removed: boolean; error?: string }>;
+  },
   addCustomMetric: (spec: { sensor_id: string; name: string; unit: string; digits: number; na_zero: boolean }) =>
     sendJSON<{ saved: boolean; error?: string }>("/api/metrics/custom", "POST", spec),
   removeCustomMetric: async (id: string) => {

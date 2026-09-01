@@ -310,13 +310,13 @@ export default function EditorPage({ shared }: { shared: Shared }) {
         <Button size="lg" variant="flat" className="bg-[#27272a]" isDisabled={!dirty} onPress={discardDraft}
           title="丢掉没保存的改动，回到已保存的版式">放弃改动</Button>
         <Button size="lg" variant="flat" className="bg-[#27272a]" onPress={() => setTplOpen(true)}
-          title="用一套常用尺寸的模板覆盖当前草稿">模板</Button>
+          title="模板库：载入模板，或把当前草稿存为你的模板">模板</Button>
         {dirty && <span className="text-sm text-warning">● 有未保存的改动</span>}
         <span className="flex-1" />
         <span className={`text-sm ${msgColor}`}>{msg.text}</span>
       </div>
 
-      <TemplatePicker isOpen={tplOpen} onOpenChange={setTplOpen} onPick={applyPreset} />
+      <TemplatePicker isOpen={tplOpen} onOpenChange={setTplOpen} onPick={applyPreset} current={draft} />
     </Page>
   );
 }

@@ -19,13 +19,12 @@ from fastapi import Body, FastAPI, Query, Request
 from fastapi.responses import FileResponse, HTMLResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 
-from . import config, overlay, paths, registry
+from . import config, overlay, paths, presets, registry
 from .aida import controller
 from .sources import aida64, winapi
 
 HTML_FILE = paths.resource("web/monitor.html")
 FRONTEND_DIST = paths.resource("frontend/dist")
-LAYOUT_PRESETS_FILE = paths.resource("overlays/presets.json")
 
 MAX_BODY = 64 * 1024      # 版式配置远小于这个数，超了就是乱发
 
@@ -137,10 +136,33 @@ def create_app() -> FastAPI:
 
     @app.get("/api/layout/presets")
     def layout_presets():
-        """模板库：一组不同尺寸的常用版式，编辑器"从模板加载"用。"""
-        if not LAYOUT_PRESETS_FILE.is_file():
-            return JSONResponse({"error": "包里没有 presets.json"}, status_code=404)
-        return json.loads(LAYOUT_PRESETS_FILE.read_text(encoding="utf-8"))
+        """模板库：内置模板 + 用户自存模板，带 source 标记。"""
+        return {"presets": presets.list_all()}
+
+    @app.post("/api/layout/presets")
+    async def layout_preset_add(request: Request):
+        """把一份版式存为用户模板（编辑器"存为模板"和导入文件共用）。"""
+        spec, err = await _json_body(request)
+        if err:
+            return err
+        try:
+            entry, problem = presets.add(spec or {})
+        except Exception as e:      # noqa: BLE001
+            return JSONResponse({"saved": False, "errors": [f"服务端处理失败：{e}"]}, status_code=500)
+        if problem:
+            return JSONResponse({"saved": False, "errors": [problem]}, status_code=400)
+        return {"saved": True, "entry": {**entry, "source": "user"}}
+
+    @app.delete("/api/layout/presets")
+    def layout_preset_delete(id: str = Query(...)):
+        try:
+            removed = presets.remove(id)
+        except Exception as e:      # noqa: BLE001
+            return JSONResponse({"removed": False, "error": f"服务端处理失败：{e}"}, status_code=500)
+        if not removed:
+            return JSONResponse({"removed": False, "error": "没有这个用户模板（内置模板不可删除）"},
+                                status_code=404)
+        return {"removed": True, "id": id}
 
     @app.get("/api/sensors/unknown")
     def sensors_unknown():

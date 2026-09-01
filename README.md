@@ -18,6 +18,7 @@
 - **零依赖叠加层**：`web/monitor.html` 单文件原生页面，OBS 浏览器源直接跑，不吃直播机器性能
 - **自由排版编辑器**：部件随便拖，边缘/中线自动吸附，网格步长随画布尺寸与缩放自适应
 - **多种内置部件**：指标卡、小指标行、大数字、进度条、圆环仪表、文本、自定义 HTML
+- **模板库**：内置几套常用尺寸版式，一键载入；调好的版式可存为自己的模板（存在本机数据目录，升级不丢），也能导出 `.json` 文件备份、分享给别人或从文件导入
 - **自定义组件带脚本**：HTML 部件里可以写 `<script>`，提供 `HWOB` 数据 API（取数 / 历史 / 每帧回调），想要什么图都能自己画
 - **自定义指标**：AIDA64 导出了但还没注册的传感器列出来，点一下就成指标，不用重启
 - **字节预算条**：AIDA64 共享内存只有 4096 字节，选指标本质是分配字节，超没超一眼看见
@@ -148,7 +149,7 @@ python -m hwobs --open            # 管理页 http://127.0.0.1:8765/admin
 | GET `/api/aida/status` `/api/aida/plan` | 导出清单状态与只读对比（缺哪些/补全清单；**不写 AIDA64 的 ini**） |
 | PUT `/api/config`；POST `/api/config/rollback` | 版式写盘（校验不过不落盘、备份、原子替换）/ 回滚 |
 | GET `/api/sensors/unknown`；POST/DELETE `/api/metrics/custom` | 自定义指标（删除 = 回未知池） |
-| POST `/api/metrics/preset`；GET `/api/layout/presets` | 一键注册默认指标集 / 读模板库（五套常用尺寸） |
+| POST `/api/metrics/preset`；GET/POST/DELETE `/api/layout/presets` | 一键注册默认指标集 / 模板库：内置+用户模板列表、存为模板（保存前过一遍完整校验）、删除 |
 | POST `/api/app/shutdown` | 退出程序（需 `confirm`，管理页按钮用） |
 
 ### 注册表模型（0.3.0 起）

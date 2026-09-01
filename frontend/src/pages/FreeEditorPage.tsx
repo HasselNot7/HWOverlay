@@ -775,7 +775,7 @@ export default function FreeEditorPage({ shared }: { shared: Shared }) {
       <div className="flex flex-wrap items-center gap-2 border-b border-divider px-5 py-2.5">
         <h1 className="mr-2 text-lg font-bold text-white">自由排版</h1>
         <Button size="sm" variant="flat" className="bg-[#27272a]" onPress={() => setTplOpen(true)}
-          title="用一套常用尺寸的模板覆盖当前草稿">模板</Button>
+          title="模板库：载入模板，或把当前草稿存为你的模板">模板</Button>
         {([["stat", "大数字"], ["progress", "进度条"], ["gauge", "圆环仪表"], ["html", "自定义 HTML"],
            ["cards", "指标卡"], ["chips", "小指标行"], ["text", "文本"]] as const).map(([t, label]) => (
           <Button key={t} size="sm" variant="flat" className="bg-[#27272a]"
@@ -1114,7 +1114,7 @@ export default function FreeEditorPage({ shared }: { shared: Shared }) {
         <span className={`text-sm ${msgColor}`}>{msg.text}</span>
       </div>
 
-      <TemplatePicker isOpen={tplOpen} onOpenChange={setTplOpen} onPick={applyPreset} />
+      <TemplatePicker isOpen={tplOpen} onOpenChange={setTplOpen} onPick={applyPreset} current={draft} />
     </main>
   );
 }

@@ -1,12 +1,12 @@
 import {
-  Accordion, AccordionItem, Button, Checkbox, Input, Modal, ModalBody, ModalContent,
+  Accordion, AccordionItem, addToast, Button, Checkbox, Input, Modal, ModalBody, ModalContent,
   ModalHeader, Select, SelectItem, Switch, Textarea,
 } from "@heroui/react";
 /** 版式编辑器的子组件：指标选择器、槽位编辑、卡片/chips/text 部件编辑器、模板库弹窗。
  * 控件一律用 HeroUI，样式学 Now Playing（淡蓝字段标签、flat 控件、卡片底）。
  * 草稿对象直接原地改，改完调 onChange() 触发上层重渲染 + 防抖校验。 */
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import type {
   CardItem, CardsWidget, ChipsWidget, GaugeWidget, GroupDef, HtmlWidget, LayoutPreset, Metric,
   MetricRef, OverlayConfig, ProgressWidget, StatWidget, TextWidget, Widget,
@@ -802,43 +802,172 @@ function PresetThumb({ cfg }: { cfg: OverlayConfig }) {
   );
 }
 
-/** 模板库弹窗：几套不同尺寸的常用版式，点一个装进草稿（两个编辑器共用）。 */
-export function TemplatePicker({ isOpen, onOpenChange, onPick }: {
+/** 把任意版式导出成模板文件（浏览器直接下载，不经过服务器）。 */
+function downloadTemplate(entry: { name: string; desc: string; config: OverlayConfig }) {
+  const safe = entry.name.replace(/[\\/:*?"<>|\s]+/g, "_") || "template";
+  const url = URL.createObjectURL(
+    new Blob([JSON.stringify(entry, null, 2)], { type: "application/json" }));
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = `${safe}.hwobs-template.json`;
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
+/** 模板库弹窗：内置 + 自存模板，点一个装进草稿；支持存为模板 / 导入 / 导出 / 删除。 */
+export function TemplatePicker({ isOpen, onOpenChange, onPick, current }: {
   isOpen: boolean;
   onOpenChange: (v: boolean) => void;
   onPick: (p: LayoutPreset) => void;
+  /** 编辑器当前草稿：供「存为模板」「导出文件」用 */
+  current: OverlayConfig | null;
 }) {
   const [list, setList] = useState<LayoutPreset[] | null>(null);
-  useEffect(() => {
-    if (!isOpen || list) return;
-    api.layoutPresets().then(d => setList(d.presets)).catch(() => setList([]));
-  }, [isOpen, list]);
+  const [form, setForm] = useState(false);       // "存为模板" 的命名表单
+  const [name, setName] = useState("");
+  const [desc, setDesc] = useState("");
+  const [busy, setBusy] = useState(false);
+  const fileRef = useRef<HTMLInputElement>(null);
+  const load = () => api.layoutPresets().then(d => setList(d.presets)).catch(() => setList([]));
+  useEffect(() => { if (isOpen) load(); }, [isOpen]);   // 每次打开都拿最新库
+
+  const save = async () => {
+    if (!current) return;
+    setBusy(true);
+    try {
+      const rep = await api.saveLayoutPreset({
+        name: name.trim() || "我的版式", desc: desc.trim(), config: current,
+      });
+      if (!rep.saved) {
+        addToast({ title: "存为模板失败", description: (rep.errors || []).join("；"), color: "danger" });
+        return;
+      }
+      addToast({ title: `已存入模板库：${rep.entry!.name}`, color: "success" });
+      setForm(false); setName(""); setDesc("");
+      load();
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const exportCurrent = () => {
+    if (!current) return;
+    downloadTemplate({ name: name.trim() || current.name || "我的版式", desc: desc.trim(), config: current });
+  };
+
+  /** 导入模板文件：认 {name,desc,config} 封装，也认裸的版式 JSON（如 overlays/monitor.json）。 */
+  const importFile = async (f: File) => {
+    setBusy(true);
+    try {
+      const data = JSON.parse(await f.text());
+      const cfg = data && typeof data === "object" && data.config ? data.config : data;
+      const pname = String(data?.name || f.name.replace(/\.json$/i, "")).slice(0, 40);
+      const rep = await api.saveLayoutPreset({ name: pname, desc: String(data?.desc || "导入的模板"), config: cfg });
+      if (!rep.saved) {
+        addToast({ title: "导入失败", description: (rep.errors || []).join("；"), color: "danger" });
+      } else {
+        addToast({ title: `已导入模板：${pname}`, color: "success" });
+        load();
+      }
+    } catch (e) {
+      addToast({ title: "导入失败", description: `文件不是合法 JSON：${e}`, color: "danger" });
+    } finally {
+      setBusy(false);
+      if (fileRef.current) fileRef.current.value = "";
+    }
+  };
+
+  const remove = async (p: LayoutPreset) => {
+    const rep = await api.removeLayoutPreset(p.id);
+    if (rep.removed) {
+      setList(l => (l || []).filter(x => x.id !== p.id));
+      addToast({ title: `已删除模板：${p.name}`, color: "default" });
+    } else {
+      addToast({ title: "删除失败", description: rep.error, color: "danger" });
+    }
+  };
+
+  const card = (p: LayoutPreset) => (
+    <div key={p.id} className="relative">
+      <button type="button"
+        className="flex w-full flex-col gap-2 border border-white/10 bg-[#1a1a1d] p-3 text-left transition-colors hover:border-primary/70"
+        onClick={() => { onPick(p); onOpenChange(false); }}>
+        <PresetThumb cfg={p.config} />
+        <span className="flex items-baseline gap-2">
+          <span className="text-sm font-bold text-default-700">{p.name}</span>
+          {p.source === "user" && (
+            <span className="rounded bg-primary/20 px-1.5 py-0.5 text-[10px] font-bold text-primary">我的</span>
+          )}
+          <span className="font-poppins text-[11px] text-default-500">
+            {p.config.canvas.w}×{p.config.canvas.h}
+            {p.config.canvas.mode === "free" ? " · 自由" : " · 流式"}
+          </span>
+        </span>
+        <span className="text-xs leading-5 text-default-500">{p.desc}</span>
+      </button>
+      {p.source === "user" && (
+        <button type="button" title="删除这个模板" onClick={() => remove(p)}
+          className="absolute right-2 top-2 z-10 grid size-6 place-items-center rounded border border-white/10 bg-black/60 text-xs text-default-400 transition-colors hover:border-danger hover:bg-danger hover:text-white">
+          ✕
+        </button>
+      )}
+    </div>
+  );
+
+  const mine = (list || []).filter(p => p.source === "user");
+  const builtin = (list || []).filter(p => p.source !== "user");
+  const grid = "grid grid-cols-2 gap-3";
   return (
     <Modal isOpen={isOpen} onOpenChange={onOpenChange} size="2xl">
       <ModalContent>
-        {(onClose) => (
+        {() => (
           <>
-            <ModalHeader className="flex-col items-start gap-1">从模板加载</ModalHeader>
-            <ModalBody className="max-h-[68vh] overflow-y-auto">
-              {!list && <Hint>加载模板列表…</Hint>}
-              {list?.length === 0 && <Hint>模板库读取失败。</Hint>}
-              <div className="grid grid-cols-2 gap-3">
-                {list?.map(p => (
-                  <button key={p.id} type="button"
-                    className="flex flex-col gap-2 border border-white/10 bg-[#1a1a1d] p-3 text-left transition-colors hover:border-primary/70"
-                    onClick={() => { onPick(p); onClose(); }}>
-                    <PresetThumb cfg={p.config} />
-                    <span className="flex items-baseline gap-2">
-                      <span className="text-sm font-bold text-default-700">{p.name}</span>
-                      <span className="font-poppins text-[11px] text-default-500">
-                        {p.config.canvas.w}×{p.config.canvas.h}
-                        {p.config.canvas.mode === "free" ? " · 自由" : ""}
-                      </span>
-                    </span>
-                    <span className="text-xs leading-5 text-default-500">{p.desc}</span>
-                  </button>
-                ))}
+            <ModalHeader className="flex-col items-start gap-1">模板库</ModalHeader>
+            <div className="flex flex-wrap items-center gap-2">
+              <Button size="sm" variant="flat" className="bg-[#27272a]" isDisabled={busy}
+                onPress={() => fileRef.current?.click()}
+                title="从 .json 文件导入一套模板（导出文件 / 别人的分享 / 你保存的版式）">
+                导入文件
+              </Button>
+              <Button size="sm" variant="flat" className="bg-[#27272a]" isDisabled={!current || busy}
+                onPress={() => setForm(v => !v)}
+                title="把编辑器里这份草稿存进模板库，以后随时一键载入">
+                存为模板
+              </Button>
+              <Button size="sm" variant="flat" className="bg-[#27272a]" isDisabled={!current || busy}
+                onPress={exportCurrent}
+                title="把当前草稿下载成模板文件（备份 / 分享）">
+                导出当前版式
+              </Button>
+              <input ref={fileRef} type="file" accept=".json,application/json" className="hidden"
+                onChange={e => { const f = e.target.files?.[0]; if (f) importFile(f); }} />
+            </div>
+            {form && (
+              <div className="flex flex-wrap items-end gap-2 rounded-lg border border-white/10 bg-[#1a1a1d] p-3">
+                <Input size="sm" label="模板名" value={name} onValueChange={setName}
+                  placeholder="例如：我的直播底栏" className="w-52"
+                  onKeyDown={e => { if (e.key === "Enter" && !busy) save(); }} />
+                <Input size="sm" label="一句话简介（可选）" value={desc} onValueChange={setDesc}
+                  className="min-w-52 flex-1"
+                  onKeyDown={e => { if (e.key === "Enter" && !busy) save(); }} />
+                <Button size="sm" color="primary" isLoading={busy} onPress={save}>保存</Button>
               </div>
+            )}
+            <ModalBody className="max-h-[60vh] overflow-y-auto">
+              {!list && <Hint>加载模板列表…</Hint>}
+              {list?.length === 0 && <Hint>模板库是空的 —— 调好版式后点上面「存为模板」。</Hint>}
+              {!!mine.length && (
+                <>
+                  <Hint>我的模板（存在本机，升级不丢；点右上 ✕ 删除）</Hint>
+                  <div className={grid}>{mine.map(card)}</div>
+                </>
+              )}
+              {!!builtin.length && (
+                <>
+                  {list?.length ? <Hint>内置模板</Hint> : null}
+                  <div className={grid}>{builtin.map(card)}</div>
+                </>
+              )}
             </ModalBody>
           </>
         )}
