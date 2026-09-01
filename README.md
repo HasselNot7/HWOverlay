@@ -18,7 +18,7 @@ JetBrains字体 + 控制台风格，与 [Now Playing](https://github.com/Widdit/
 - **零依赖叠加层**：`web/monitor.html` 单文件原生页面，OBS 浏览器源直接跑，不吃直播机器性能
 - **自由排版编辑器**：部件拖拽，边缘/中线自动吸附，网格
 - **多种内置部件**：指标卡、小指标行、大数字、进度条、圆环仪表、文本、自定义 HTML
-- **模板库**：内置几套常用尺寸版式，一键载入；调好的版式可存为自己的模板（存在本机数据目录，升级不丢），也能导出 `.json` 文件备份、分享给别人或从文件导入
+- **模板库**：调好的版式可存为自己的模板（存在本机数据目录，升级不丢），也能导出 `.json` 文件备份、分享给别人或从文件导入
 - **自定义组件带脚本**：HTML 部件里可以写 `<script>`，提供 `HWOB` 数据 API（取数 / 历史 / 每帧回调）
 - **自定义指标**：AIDA64 导出了但还没注册的传感器
 - **字节预算条**：AIDA64 共享内存只有 4096 字节，选指标本质是分配字节，超没超一眼看见
@@ -68,7 +68,7 @@ JetBrains字体 + 控制台风格，与 [Now Playing](https://github.com/Widdit/
 
 ### 方法一：下载整合包（推荐）
 
-- 前往本仓库的 Releases 页面下载 `HWOverlay-<版本>-win64.zip`
+- 前往本仓库的 [Release](https://github.com/Widdit/now-playing-service/releases) 页面下载 `HWOverlay-<版本>-win64.zip`
 - 解压双击 `HWOverlay.exe`，自动打开管理页
 
 ### 方法二：从源码运行
@@ -107,7 +107,7 @@ python -m hwobs --open            # 管理页 http://localhost:8765/admin
 ## 程序原理
 
 ```
-浏览器 ──HTTP──> FastAPI (uvicorn, 127.0.0.1:8765)
+浏览器 ──HTTP──> FastAPI (uvicorn, localhost:8765)
                    ├── /api/*        管理页 API
                    ├── /hw.json /overlay.json /metrics.json /sensors
                    ├── /            叠加层 web/monitor.html（零依赖原生页面，OBS 用）
@@ -173,5 +173,5 @@ python -m hwobs --open            # 管理页 http://localhost:8765/admin
 
 ## 许可证
 
-[MIT](LICENSE)。数据取自你本机的 AIDA64，本软件不联网、不上传任何东西。
+[MIT](LICENSE)。
 
