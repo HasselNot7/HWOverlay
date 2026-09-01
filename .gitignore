@@ -49,3 +49,6 @@ assets/app_preview.png
 
 # ZCode 会话产物
 .zcode/
+
+# skills CLI 的本地安装锁（指向临时克隆路径，机器专属）
+skills-lock.json
