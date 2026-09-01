@@ -2,7 +2,8 @@ import { Chip } from "@heroui/react";
 import { Cable, LayoutTemplate, MonitorPlay, ArrowRight } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import type { Shared } from "../App";
-import { Btn, CARD_CLS, Hint, Page} from "../ui";
+import { Btn, CARD_CLS, Hint, Page } from "../ui";
+import { CopyButton } from "../motion";
 
 type StepKind = "done" | "todo" | "bad" | "act";
 
@@ -108,7 +109,10 @@ export default function WizardPage({ shared }: { shared: Shared }) {
   const step3 = (
     <StepCard kind={step3kind} num={3} title="在 OBS 里添加“浏览器”源" Icon={MonitorPlay}>
       <Hint>
-        URL <code className="rounded-md bg-[#27272a] px-1.5 py-0.5 font-jetbrains text-xs">{location.origin}/</code>
+        <span className="inline-flex flex-wrap items-center gap-1">
+          URL <code className="rounded-md bg-[#27272a] px-1.5 py-0.5 font-jetbrains text-xs">{location.origin}/</code>
+          <CopyButton text={`${location.origin}/`} label="复制浏览器源 URL" size={13} />
+        </span>
         　宽 {check?.canvas_w ?? "—"} × 高 {check?.canvas_h ?? "—"}
         {!laid && " —— 版式还是空的，先去排版"}
         <br />

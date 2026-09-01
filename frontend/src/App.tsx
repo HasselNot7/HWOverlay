@@ -10,6 +10,7 @@ import type { LucideIcon } from "lucide-react";
 import { api } from "./api";
 import type { AidaStatus, HW, LayoutCheck, Metric } from "./types";
 import { Btn, TSwitch } from "./ui";
+import { LivePreview } from "./widgets";
 import WizardPage from "./pages/WizardPage";
 import StatusPage from "./pages/StatusPage";
 import EditorPage from "./pages/EditorPage";
@@ -225,6 +226,12 @@ export default function App() {
             </div>
           </ScrollArea>
         </main>
+      )}
+
+      {/* 非编辑器页（开始/状态）右下角常驻实时预览：读已发布版式，保存后自动跟着变 */}
+      {(view === "start" || view === "status") && (
+        <LivePreview url={`${location.origin}/`}
+          canvasW={check?.canvas_w ?? 1920} canvasH={check?.canvas_h ?? 200} />
       )}
     </div>
     </MotionConfig>

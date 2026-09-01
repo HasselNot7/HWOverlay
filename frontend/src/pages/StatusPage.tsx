@@ -1,20 +1,31 @@
 import { ProgressBar } from "@heroui/react";
+import { useState } from "react";
 import type { Shared } from "../App";
-import { CARD_CLS, Hint, Page, SubTitle } from "../ui";
+import { CARD_CLS, Hint, Page, SettingsRow, SubTitle } from "../ui";
+import { CopyButton } from "../motion";
+import { aidaIssue, TroubleshootModal, troubleshoot } from "../widgets";
 
 type BarColor = "accent" | "success" | "warning" | "danger";
 
-/** 连接状态点：v3 Chip 删了 dot 变体，手搓一颗带光晕的小点（NP 在线点同款思路）。 */
-const StateChip = ({ text, kind }: { text: string; kind: "ok" | "warn" | "bad" }) => (
-  <span className="inline-flex items-center gap-1.5 text-sm">
-    <span className={`size-2 rounded-full ${
-      kind === "ok" ? "bg-success shadow-[0_0_8px_var(--success)]"
-        : kind === "warn" ? "bg-warning shadow-[0_0_8px_var(--warning)]"
-          : "bg-danger shadow-[0_0_8px_var(--danger)]"
-    }`} />
-    {text}
-  </span>
-);
+/** 连接状态点：v3 Chip 删了 dot 变体，手搓一颗带光晕的小点（NP 在线点同款思路）。
+ * 有问题时（onClick）整颗可点，点开排障弹窗。 */
+const StateChip = ({ text, kind, onClick }: {
+  text: string; kind: "ok" | "warn" | "bad"; onClick?: () => void;
+}) => {
+  const dot = kind === "ok" ? "bg-success shadow-[0_0_8px_var(--success)]"
+    : kind === "warn" ? "bg-warning shadow-[0_0_8px_var(--warning)]"
+      : "bg-danger shadow-[0_0_8px_var(--danger)]";
+  const inner = (
+    <span className="inline-flex items-center gap-1.5 text-sm">
+      <span className={`size-2 rounded-full ${dot}`} />
+      {text}
+    </span>
+  );
+  return onClick
+    ? <button type="button" onClick={onClick} title="点击查看解决方案"
+        className="cursor-pointer rounded-md px-1 transition-colors hover:bg-white/[0.06]">{inner}</button>
+    : inner;
+};
 
 /** 顶部统计卡：小标签 + 大数字 + 灰注 + 细进度条。 */
 function StatCard({ label, value, sub, progress, progressColor }: {
@@ -65,6 +76,7 @@ function DetailCard({ title, children }: { title: string; children: React.ReactN
 
 export default function StatusPage({ shared }: { shared: Shared }) {
   const { status: st, hw, check } = shared;
+  const [trouble, setTrouble] = useState(false);
   if (!st) {
     return (
       <Page title="状态总览">
@@ -81,12 +93,14 @@ export default function StatusPage({ shared }: { shared: Shared }) {
   const worstPct = b ? Math.round(b.worst_bytes / b.usable * 100) : undefined;
   const worstColor = b && b.worst_bytes > b.usable ? "text-danger" : "text-foreground";
   const worstBar: BarColor = b && b.worst_bytes > b.usable ? "danger" : "accent";
+  const problems = troubleshoot(st);
 
   return (
     <Page title="状态总览">
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
         <StatCard label="AIDA64"
-          value={st.running ? <StateChip text="运行中" kind="ok" /> : <StateChip text="未运行" kind="bad" />}
+          value={<StateChip text={st.running ? "运行中" : "未运行"} kind={aidaIssue(st)}
+            onClick={problems.length ? () => setTrouble(true) : undefined} />}
           sub={`导出 ${st.exported_ids.length} 个传感器`} />
         <StatCard label="共享内存" progress={st.shm_pct} progressColor={shmBar}
           value={<span className={shmColor}>{st.shm_pct}%</span>}
@@ -124,10 +138,17 @@ export default function StatusPage({ shared }: { shared: Shared }) {
       </div>
 
       <DetailCard title="OBS 设置">
-        <Row k="URL" v={<code className="rounded-md bg-[#27272a] px-2 py-1 font-jetbrains">{location.origin}/</code>} />
+        <SettingsRow divider
+          title="浏览器源 URL" desc="OBS 添加「浏览器」源，填这个地址"
+          right={<>
+            <code className="rounded-md bg-[#27272a] px-2 py-1 font-jetbrains">{location.origin}/</code>
+            <CopyButton text={`${location.origin}/`} label="复制 URL" />
+          </>} />
         <Row k="宽 × 高" v={`${check?.canvas_w ?? "—"} × ${check?.canvas_h ?? "—"}`} />
         <Row k="内容预估高" v={`${check?.est_height ?? "—"} px`} />
       </DetailCard>
+
+      <TroubleshootModal status={st} isOpen={trouble} onClose={() => setTrouble(false)} />
     </Page>
   );
 }
