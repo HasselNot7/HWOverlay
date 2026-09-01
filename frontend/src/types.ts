@@ -127,6 +127,13 @@ export interface LayoutPreset {
   source?: "builtin" | "user";
 }
 
+/** 多版式档位的一条：一个已发布版式的命名快照。active=当前生效；modified=生效档已被后续保存改动。 */
+export interface Profile {
+  name: string;
+  active: boolean;
+  modified: boolean;
+}
+
 export interface Metric {
   id: string;
   out: string | null;

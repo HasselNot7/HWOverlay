@@ -37,6 +37,9 @@ overlays/monitor.json
 # 用户自存模板（编辑器"存为模板/导入"的落盘位置，机器专属）
 overlays/user_presets.json
 
+# 多版式档位（用户另存的已发布版式，机器专属）
+overlays/profiles/
+
 # 测试不随仓库发布（本地保留）
 tests/
 

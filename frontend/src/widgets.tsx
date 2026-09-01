@@ -1,7 +1,8 @@
-import { Button, Modal } from "@heroui/react";
+import { Button, Modal, TextField, Input, Label, toast } from "@heroui/react";
 import { useEffect, useRef, useState } from "react";
-import { X } from "lucide-react";
-import type { AidaStatus } from "./types";
+import { Layers, Plus, X } from "lucide-react";
+import { api } from "./api";
+import type { AidaStatus, Profile } from "./types";
 
 /** 从 AIDA64 状态算出「哪里不对 + 怎么修」。文案接向导页的排障知识，分步列给用户。 */
 export function troubleshoot(st: AidaStatus | null): { title: string; steps: string[] }[] {
@@ -159,6 +160,113 @@ export function LivePreview({ url, canvasW, canvasH }: {
           className="pointer-events-none border-0"
           style={{ width: canvasW, height: canvasH, transform: `scale(${scale})`, transformOrigin: "0 0" }} />
       </div>
+    </div>
+  );
+}
+
+/** 侧栏版式档位切换器：药丸列表，点非生效档即切换发布（OBS 实时变），
+ * 「存为档位」快照当前已发布版式，hover 出 ✕ 删除。 */
+export function ProfileSwitcher({ onPublished }: { onPublished?: () => void }) {
+  const [profiles, setProfiles] = useState<Profile[]>([]);
+  const [active, setActive] = useState<string | null>(null);
+  const [saveOpen, setSaveOpen] = useState(false);
+  const [name, setName] = useState("");
+  const [busy, setBusy] = useState(false);
+  const load = () => api.profiles().then(d => { setProfiles(d.profiles); setActive(d.active); }).catch(() => {});
+  useEffect(() => { load(); }, []);
+
+  const activate = async (n: string) => {
+    if (n === active) return;
+    setBusy(true);
+    try {
+      const rep = await api.activateProfile(n);
+      if (rep.activated) {
+        toast.success(`已切到档位：${n}`, { description: "OBS 叠加层已更新，没变就点刷新缓存", timeout: 2500 });
+        load(); onPublished?.();
+      } else {
+        toast.danger("切换失败", { description: rep.error, timeout: 6000 });
+      }
+    } finally { setBusy(false); }
+  };
+
+  const save = async () => {
+    setBusy(true);
+    try {
+      const rep = await api.saveProfile(name.trim());
+      if (rep.saved) {
+        toast.success(`已存为档位：${name.trim()}`, { timeout: 2200 });
+        setSaveOpen(false); setName(""); load();
+      } else {
+        toast.danger("存档位失败", { description: rep.error, timeout: 6000 });
+      }
+    } finally { setBusy(false); }
+  };
+
+  const del = async (n: string) => {
+    const rep = await api.removeProfile(n);
+    if (rep.removed) { toast(`已删除档位：${n}`); load(); }
+    else toast.danger("删除失败", { description: rep.error, timeout: 6000 });
+  };
+
+  return (
+    <div className="flex flex-col gap-2 px-3 pb-4">
+      <div className="flex items-center justify-between">
+        <span className="flex items-center gap-1.5 text-xs font-bold text-accent">
+          <Layers size={13} /> 版式档位
+        </span>
+        <button type="button" onClick={() => setSaveOpen(true)} title="把当前已发布版式存成一个新档位"
+          className="inline-flex cursor-pointer items-center gap-0.5 rounded px-1.5 py-0.5 text-xs text-muted transition-colors hover:bg-white/[0.06] hover:text-foreground">
+          <Plus size={12} /> 存为
+        </button>
+      </div>
+      {profiles.length === 0 ? (
+        <span className="text-xs text-color-desc">还没有档位 —— 调好版式后点「存为」</span>
+      ) : (
+        <div className="flex flex-wrap gap-1.5">
+          {profiles.map(p => (
+            <span key={p.name} className="group relative">
+              <button type="button" disabled={busy} onClick={() => activate(p.name)}
+                title={p.active ? "当前生效档位" : `切换到「${p.name}」并发布到 OBS`}
+                className={`cursor-pointer rounded-full border px-2.5 py-1 text-xs font-medium transition-all duration-150 ${
+                  p.active
+                    ? "border-accent bg-accent/15 text-accent"
+                    : "border-white/10 text-muted hover:border-accent/50 hover:text-foreground"
+                }`}>
+                {p.name}{p.modified ? " ·已改" : ""}
+              </button>
+              <button type="button" onClick={() => del(p.name)} title={`删除档位「${p.name}」`}
+                className="absolute -right-1 -top-1 hidden size-3.5 place-items-center rounded-full bg-[#3a3a40] text-[9px] text-muted hover:bg-danger hover:text-white group-hover:grid">
+                <X size={9} />
+              </button>
+            </span>
+          ))}
+        </div>
+      )}
+
+      <Modal>
+        <Modal.Backdrop isOpen={saveOpen} onOpenChange={o => { if (!o) setSaveOpen(false); }}>
+          <Modal.Container size="sm">
+            <Modal.Dialog>
+              <Modal.CloseTrigger />
+              <Modal.Header><Modal.Heading>存为档位</Modal.Heading></Modal.Header>
+              <Modal.Body>
+                <p className="mb-3 text-sm leading-6 text-color-desc">
+                  把当前已发布的版式快照成一个档位，之后可一键切回。
+                </p>
+                <TextField value={name} onChange={setName}
+                  onKeyDown={e => { if (e.key === "Enter" && !busy && name.trim()) save(); }}>
+                  <Label>档位名</Label>
+                  <Input placeholder="例如：全屏直播 / 角落小窗" />
+                </TextField>
+              </Modal.Body>
+              <Modal.Footer>
+                <Button variant="secondary" className="bg-[#27272a]" onPress={() => setSaveOpen(false)}>取消</Button>
+                <Button isDisabled={!name.trim() || busy} onPress={save}>保存</Button>
+              </Modal.Footer>
+            </Modal.Dialog>
+          </Modal.Container>
+        </Modal.Backdrop>
+      </Modal>
     </div>
   );
 }

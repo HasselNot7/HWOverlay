@@ -8,6 +8,7 @@ import type {
   LayoutPreset,
   Metric,
   OverlayConfig,
+  Profile,
   UnknownSensor,
 } from "./types";
 
@@ -52,6 +53,15 @@ export const api = {
       "/api/layout/presets", "POST", spec),
   removeLayoutPreset: async (id: string) => {
     const r = await fetch(`/api/layout/presets?id=${encodeURIComponent(id)}`, { method: "DELETE" });
+    return r.json() as Promise<{ removed: boolean; error?: string }>;
+  },
+  profiles: () => getJSON<{ profiles: Profile[]; active: string | null }>("/api/profiles"),
+  saveProfile: (name: string) =>
+    sendJSON<{ saved: boolean; entry?: Profile; error?: string }>("/api/profiles", "POST", { name }),
+  activateProfile: (name: string) =>
+    sendJSON<{ activated: boolean; entry?: Profile; error?: string }>("/api/profiles/activate", "POST", { name }),
+  removeProfile: async (name: string) => {
+    const r = await fetch(`/api/profiles?name=${encodeURIComponent(name)}`, { method: "DELETE" });
     return r.json() as Promise<{ removed: boolean; error?: string }>;
   },
   addCustomMetric: (spec: { sensor_id: string; name: string; unit: string; digits: number; na_zero: boolean }) =>

@@ -19,7 +19,7 @@ from fastapi import Body, FastAPI, Query, Request
 from fastapi.responses import FileResponse, HTMLResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 
-from . import config, overlay, paths, presets, registry
+from . import config, overlay, paths, presets, profiles, registry
 from .aida import controller
 from .sources import aida64, winapi
 
@@ -163,6 +163,50 @@ def create_app() -> FastAPI:
             return JSONResponse({"removed": False, "error": "没有这个用户模板（内置模板不可删除）"},
                                 status_code=404)
         return {"removed": True, "id": id}
+
+    # ---------- 多版式档位 ----------
+
+    @app.get("/api/profiles")
+    def profiles_list():
+        return profiles.list_all()
+
+    @app.post("/api/profiles")
+    async def profiles_save(request: Request):
+        """把当前已发布版式另存为一个档位。"""
+        body, err = await _json_body(request)
+        if err:
+            return err
+        try:
+            entry, problem = profiles.save((body or {}).get("name"))
+        except Exception as e:      # noqa: BLE001
+            return JSONResponse({"saved": False, "error": f"服务端处理失败：{e}"}, status_code=500)
+        if problem:
+            return JSONResponse({"saved": False, "error": problem}, status_code=400)
+        return {"saved": True, "entry": entry}
+
+    @app.post("/api/profiles/activate")
+    async def profiles_activate(request: Request):
+        """切换生效档位（写回 monitor.json，走校验/备份）。"""
+        body, err = await _json_body(request)
+        if err:
+            return err
+        try:
+            entry, problem = profiles.activate((body or {}).get("name"))
+        except Exception as e:      # noqa: BLE001
+            return JSONResponse({"activated": False, "error": f"服务端处理失败：{e}"}, status_code=500)
+        if problem:
+            return JSONResponse({"activated": False, "error": problem}, status_code=400)
+        return {"activated": True, "entry": entry}
+
+    @app.delete("/api/profiles")
+    def profiles_delete(name: str = Query(...)):
+        try:
+            removed, problem = profiles.remove(name)
+        except Exception as e:      # noqa: BLE001
+            return JSONResponse({"removed": False, "error": f"服务端处理失败：{e}"}, status_code=500)
+        if not removed:
+            return JSONResponse({"removed": False, "error": problem}, status_code=404)
+        return {"removed": True, "name": name}
 
     @app.get("/api/sensors/unknown")
     def sensors_unknown():

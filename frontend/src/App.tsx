@@ -10,7 +10,7 @@ import type { LucideIcon } from "lucide-react";
 import { api } from "./api";
 import type { AidaStatus, HW, LayoutCheck, Metric } from "./types";
 import { Btn, TSwitch } from "./ui";
-import { LivePreview } from "./widgets";
+import { LivePreview, ProfileSwitcher } from "./widgets";
 import WizardPage from "./pages/WizardPage";
 import StatusPage from "./pages/StatusPage";
 import EditorPage from "./pages/EditorPage";
@@ -156,10 +156,12 @@ export default function App() {
       {/* 侧栏：w-72 + 分隔线 + p-6，与 Now Playing 逐像素同款 */}
       <aside className="fixed inset-y-0 left-0 z-20 h-screen w-72 border-r border-border bg-background">
         <div className="flex h-full flex-col p-6">
-          <div className="mb-14 mt-4 flex items-center gap-2 px-3">
+          <div className="mb-8 mt-4 flex items-center gap-2 px-3">
             <LogoMark size={24} />
             <span className="text-[19px] font-bold tracking-tight">HWOverlay</span>
           </div>
+
+          <ProfileSwitcher onPublished={refreshAll} />
 
           <nav className="flex flex-col gap-0.5">
             {NAV.map(item => (
