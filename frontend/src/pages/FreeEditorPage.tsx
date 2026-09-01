@@ -1,4 +1,4 @@
-import { addToast, Button, Input } from "@heroui/react";
+import { Input, TextField, toast } from "@heroui/react";
 import { PanelRightClose, PanelRightOpen } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { api, clone, outPaths } from "../api";
@@ -7,7 +7,7 @@ import type {
   ProgressWidget, StatWidget, TextWidget, Widget,
 } from "../types";
 import type { Shared } from "../App";
-import { CARD_CLS, FieldLabel, Hint, SubTitle } from "../ui";
+import { Btn, CARD_CLS, FieldLabel, Hint, SubTitle} from "../ui";
 import { clearDraft, loadDraft, saveDraft } from "../draftStore";
 import {
   CanvasFields, CardsEditor, ChipsEditor, GaugeEditor, HtmlEditor, PromptBar,
@@ -270,7 +270,7 @@ export default function FreeEditorPage({ shared }: { shared: Shared }) {
     const snap = histRef.current.pop();
     const cur = draftRef.current;
     if (!snap || !cur) {
-      addToast({ title: "没有可撤销的操作", color: "default" });
+      toast("没有可撤销的操作", { timeout: 2000 });
       return;
     }
     const d = JSON.parse(snap) as OverlayConfig;
@@ -348,7 +348,7 @@ export default function FreeEditorPage({ shared }: { shared: Shared }) {
     const rep = await api.saveConfig(d);
     if (!rep.saved) {
       setMsg({ text: `✗ 保存失败：${(rep.errors || []).join("；")}`, kind: "bad" });
-      addToast({ title: "保存失败", description: (rep.errors || []).join("；"), color: "danger" });
+      toast.danger("保存失败", { description: (rep.errors || []).join("；"), timeout: 6000 });
       return;
     }
     setCfg(clone(d));
@@ -356,7 +356,7 @@ export default function FreeEditorPage({ shared }: { shared: Shared }) {
     clearDraft("free");
     setPvKey(k => k + 1);
     setMsg({ text: "✓ 已保存", kind: "ok" });
-    addToast({ title: "已保存", description: "OBS 里没变化就点「刷新缓存」", color: "success" });
+    toast.success("已保存", { description: "OBS 里没变化就点「刷新缓存」", timeout: 2000 });
     try {
       setCheck(await api.layoutCheck());
       shared.refreshAll();
@@ -374,14 +374,14 @@ export default function FreeEditorPage({ shared }: { shared: Shared }) {
     await loadConfig();
     setPvKey(k => k + 1);
     setMsg({ text: "✓ 已还原到上一版", kind: "ok" });
-    addToast({ title: "已还原到上一版", color: "success" });
+    toast.success("已还原到上一版", { timeout: 2000 });
   };
 
   /** 丢掉没保存的草稿，回到已保存的版式 */
   const discardDraft = useCallback(async () => {
     clearDraft("free");
     await loadConfig();
-    addToast({ title: "已放弃未保存的改动", color: "default" });
+    toast("已放弃未保存的改动", { timeout: 2000 });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [loadConfig]);
 
@@ -401,13 +401,12 @@ export default function FreeEditorPage({ shared }: { shared: Shared }) {
       setSelected(null);
       setSelPrompt(false);
       onChange();
-      addToast({
-        title: `已载入模板：${p.name}`,
+      toast.success(`已载入模板：${p.name}`, {
         description: seeded.added ? `已顺带注册 ${seeded.added} 个默认指标` : undefined,
-        color: "success",
+        timeout: 2000,
       });
     } catch (e) {
-      addToast({ title: "加载模板失败", description: String(e), color: "danger" });
+      toast.danger("加载模板失败", { description: String(e), timeout: 6000 });
     }
   };
 
@@ -518,7 +517,7 @@ export default function FreeEditorPage({ shared }: { shared: Shared }) {
       if (ctrl && k === "d" && !typing) {
         e.preventDefault();
         if (selected != null) duplicateWidget(selected);
-        else addToast({ title: "命令行装饰只有一个，不支持复制", color: "default" });
+        else toast("命令行装饰只有一个，不支持复制", { timeout: 2000 });
         return;
       }
       if (e.key === "Delete" && !typing) {
@@ -754,14 +753,14 @@ export default function FreeEditorPage({ shared }: { shared: Shared }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [onChange]);
 
-  const msgColor = msg.kind === "ok" ? "text-primary"
+  const msgColor = msg.kind === "ok" ? "text-accent"
     : msg.kind === "bad" ? "text-danger"
       : msg.kind === "warn" ? "text-warning" : "text-color-desc";
 
   if (!draft || !metrics) {
     return (
       <main className="fixed inset-y-0 right-0 left-72 z-10 flex items-center justify-center bg-background">
-        <span className="text-sm text-default-500">载入中…</span>
+        <span className="text-sm text-muted">载入中…</span>
       </main>
     );
   }
@@ -774,35 +773,35 @@ export default function FreeEditorPage({ shared }: { shared: Shared }) {
       {/* 顶部工具栏 */}
       <div className="flex flex-wrap items-center gap-2 border-b border-divider px-5 py-2.5">
         <h1 className="mr-2 text-lg font-bold text-white">自由排版</h1>
-        <Button size="sm" variant="flat" className="bg-[#27272a]" onPress={() => setTplOpen(true)}
-          title="模板库：载入模板，或把当前草稿存为你的模板">模板</Button>
+        <Btn size="sm" variant="secondary" className="bg-[#27272a]" onPress={() => setTplOpen(true)}
+          title="模板库：载入模板，或把当前草稿存为你的模板">模板</Btn>
         {([["stat", "大数字"], ["progress", "进度条"], ["gauge", "圆环仪表"], ["html", "自定义 HTML"],
            ["cards", "指标卡"], ["chips", "小指标行"], ["text", "文本"]] as const).map(([t, label]) => (
-          <Button key={t} size="sm" variant="flat" className="bg-[#27272a]"
-            onPress={() => addFree(t)}>+ {label}</Button>
+          <Btn key={t} size="sm" variant="secondary" className="bg-[#27272a]"
+            onPress={() => addFree(t)}>+ {label}</Btn>
         ))}
         <span className="flex-1" />
-        <Button size="sm" variant="flat" className="h-8 w-8 min-w-0 bg-[#27272a] px-0"
-          title="缩小" onPress={() => setZoom(Math.max(0.15, Math.round((pvScale - 0.1) * 100) / 100))}>−</Button>
+        <Btn size="sm" variant="secondary" className="h-8 w-8 min-w-0 bg-[#27272a] px-0"
+          title="缩小" onPress={() => setZoom(Math.max(0.15, Math.round((pvScale - 0.1) * 100) / 100))}>−</Btn>
         <span className="min-w-12 text-center font-poppins text-sm">{scalePct}%</span>
-        <Button size="sm" variant="flat" className="h-8 w-8 min-w-0 bg-[#27272a] px-0"
-          title="放大" onPress={() => setZoom(Math.min(2, Math.round((pvScale + 0.1) * 100) / 100))}>＋</Button>
-        <Button size="sm" variant="flat" className="bg-[#27272a]"
-          title="整幅画布缩放进视口" onPress={() => setZoom(null)}>适应</Button>
-        <Button size="sm" variant="flat" color={snapOn ? "primary" : "default"}
+        <Btn size="sm" variant="secondary" className="h-8 w-8 min-w-0 bg-[#27272a] px-0"
+          title="放大" onPress={() => setZoom(Math.min(2, Math.round((pvScale + 0.1) * 100) / 100))}>＋</Btn>
+        <Btn size="sm" variant="secondary" className="bg-[#27272a]"
+          title="整幅画布缩放进视口" onPress={() => setZoom(null)}>适应</Btn>
+        <Btn size="sm" variant={snapOn ? "primary" : "secondary"} className={snapOn ? undefined : "bg-[#27272a]"}
           title="拖近画布边缘或其他部件的边缘/中线时自动对齐"
-          onPress={() => setSnapOn(s => !s)}>吸附{snapOn ? "开" : "关"}</Button>
-        <Button size="sm" variant="flat" color={gridOn ? "primary" : "default"}
+          onPress={() => setSnapOn(s => !s)}>吸附{snapOn ? "开" : "关"}</Btn>
+        <Btn size="sm" variant={gridOn ? "primary" : "secondary"} className={gridOn ? undefined : "bg-[#27272a]"}
           title={`自适应网格：按画布宽度分档（当前 ${gridStep}px，屏幕约 ${Math.round(gridStep * pvScale)}px），拖动就近对齐到网格线`}
-          onPress={() => setGridOn(g => !g)}>网格{gridOn ? "开" : "关"}</Button>
-        <Button size="sm" variant="flat" className="h-8 w-8 min-w-0 bg-[#27272a] px-0"
+          onPress={() => setGridOn(g => !g)}>网格{gridOn ? "开" : "关"}</Btn>
+        <Btn size="sm" variant="secondary" className="h-8 w-8 min-w-0 bg-[#27272a] px-0"
           title={panelOpen ? "收起右侧参数面板，画布占满整行" : "展开右侧参数面板"}
           onPress={() => setPanelOpen(o => {
             localStorage.setItem(PANEL_KEY, o ? "0" : "1");
             return !o;
           })}>
           {panelOpen ? <PanelRightClose size={16} /> : <PanelRightOpen size={16} />}
-        </Button>
+        </Btn>
       </div>
 
       {/* 画布工作区 */}
@@ -839,8 +838,8 @@ export default function FreeEditorPage({ shared }: { shared: Shared }) {
                   }} />
               )}
               {/* 对齐参考线：拖动吸附时显示，直改 DOM 不走 React */}
-              <div ref={vgRef} className="pointer-events-none absolute inset-y-0 z-40 hidden w-px bg-primary" />
-              <div ref={hgRef} className="pointer-events-none absolute inset-x-0 z-40 hidden h-px bg-primary" />
+              <div ref={vgRef} className="pointer-events-none absolute inset-y-0 z-40 hidden w-px bg-accent" />
+              <div ref={hgRef} className="pointer-events-none absolute inset-x-0 z-40 hidden h-px bg-accent" />
               {draft.widgets.map((w, i) => {
                 const r = rects[i];
                 if (!r) return null;
@@ -854,7 +853,7 @@ export default function FreeEditorPage({ shared }: { shared: Shared }) {
                     }}
                     className={`absolute cursor-move border transition-colors ${
                       isSel
-                        ? "border-primary bg-primary/10 shadow-[0_0_0_1px_rgba(56,132,255,0.5)]"
+                        ? "border-accent bg-accent/10 shadow-[0_0_0_1px_rgba(56,132,255,0.5)]"
                         : "border-white/25 hover:border-white/60"}`}
                     style={{
                       left: r.x * pvScale, top: r.y * pvScale,
@@ -863,7 +862,7 @@ export default function FreeEditorPage({ shared }: { shared: Shared }) {
                     }}
                     onMouseDown={e => onDown(e, i, "move")}>
                     {isSel && (
-                      <span className="pointer-events-none absolute left-0 top-0 -translate-y-full truncate bg-primary px-1.5 py-0.5 text-[11px] leading-4 text-white">
+                      <span className="pointer-events-none absolute left-0 top-0 -translate-y-full truncate bg-accent px-1.5 py-0.5 text-[11px] leading-4 text-white">
                         {WIDGET_LABEL[w.type] ?? w.type}{stretch && " · 通栏"}
                       </span>
                     )}
@@ -882,7 +881,7 @@ export default function FreeEditorPage({ shared }: { shared: Shared }) {
                 <div ref={promptBoxRef}
                   className={`absolute cursor-move border transition-colors ${
                     selPrompt
-                      ? "border-primary bg-primary/10 shadow-[0_0_0_1px_rgba(56,132,255,0.5)]"
+                      ? "border-accent bg-accent/10 shadow-[0_0_0_1px_rgba(56,132,255,0.5)]"
                       : "border-white/25 hover:border-white/60"}`}
                   style={{
                     left: promptRect.x * pvScale, top: promptRect.y * pvScale,
@@ -891,7 +890,7 @@ export default function FreeEditorPage({ shared }: { shared: Shared }) {
                   }}
                   onMouseDown={e => onPromptDown(e)}>
                   {selPrompt && (
-                    <span className="pointer-events-none absolute left-0 top-0 -translate-y-full truncate bg-primary px-1.5 py-0.5 text-[11px] leading-4 text-white">
+                    <span className="pointer-events-none absolute left-0 top-0 -translate-y-full truncate bg-accent px-1.5 py-0.5 text-[11px] leading-4 text-white">
                       命令行装饰
                     </span>
                   )}
@@ -899,7 +898,7 @@ export default function FreeEditorPage({ shared }: { shared: Shared }) {
               )}
               {draft.widgets.length > 0 && !rects.some(Boolean) && (
                 <div className="absolute inset-0 flex items-center justify-center">
-                  <span className="text-sm text-default-500">正在连接画布…</span>
+                  <span className="text-sm text-muted">正在连接画布…</span>
                 </div>
               )}
             </div>
@@ -920,13 +919,15 @@ export default function FreeEditorPage({ shared }: { shared: Shared }) {
             const numInput = (label: string, key: "x" | "y" | "w" | "h", val?: number) => (
               <div className="flex flex-col gap-1.5">
                 <FieldLabel>{label}</FieldLabel>
-                <Input type="number" size="sm" variant="flat" className="w-20 font-poppins"
+                <TextField type="number" className="w-20 font-poppins"
                   value={String(val ?? 0)}
-                  onValueChange={v => {
+                  onChange={v => {
                     (pos as unknown as Record<string, number>)[key] = +v || 0;
                     setDraft({ ...draft });
                     onChange();
-                  }} />
+                  }}>
+                  <Input variant="secondary" />
+                </TextField>
               </div>
             );
             const showW = pos.w !== undefined || w.type === "html" || w.type === "progress" || w.type === "stat";
@@ -942,46 +943,46 @@ export default function FreeEditorPage({ shared }: { shared: Shared }) {
                 {promptRect && (
                   <div className="flex flex-wrap gap-2">
                     <span className="self-center text-xs text-color-desc">对齐命令行：</span>
-                    <Button size="sm" variant="flat" className="bg-[#27272a]"
+                    <Btn size="sm" variant="secondary" className="bg-[#27272a]"
                       title="把这个部件的左缘贴到命令行第一个字符的位置"
                       onPress={() => {
                         pushHistory();
                         pos.x = promptRect.x;
                         setDraft({ ...draft });
                         onChange();
-                      }}>左缘</Button>
-                    <Button size="sm" variant="flat" className="bg-[#27272a]"
+                      }}>左缘</Btn>
+                    <Btn size="sm" variant="secondary" className="bg-[#27272a]"
                       title="把这个部件的顶边贴到命令行的顶边"
                       onPress={() => {
                         pushHistory();
                         pos.y = promptRect.y;
                         setDraft({ ...draft });
                         onChange();
-                      }}>顶边</Button>
-                    <Button size="sm" variant="flat" className="bg-[#27272a]"
+                      }}>顶边</Btn>
+                    <Btn size="sm" variant="secondary" className="bg-[#27272a]"
                       title="把部件底部挪到命令行下方一点，从顶部开始排"
                       onPress={() => {
                         pushHistory();
                         pos.y = promptRect.y + promptRect.h + 8;
                         setDraft({ ...draft });
                         onChange();
-                      }}>移到命令行下方</Button>
+                      }}>移到命令行下方</Btn>
                   </div>
                 )}
                 {stretchable(w.type) && pos.w !== undefined && (
-                  <Button size="sm" variant="flat" className="bg-[#27272a]"
+                  <Btn size="sm" variant="secondary" className="bg-[#27272a]"
                     title="清掉固定宽度，从 X 拉到画布右缘"
                     onPress={() => {
                       delete pos.w;
                       setDraft({ ...draft });
                       onChange();
-                    }}>拉通到右缘</Button>
+                    }}>拉通到右缘</Btn>
                 )}
                 <div className="flex flex-wrap gap-2">
-                  <Button size="sm" variant="flat" className="bg-[#27272a]"
+                  <Btn size="sm" variant="secondary" className="bg-[#27272a]"
                     title="Ctrl+D：复制这个部件并错位落下"
-                    onPress={() => duplicateWidget(selected)}>复制</Button>
-                  <Button size="sm" variant="flat" className="bg-[#27272a]" title="后加的部件盖在前面之上"
+                    onPress={() => duplicateWidget(selected)}>复制</Btn>
+                  <Btn size="sm" variant="secondary" className="bg-[#27272a]" title="后加的部件盖在前面之上"
                     onPress={() => {
                       pushHistory();
                       const [m] = draft.widgets.splice(selected, 1);
@@ -989,8 +990,8 @@ export default function FreeEditorPage({ shared }: { shared: Shared }) {
                       setSelected(draft.widgets.length - 1);
                       setDraft({ ...draft });
                       onChange();
-                    }}>置顶</Button>
-                  <Button size="sm" variant="flat" className="bg-[#27272a]" title="与上面一个部件交换层级"
+                    }}>置顶</Btn>
+                  <Btn size="sm" variant="secondary" className="bg-[#27272a]" title="与上面一个部件交换层级"
                     onPress={() => {
                       if (selected > 0) {
                         pushHistory();
@@ -1000,8 +1001,8 @@ export default function FreeEditorPage({ shared }: { shared: Shared }) {
                         setDraft({ ...draft });
                         onChange();
                       }
-                    }}>上移一层</Button>
-                  <Button size="sm" variant="flat" className="bg-[#27272a]" title="与下面一个部件交换层级"
+                    }}>上移一层</Btn>
+                  <Btn size="sm" variant="secondary" className="bg-[#27272a]" title="与下面一个部件交换层级"
                     onPress={() => {
                       if (selected < draft.widgets.length - 1) {
                         pushHistory();
@@ -1011,9 +1012,9 @@ export default function FreeEditorPage({ shared }: { shared: Shared }) {
                         setDraft({ ...draft });
                         onChange();
                       }
-                    }}>下移一层</Button>
-                  <Button size="sm" variant="flat" className="bg-danger/20 text-danger-400"
-                    title="Delete" onPress={() => removeWidget(selected)}>删除</Button>
+                    }}>下移一层</Btn>
+                  <Btn size="sm" variant="secondary" className="bg-danger/20 text-danger"
+                    title="Delete" onPress={() => removeWidget(selected)}>删除</Btn>
                 </div>
                 <div className="border-t border-white/[0.06] pt-3">
                   {w.type === "stat" && <StatEditor w={w as StatWidget} metrics={metrics} onChange={onChange} compact />}
@@ -1032,13 +1033,15 @@ export default function FreeEditorPage({ shared }: { shared: Shared }) {
             const pnum = (label: string, key: "x" | "y", val: number) => (
               <div className="flex flex-col gap-1.5">
                 <FieldLabel>{label}</FieldLabel>
-                <Input type="number" size="sm" variant="flat" className="w-20 font-poppins"
+                <TextField type="number" className="w-20 font-poppins"
                   value={String(val)}
-                  onValueChange={v => {
+                  onChange={v => {
                     p[key] = Math.max(0, +v || 0);
                     setDraft({ ...draft });
                     onChange();
-                  }} />
+                  }}>
+                  <Input variant="secondary" />
+                </TextField>
               </div>
             );
             return (
@@ -1049,16 +1052,16 @@ export default function FreeEditorPage({ shared }: { shared: Shared }) {
                   {pnum("Y", "y", p.y ?? pad[0])}
                 </div>
                 <div className="flex flex-wrap gap-2">
-                  <Button size="sm" variant="flat" className="bg-[#27272a]"
+                  <Btn size="sm" variant="secondary" className="bg-[#27272a]"
                     title="回到画布内边距处"
                     onPress={() => {
                       pushHistory();
                       p.x = pad[1]; p.y = pad[0];
                       setDraft({ ...draft });
                       onChange();
-                    }}>回到默认位置</Button>
-                  <Button size="sm" variant="flat" className="bg-danger/20 text-danger-400"
-                    title="Delete" onPress={removePrompt}>删除</Button>
+                    }}>回到默认位置</Btn>
+                  <Btn size="sm" variant="secondary" className="bg-danger/20 text-danger"
+                    title="Delete" onPress={removePrompt}>删除</Btn>
                 </div>
                 <div className="border-t border-white/[0.06] pt-3">
                   <PromptBar draft={draft} onChange={onChange} compact />
@@ -1103,12 +1106,12 @@ export default function FreeEditorPage({ shared }: { shared: Shared }) {
 
       {/* 吸底保存条 */}
       <div className="flex items-center gap-3 border-t border-divider px-5 py-2.5">
-        <Button color="primary" size="lg" className="px-7" isDisabled={!dirty} onPress={save}>保存</Button>
-        <Button size="lg" variant="flat" className="bg-[#27272a]" onPress={undoEdit}
-          title="Ctrl+Z：回退上一步拖动/增删">撤销</Button>
-        <Button size="lg" variant="flat" className="bg-[#27272a]" onPress={undoSaved}>还原上一版</Button>
-        <Button size="lg" variant="flat" className="bg-[#27272a]" isDisabled={!dirty} onPress={discardDraft}
-          title="丢掉没保存的改动，回到已保存的版式">放弃改动</Button>
+        <Btn size="lg" className="px-7" isDisabled={!dirty} onPress={save}>保存</Btn>
+        <Btn size="lg" variant="secondary" className="bg-[#27272a]" onPress={undoEdit}
+          title="Ctrl+Z：回退上一步拖动/增删">撤销</Btn>
+        <Btn size="lg" variant="secondary" className="bg-[#27272a]" onPress={undoSaved}>还原上一版</Btn>
+        <Btn size="lg" variant="secondary" className="bg-[#27272a]" isDisabled={!dirty} onPress={discardDraft}
+          title="丢掉没保存的改动，回到已保存的版式">放弃改动</Btn>
         {dirty && <span className="text-sm text-warning">● 有未保存的改动</span>}
         <span className="flex-1" />
         <span className={`text-sm ${msgColor}`}>{msg.text}</span>

@@ -1,10 +1,7 @@
 @import "tailwindcss";
-@plugin "./hero.ts";
-@custom-variant dark (&:is(.dark *));
+@import "@heroui/styles";
 
-/* v4 自动扫描跳过 node_modules，HeroUI 组件内部用到的工具类（Switch 轨道宽度、
-   Tabs 光标显隐等）必须显式纳入，否则组件半残 —— Now Playing 的 config 同款一行。 */
-@source "../node_modules/@heroui/theme/dist/**/*.{js,ts,jsx,tsx}";
+@custom-variant dark (&:is(.dark *));
 
 /* 字体学 Now Playing：正文交给系统 sans-serif（中文落微软雅黑），
    表单控件用 Poppins（@fontsource 打进包里，离线可用）。 */
@@ -16,6 +13,12 @@
   color-scheme: dark;
 }
 
+/* 底色钉在 #121212（与旧 v2 主题一致；v3 默认 dark 背景略蓝，这里拉回纯灰） */
+.dark,
+[data-theme="dark"] {
+  --background: #121212;
+}
+
 html,
 body,
 #root {
@@ -24,8 +27,8 @@ body,
 
 body {
   margin: 0;
-  background: var(--heroui-background);
-  color: var(--heroui-foreground);
+  background: var(--background);
+  color: var(--foreground);
   font-family: sans-serif;
 }
 
@@ -33,11 +36,12 @@ body {
   color: #8c8c92;
 }
 
-[data-toast="true"] {
+/* Toast 字体：v3 的 toast 根节点 BEM 类 .toast（v2 是 [data-toast]） */
+.toast {
   font-family: "Poppins", sans-serif;
 }
 
-/* 滚动条学它的 overlayscrollbars：圆头短轨，悬停提亮 */
+/* 滚动条学 Now Playing 的 overlayscrollbars：圆头短轨，悬停提亮 */
 ::-webkit-scrollbar {
   width: 10px;
   height: 10px;

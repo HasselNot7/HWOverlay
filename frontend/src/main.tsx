@@ -1,4 +1,4 @@
-import { HeroUIProvider, ToastProvider } from "@heroui/react";
+import { Toast } from "@heroui/react";
 import React from "react";
 import ReactDOM from "react-dom/client";
 import App from "./App";
@@ -12,9 +12,8 @@ document.documentElement.classList.add("dark");
 
 ReactDOM.createRoot(document.getElementById("root")!).render(
   <React.StrictMode>
-    <HeroUIProvider>
-      <ToastProvider placement="bottom-right" />
-      <App />
-    </HeroUIProvider>
+    {/* v3 不需要 HeroUIProvider；Toast 是唯一要挂的出口，placement 对齐旧版右下角 */}
+    <Toast.Provider placement="bottom end" />
+    <App />
   </React.StrictMode>,
 );

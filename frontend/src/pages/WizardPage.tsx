@@ -1,8 +1,8 @@
-import { Button, Chip } from "@heroui/react";
+import { Chip } from "@heroui/react";
 import { Cable, LayoutTemplate, MonitorPlay, ArrowRight } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import type { Shared } from "../App";
-import { CARD_CLS, Hint, Page } from "../ui";
+import { Btn, CARD_CLS, Hint, Page} from "../ui";
 
 type StepKind = "done" | "todo" | "bad" | "act";
 
@@ -14,7 +14,7 @@ const KIND_CHIP: Record<StepKind, { color: "success" | "warning" | "danger" | "d
 };
 
 /** 步骤卡片：Now Playing 集成页的卡片语言 —— 近黑底淡描边圆角，左侧彩色步骤图标块，
- * 标题 + 状态点 Chip 一行，正文灰色说明在下面。 */
+ * 标题 + 状态 Chip 一行，正文灰色说明在下面。 */
 function StepCard({ kind, num, title, Icon, children, actions }: {
   kind: StepKind;
   num: number;
@@ -24,10 +24,10 @@ function StepCard({ kind, num, title, Icon, children, actions }: {
   actions?: React.ReactNode;
 }) {
   const tone = {
-    done: "bg-primary/15 text-primary",
+    done: "bg-accent/15 text-accent",
     todo: "bg-warning/15 text-warning",
     bad: "bg-danger/15 text-danger",
-    act: "bg-default-100 text-default-500",
+    act: "bg-[#27272a] text-muted",
   }[kind];
   return (
     <div className={`${CARD_CLS} flex gap-4 p-4`}>
@@ -36,10 +36,10 @@ function StepCard({ kind, num, title, Icon, children, actions }: {
       </div>
       <div className="min-w-0 flex-1">
         <div className="flex flex-wrap items-center justify-between gap-2">
-          <h3 className="text-base font-bold leading-6 text-default-800">
+          <h3 className="text-base font-bold leading-6 text-foreground">
             <span className="mr-1.5 font-poppins">{num}</span>{title}
           </h3>
-          <Chip size="sm" variant="dot" color={KIND_CHIP[kind].color}>{KIND_CHIP[kind].text}</Chip>
+          <Chip size="sm" variant="soft" color={KIND_CHIP[kind].color}>{KIND_CHIP[kind].text}</Chip>
         </div>
         {children && <div className="mt-2 flex flex-col gap-2">{children}</div>}
         {actions && <div className="mt-3 flex flex-wrap gap-2">{actions}</div>}
@@ -85,14 +85,16 @@ export default function WizardPage({ shared }: { shared: Shared }) {
     <StepCard kind={step2kind} num={2} title="注册传感器、挑版式" Icon={LayoutTemplate}
       actions={
         <>
-          <Button size="sm" variant="flat" className="bg-[#27272a]"
-            endContent={<ArrowRight size={14} />} onPress={() => shared.goto("custom")}>
+          <Btn size="sm" variant="secondary" className="bg-[#27272a]"
+            onPress={() => shared.goto("custom")}>
             去注册指标（已 {metricCount} 个）
-          </Button>
-          <Button size="sm" variant="flat" className="bg-[#27272a]"
-            endContent={<ArrowRight size={14} />} onPress={() => shared.goto("editor")}>
+            <ArrowRight size={14} />
+          </Btn>
+          <Btn size="sm" variant="secondary" className="bg-[#27272a]"
+            onPress={() => shared.goto("editor")}>
             去排版（{laid ? `已 ${widgetCount} 个部件` : "空白画布，可从模板一键加载"}）
-          </Button>
+            <ArrowRight size={14} />
+          </Btn>
         </>
       }>
       <Hint>
@@ -106,7 +108,7 @@ export default function WizardPage({ shared }: { shared: Shared }) {
   const step3 = (
     <StepCard kind={step3kind} num={3} title="在 OBS 里添加“浏览器”源" Icon={MonitorPlay}>
       <Hint>
-        URL <code className="rounded-md bg-default-100 px-1.5 py-0.5 font-poppins text-xs">{location.origin}/</code>
+        URL <code className="rounded-md bg-[#27272a] px-1.5 py-0.5 font-poppins text-xs">{location.origin}/</code>
         　宽 {check?.canvas_w ?? "—"} × 高 {check?.canvas_h ?? "—"}
         {!laid && " —— 版式还是空的，先去排版"}
         <br />

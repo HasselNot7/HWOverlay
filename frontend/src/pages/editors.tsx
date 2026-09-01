@@ -1,7 +1,4 @@
-import {
-  Accordion, AccordionItem, addToast, Button, Checkbox, Input, Modal, ModalBody, ModalContent,
-  ModalHeader, Select, SelectItem, Switch, Textarea,
-} from "@heroui/react";
+import { Accordion, Checkbox, Input, Label, ListBox, Modal, Select, TextArea, TextField, toast } from "@heroui/react";
 /** 版式编辑器的子组件：指标选择器、槽位编辑、卡片/chips/text 部件编辑器、模板库弹窗。
  * 控件一律用 HeroUI，样式学 Now Playing（淡蓝字段标签、flat 控件、卡片底）。
  * 草稿对象直接原地改，改完调 onChange() 触发上层重渲染 + 防抖校验。 */
@@ -11,8 +8,28 @@ import type {
   CardItem, CardsWidget, ChipsWidget, GaugeWidget, GroupDef, HtmlWidget, LayoutPreset, Metric,
   MetricRef, OverlayConfig, ProgressWidget, StatWidget, TextWidget, Widget,
 } from "../types";
+type TFProps = React.ComponentProps<typeof TextField>;
 import { api } from "../api";
-import { CARD_CLS, FieldLabel, Hint } from "../ui";
+import { Btn, CARD_CLS, FieldLabel, Hint, TSwitch } from "../ui";
+
+/** v3 把输入框拆成 TextField（状态）+ Input（外观）两层。这里薄封装回单节点写法：
+ * 状态 props（value/defaultValue/onChange/type/placeholder/aria-label/onBlur）挂外壳，
+ * variant 统一 secondary（我们全是嵌在卡片/面板里的矮富度输入）。 */
+export const TF = ({ className = "", placeholder, title, ...props }: TFProps & { placeholder?: string; title?: string }) => {
+  const f = (
+    <TextField className={`font-poppins ${className}`} variant="secondary" {...props}>
+      <Input placeholder={placeholder} />
+    </TextField>
+  );
+  return title ? <span title={title} className="inline-flex">{f}</span> : f;
+};
+
+/** 多行版（自定义 HTML 编辑器用）。rows 是原生 textarea 属性，走 TextArea。 */
+export const TFArea = ({ className = "", rows, placeholder, ...props }: TFProps & { rows?: number; placeholder?: string }) => (
+  <TextField className={`font-poppins ${className}`} variant="secondary" {...props}>
+    <TextArea rows={rows} placeholder={placeholder} />
+  </TextField>
+);
 
 const GROUP_TITLES: Record<string, string> = {
   cpu: "CPU", gpu: "显卡", ram: "内存", net: "网络", misc: "主板 / 其他", custom: "自定义",
@@ -35,28 +52,34 @@ export function MetricSelect({ metrics, value, allowEmpty = true, compact, onCha
   compact?: boolean;
   onChange: (v: string) => void;
 }) {
-  const selected = value ?? (allowEmpty ? NONE : "");
+  const selected = value ?? (allowEmpty ? NONE : null);
   const options = [
-    ...(value ? [{ key: value, label: metricOpt(metrics, value) }] : []),
-    ...(allowEmpty ? [{ key: NONE, label: "（不用）" }] : []),
-    ...metrics.filter(m => m.out && m.out !== value).map(m => ({ key: m.out!, label: metricOpt(metrics, m.out!) })),
+    ...(value ? [{ id: value, label: metricOpt(metrics, value) }] : []),
+    ...(allowEmpty ? [{ id: NONE, label: "（不用）" }] : []),
+    ...metrics.filter(m => m.out && m.out !== value).map(m => ({ id: m.out!, label: metricOpt(metrics, m.out!) })),
   ];
   return (
     <Select
       aria-label="选择指标"
-      size="sm" variant="flat"
-      className={compact ? "w-full font-poppins" : "w-[240px] flex-none font-poppins"}
-      classNames={{ trigger: "cursor-pointer transition-background !duration-150" }}
-      selectedKeys={selected ? [selected] : []}
-      disallowEmptySelection={!allowEmpty}
-      onSelectionChange={keys => {
-        const k = [...keys][0] as string | undefined;
-        onChange(!k || k === NONE ? "" : k);
-      }}
+      placeholder="选择指标"
+      className={`${compact ? "w-full" : "w-[240px] flex-none"} font-poppins`}
+      value={selected ?? null}
+      onChange={k => onChange(!k || k === NONE ? "" : String(k))}
     >
-      {options.map(o => (
-        <SelectItem key={o.key} classNames={{ title: "text-sm font-poppins" }}>{o.label}</SelectItem>
-      ))}
+      <Select.Trigger>
+        <Select.Value />
+        <Select.Indicator />
+      </Select.Trigger>
+      <Select.Popover>
+        <ListBox className="max-h-72">
+          {options.map(o => (
+            <ListBox.Item key={o.id} id={o.id} textValue={o.label}>
+              {o.label}
+              <ListBox.ItemIndicator />
+            </ListBox.Item>
+          ))}
+        </ListBox>
+      </Select.Popover>
     </Select>
   );
 }
@@ -64,10 +87,10 @@ export function MetricSelect({ metrics, value, allowEmpty = true, compact, onCha
 const MiniBtn = ({ onClick, title, children }: {
   onClick: () => void; title?: string; children: React.ReactNode;
 }) => (
-  <Button size="sm" variant="flat" className="h-7 min-w-0 px-2 text-xs text-default-400"
+  <Btn className="h-7 min-w-0 px-2 text-xs text-muted"
     title={title} onPress={onClick}>
     {children}
-  </Button>
+  </Btn>
 );
 
 /** 槽位（value/sub）的条目行：字符串引用就地改；复合对象只读 + 可删。
@@ -85,10 +108,10 @@ function SlotRow({ arr, i, total, unitAll, allowLabel, metrics, onChange, rebuil
 }) {
   const item = arr[i];
   const del = (
-    <Button isIconOnly size="sm" variant="light" radius="full" className="h-7 w-7 min-w-0 text-default-400"
+    <Btn isIconOnly variant="ghost" className="h-7 w-7 min-w-0 rounded-full text-muted"
       title="移除这一项" onPress={() => { arr.splice(i, 1); rebuild(); onChange(); }}>
       ✕
-    </Button>
+    </Btn>
   );
 
   // 带单位与否：条目写了 unit_on 听条目的，没写按组级策略推（last 策略只给最后一行）
@@ -135,11 +158,11 @@ function SlotRow({ arr, i, total, unitAll, allowLabel, metrics, onChange, rebuil
     return (
       <div className={rowCls}>
         {metricSel}
-        {!allowLabel && <Switch size="sm" aria-label="这个值带单位" title="显示单位"
-          isSelected={unitOn} onValueChange={setUnit} />}
+        {!allowLabel && <TSwitch aria-label="这个值带单位" title="显示单位"
+          isSelected={unitOn} onChange={setUnit} />}
         {allowLabel && (
-          <Input
-            aria-label="前缀文字" size="sm" variant="flat" placeholder="前缀"
+          <TF
+            aria-label="前缀文字" placeholder="前缀"
             className="w-32 min-w-28 font-poppins" title="直播时显示在这个值前面"
             onBlur={e => {
               if (e.target.value) { arr[i] = { metric: arr[i] as string, label: e.target.value }; rebuild(); onChange(); }
@@ -154,14 +177,14 @@ function SlotRow({ arr, i, total, unitAll, allowLabel, metrics, onChange, rebuil
     return (
       <div className={rowCls}>
         {metricSel}
-        {!allowLabel && <Switch size="sm" aria-label="这个值带单位" title="显示单位"
-          isSelected={unitOn} onValueChange={setUnit} />}
+        {!allowLabel && <TSwitch aria-label="这个值带单位" title="显示单位"
+          isSelected={unitOn} onChange={setUnit} />}
         {allowLabel && (
-          <Input
-            aria-label="前缀文字" size="sm" variant="flat" placeholder="前缀"
+          <TF
+            aria-label="前缀文字" placeholder="前缀"
             className="w-32 min-w-28 font-poppins" title="直播时显示在这个值前面"
             defaultValue={item.label ?? ""}
-            onValueChange={v => { item.label = v || undefined; onChange(); }}
+            onChange={v => { item.label = v || undefined; onChange(); }}
           />
         )}
         {del}
@@ -171,11 +194,11 @@ function SlotRow({ arr, i, total, unitAll, allowLabel, metrics, onChange, rebuil
   if (item && "pair" in item) {
     const vals = item.pair!;
     const numField = (text: string, key: "divide" | "digits" | "digits2", val?: number) => (
-      <label className="flex items-center gap-1.5 text-xs text-default-500">
+      <label className="flex items-center gap-1.5 text-xs text-muted">
         {text}
-        <Input type="number" size="sm" variant="flat" aria-label={`${text}`}
+        <TF type="number" aria-label={`${text}`}
           className="w-16 font-poppins" value={String(val ?? "")}
-          onValueChange={v => {
+          onChange={v => {
             (item as unknown as Record<string, number | undefined>)[key] = v === "" ? undefined : +v;
             onChange();
           }} />
@@ -188,32 +211,32 @@ function SlotRow({ arr, i, total, unitAll, allowLabel, metrics, onChange, rebuil
     return (
       <div className={`my-1 flex gap-2 rounded-lg border border-white/[0.06] p-2 ${compact ? "flex-col" : "flex-wrap items-center"}`}>
         <div className="flex min-w-0 flex-1 items-center gap-1.5">
-          <span className="flex-none font-poppins text-xs text-default-500" title="两个指标相除">比值</span>
+          <span className="flex-none font-poppins text-xs text-muted" title="两个指标相除">比值</span>
           <div className="min-w-0 flex-1">{sel(0)}</div>
-          <span className="flex-none text-default-500">/</span>
+          <span className="flex-none text-muted">/</span>
           <div className="min-w-0 flex-1">{sel(1)}</div>
           {del}
         </div>
         <div className={`flex flex-wrap items-center gap-3 ${compact ? "" : "ml-auto"}`}>
           {numField("除以", "divide", item.divide)}
-          <label className="flex items-center gap-1.5 text-xs text-default-500">
+          <label className="flex items-center gap-1.5 text-xs text-muted">
             单位
-            <Input size="sm" variant="flat" aria-label="单位" className="w-16 font-poppins"
+            <TF aria-label="单位" className="w-16 font-poppins"
               value={item.unit ?? ""}
-              onValueChange={v => { item.unit = v || undefined; onChange(); }} />
+              onChange={v => { item.unit = v || undefined; onChange(); }} />
           </label>
           {numField("小数", "digits", item.digits)}
           {numField("分母小数", "digits2", item.digits2)}
           {allowLabel && (
-            <label className="flex items-center gap-1.5 text-xs text-default-500">
+            <label className="flex items-center gap-1.5 text-xs text-muted">
               前缀
-              <Input size="sm" variant="flat" aria-label="前缀" className="w-20 font-poppins"
+              <TF aria-label="前缀" className="w-20 font-poppins"
                 defaultValue={item.label ?? ""}
                 onBlur={e => { item.label = e.target.value || undefined; onChange(); }} />
             </label>
           )}
-          {!allowLabel && <Switch size="sm" aria-label="这个值带单位" title="显示单位"
-            isSelected={unitOn} onValueChange={setUnit} />}
+          {!allowLabel && <TSwitch aria-label="这个值带单位" title="显示单位"
+            isSelected={unitOn} onChange={setUnit} />}
         </div>
       </div>
     );
@@ -221,7 +244,7 @@ function SlotRow({ arr, i, total, unitAll, allowLabel, metrics, onChange, rebuil
   if (item && ("diff" in item)) {
     return (
       <div className="my-1 flex items-center gap-1.5">
-        <span className="text-xs font-poppins text-default-500">
+        <span className="text-xs font-poppins text-muted">
           diff: {(item.diff || []).join(" − ")}
         </span>
         {del}
@@ -230,7 +253,7 @@ function SlotRow({ arr, i, total, unitAll, allowLabel, metrics, onChange, rebuil
   }
   return (
     <div className="my-1 flex items-center gap-1.5">
-      <span className="text-xs font-poppins text-default-500">{JSON.stringify(item)}</span>
+      <span className="text-xs font-poppins text-muted">{JSON.stringify(item)}</span>
       {del}
     </div>
   );
@@ -298,10 +321,10 @@ export function ValueGroupEditor({ card, onChange, compact }: { card: CardItem; 
     <div className={compact ? "my-2 flex flex-col gap-1.5" : "my-2.5 flex items-start gap-3"}>
       <span className={compact ? "" : "w-[110px] flex-none pt-2"}><FieldLabel>分隔符</FieldLabel></span>
       <div className="flex flex-wrap items-center gap-2.5">
-        <Input
-          aria-label="分隔符" size="sm" variant="flat"
+        <TF
+          aria-label="分隔符"
           defaultValue={card.value?.sep ?? " · "} className="w-32 font-poppins"
-          onValueChange={v => { ensure().sep = v; onChange(); }}
+          onChange={v => { ensure().sep = v; onChange(); }}
         />
         <span className="text-xs text-color-desc">每个值的单位在它自己的行上开关</span>
       </div>
@@ -321,18 +344,18 @@ function CardEditor({ w, card, index, metrics, onChange, compact }: {
     <div className={`${CARD_CLS} p-4`}>
       <div className="mb-3 flex items-center justify-between">
         <FieldLabel>卡 {index + 1}</FieldLabel>
-        <Button size="sm" variant="light" className="h-6 min-w-0 px-1.5 text-xs text-default-400"
+        <Btn variant="ghost" className="h-6 min-w-0 px-1.5 text-xs text-muted"
           onPress={() => { w.items.splice(index, 1); onChange(); }}>
           删卡
-        </Button>
+        </Btn>
       </div>
 
       <div className="my-3 flex flex-col gap-1.5">
         <span className="text-xs text-color-desc">标题（卡片左上）</span>
-        <Input
-          aria-label="卡片标题" size="sm" variant="flat"
+        <TF
+          aria-label="卡片标题"
           defaultValue={card.label ?? ""} className={compact ? "font-poppins" : "max-w-md font-poppins"}
-          onValueChange={v => { card.label = v; onChange(); }}
+          onChange={v => { card.label = v; onChange(); }}
         />
       </div>
 
@@ -387,53 +410,59 @@ export function ChipsEditor({ w, metrics, onChange }: { w: ChipsWidget; metrics:
     <div>
       <div className="flex items-center gap-2.5">
         <span className="text-xs text-color-desc">字号</span>
-        <Input
-          aria-label="字号" type="number" size="sm" variant="flat"
-          defaultValue={String(w.font ?? 15)} className="w-24 font-poppins"
-          onValueChange={v => { w.font = +v || 15; onChange(); }}
+        <TF
+          aria-label="字号" type="number"
+          defaultValue={String(w.font ?? 15)} className="w-24"
+          onChange={v => { w.font = +v || 15; onChange(); }}
         />
       </div>
       <Accordion
-        selectionMode="multiple" variant="splitted"
-        className="mt-2 px-0"
-        itemClasses={{
-          base: "mb-2 rounded-xl border border-white/[0.04] bg-[#1a1a1d] px-4 shadow-none last:mb-0",
-          title: "text-sm font-medium",
-          trigger: "py-2",
-        }}
+        allowsMultipleExpanded variant="surface"
+        className="mt-2" hideSeparator
         defaultExpandedKeys={[...byPrefix].filter(([, paths]) => paths.some(p => inChips.has(p))).map(([k]) => k)}
       >
         {[...byPrefix].map(([prefix, paths]) => {
           const checkedCount = paths.filter(p => inChips.has(p)).length;
           return (
-            <AccordionItem
-              key={prefix}
-              aria-label={prefix}
-              title={<span className="text-sm">{GROUP_TITLES[prefix] || prefix.toUpperCase()}
-                <span className="ml-2 text-xs text-default-500">{checkedCount} 项</span></span>
-              }
-            >
-              <div className="grid grid-cols-[repeat(auto-fill,minmax(230px,1fr))] gap-y-1 gap-x-4 pb-2">
-                {paths.map(p => {
-                  const m = metrics.find(x => x.out === p);
-                  return (
-                    <Checkbox
-                      key={p} size="sm"
-                      isSelected={inChips.has(p)}
-                      onValueChange={checked => {
-                        w.items = (w.items || []).filter(x => x !== p);
-                        if (checked) w.items.push(p);
-                        onChange();
-                      }}
-                    >
-                      <span className="text-sm">{m?.name ?? p}
-                        <span className="ml-1 font-poppins text-xs text-default-500">{p}</span>
-                      </span>
-                    </Checkbox>
-                  );
-                })}
-              </div>
-            </AccordionItem>
+            <Accordion.Item key={prefix} id={prefix}
+              className="mb-2 rounded-xl border border-white/[0.04] bg-[#1a1a1d] px-4 last:mb-0">
+              <Accordion.Heading>
+                <Accordion.Trigger className="flex items-center gap-2 py-2 text-sm font-medium">
+                  <span>{GROUP_TITLES[prefix] || prefix.toUpperCase()}
+                    <span className="ml-2 text-xs text-muted">{checkedCount} 项</span></span>
+                  <Accordion.Indicator className="ml-auto text-muted">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="m6 9 6 6 6-6" /></svg>
+                  </Accordion.Indicator>
+                </Accordion.Trigger>
+              </Accordion.Heading>
+              <Accordion.Panel>
+                <Accordion.Body className="pb-2">
+                  <div className="grid grid-cols-[repeat(auto-fill,minmax(230px,1fr))] gap-y-1 gap-x-4">
+                    {paths.map(p => {
+                      const m = metrics.find(x => x.out === p);
+                      return (
+                        <Checkbox
+                          key={p}
+                          isSelected={inChips.has(p)}
+                          onChange={checked => {
+                            w.items = (w.items || []).filter(x => x !== p);
+                            if (checked) w.items.push(p);
+                            onChange();
+                          }}
+                        >
+                          <Checkbox.Content>
+                            <Checkbox.Control><Checkbox.Indicator /></Checkbox.Control>
+                            <span className="text-sm">{m?.name ?? p}
+                              <span className="ml-1 font-poppins text-xs text-muted">{p}</span>
+                            </span>
+                          </Checkbox.Content>
+                        </Checkbox>
+                      );
+                    })}
+                  </div>
+                </Accordion.Body>
+              </Accordion.Panel>
+            </Accordion.Item>
           );
         })}
       </Accordion>
@@ -447,18 +476,18 @@ export function TextEditor({ w, metrics, onChange, compact }: { w: TextWidget; m
   return (
     <div>
       <Hint className="mb-2">{"{指标路径}"} 插实时值；{"{time} {date}"} 为本地时钟/日期。</Hint>
-      <Input
-        aria-label="正文" size="sm" variant="flat" placeholder="想写的话 + {指标} 占位符"
+      <TF
+        aria-label="正文" placeholder="想写的话 + {指标} 占位符"
         defaultValue={w.text ?? ""} className={compact ? "font-poppins" : "max-w-xl font-poppins"}
-        onValueChange={v => { w.text = v; onChange(); }}
+        onChange={v => { w.text = v; onChange(); }}
       />
       <div className="mt-2 flex flex-wrap items-center gap-4">
         <div className="flex items-center gap-2.5">
           <span className="text-xs text-color-desc">字号</span>
-          <Input
-            aria-label="字号" type="number" size="sm" variant="flat"
+          <TF
+            aria-label="字号" type="number"
             defaultValue={String(w.size ?? 19)} className="w-24 font-poppins"
-            onValueChange={v => { w.size = +v || 19; onChange(); }}
+            onChange={v => { w.size = +v || 19; onChange(); }}
           />
         </div>
         <div className="flex flex-wrap items-center gap-1.5 pb-1">
@@ -466,18 +495,18 @@ export function TextEditor({ w, metrics, onChange, compact }: { w: TextWidget; m
           {QUICK.map(p => {
             const name = metrics.find(m => m.out === p)?.name || p;
             return (
-              <Button key={p} size="sm" variant="flat" className="h-7 min-w-0 px-2 font-poppins text-xs"
+              <Btn key={p} className="h-7 min-w-0 px-2 font-poppins text-xs"
                 onPress={() => { w.text = `${w.text || ""}{${p}}`; onChange(); }}>
                 {name}
-              </Button>
+              </Btn>
             );
           })}
           {["time", "date"].map(p => (
-            <Button key={p} size="sm" variant="flat" className="h-7 min-w-0 px-2 font-poppins text-xs text-primary"
+            <Btn key={p} className="h-7 min-w-0 px-2 font-poppins text-xs text-accent"
               title={p === "time" ? "本地时钟 HH:MM:SS，每秒跳动" : "本地日期 YYYY-MM-DD"}
               onPress={() => { w.text = `${w.text || ""}{${p}}`; onChange(); }}>
               {p === "time" ? "时钟" : "日期"}
-            </Button>
+            </Btn>
           ))}
         </div>
       </div>
@@ -497,15 +526,15 @@ export function StatEditor({ w, metrics, onChange, compact }: { w: StatWidget; m
       </div>
       <div className="flex items-center gap-2.5">
         <span className="w-[64px] flex-none text-xs text-color-desc">名字</span>
-        <Input size="sm" variant="flat" className={compact ? "min-w-0 flex-1 font-poppins" : "w-56 font-poppins"} placeholder="可空"
+        <TF className={compact ? "min-w-0 flex-1 font-poppins" : "w-56 font-poppins"} placeholder="可空"
           defaultValue={w.label ?? ""}
-          onValueChange={v => { w.label = v || undefined; onChange(); }} />
+          onChange={v => { w.label = v || undefined; onChange(); }} />
       </div>
       <div className="flex items-center gap-2.5">
         <span className="w-[64px] flex-none text-xs text-color-desc">字号</span>
-        <Input type="number" size="sm" variant="flat" className="w-24 font-poppins"
+        <TF type="number" className="w-24 font-poppins"
           defaultValue={String(w.size ?? 26)}
-          onValueChange={v => { w.size = +v || 26; onChange(); }} />
+          onChange={v => { w.size = +v || 26; onChange(); }} />
       </div>
     </div>
   );
@@ -521,15 +550,15 @@ export function ProgressEditor({ w, metrics, onChange, compact }: { w: ProgressW
       </div>
       <div className="flex items-center gap-2.5">
         <span className="w-[64px] flex-none text-xs text-color-desc">宽度</span>
-        <Input type="number" size="sm" variant="flat" className="w-24 font-poppins"
+        <TF type="number" className="w-24 font-poppins"
           defaultValue={String(w.w ?? 260)}
-          onValueChange={v => { w.w = +v || 260; onChange(); }} />
+          onChange={v => { w.w = +v || 260; onChange(); }} />
       </div>
       <div className="flex items-center gap-2.5">
         <span className="w-[64px] flex-none text-xs text-color-desc">条高</span>
-        <Input type="number" size="sm" variant="flat" className="w-24 font-poppins"
+        <TF type="number" className="w-24 font-poppins"
           defaultValue={String(w.height ?? 10)}
-          onValueChange={v => { w.height = +v || 10; onChange(); }} />
+          onChange={v => { w.height = +v || 10; onChange(); }} />
       </div>
     </div>
   );
@@ -545,21 +574,21 @@ export function GaugeEditor({ w, metrics, onChange, compact }: { w: GaugeWidget;
       </div>
       <div className="flex items-center gap-2.5">
         <span className="w-[64px] flex-none text-xs text-color-desc">标签</span>
-        <Input size="sm" variant="flat" className="font-poppins" placeholder="圆环下的小字（可空）"
+        <TF className="font-poppins" placeholder="圆环下的小字（可空）"
           defaultValue={typeof w.label === "string" ? w.label : ""}
-          onValueChange={v => { w.label = v || undefined; onChange(); }} />
+          onChange={v => { w.label = v || undefined; onChange(); }} />
       </div>
       <div className="flex items-center gap-2.5">
         <span className="w-[64px] flex-none text-xs text-color-desc">大小</span>
-        <Input type="number" size="sm" variant="flat" className="w-24 font-poppins"
+        <TF type="number" className="w-24 font-poppins"
           defaultValue={String(w.size ?? 120)}
-          onValueChange={v => { w.size = +v || 120; onChange(); }} />
+          onChange={v => { w.size = +v || 120; onChange(); }} />
       </div>
       <div className="flex items-center gap-2.5">
         <span className="w-[64px] flex-none text-xs text-color-desc">环宽</span>
-        <Input type="number" size="sm" variant="flat" className="w-24 font-poppins"
+        <TF type="number" className="w-24 font-poppins"
           defaultValue={String(w.ring ?? 10)}
-          onValueChange={v => { w.ring = +v || 10; onChange(); }} />
+          onChange={v => { w.ring = +v || 10; onChange(); }} />
       </div>
     </div>
   );
@@ -619,11 +648,11 @@ export function HtmlEditor({ w, onChange }: { w: HtmlWidget; onChange: () => voi
   const [taKey, setTaKey] = useState(0);
   return (
     <div className="flex flex-col gap-2">
-      <Textarea
+      <TFArea
         key={taKey}
-        aria-label="自定义 HTML" variant="flat" className="font-poppins text-xs" minRows={5}
+        aria-label="自定义 HTML" className="text-xs" rows={5}
         defaultValue={w.html}
-        onValueChange={v => { w.html = v; onChange(); }} />
+        onChange={v => { w.html = v; onChange(); }} />
       <div className="flex flex-wrap gap-2">
         {HTML_SNIPPETS.map(s => (
           <MiniBtn key={s.name} title={s.title} onClick={() => {
@@ -652,28 +681,26 @@ export function CanvasFields({ draft, onChange }: { draft: OverlayConfig; onChan
     <div className="mt-2 flex flex-wrap items-end gap-5">
       <div className="flex flex-col gap-2">
         <FieldLabel>叠加层宽</FieldLabel>
-        <Input
-          aria-label="叠加层宽" type="number" size="lg" variant="flat"
-          classNames={{ inputWrapper: "px-4" }}
-          defaultValue={String(draft.canvas.w)} className="w-36 font-poppins"
-          onValueChange={v => { draft.canvas.w = +v || draft.canvas.w; onChange(); }}
+        <TF
+          aria-label="叠加层宽" type="number"
+                    defaultValue={String(draft.canvas.w)} className="w-36 font-poppins"
+          onChange={v => { draft.canvas.w = +v || draft.canvas.w; onChange(); }}
         />
       </div>
       <div className="flex flex-col gap-2">
         <FieldLabel>叠加层高</FieldLabel>
-        <Input
-          aria-label="叠加层高" type="number" size="lg" variant="flat"
-          classNames={{ inputWrapper: "px-4" }}
-          defaultValue={String(draft.canvas.h)} className="w-36 font-poppins"
-          onValueChange={v => { draft.canvas.h = +v || draft.canvas.h; onChange(); }}
+        <TF
+          aria-label="叠加层高" type="number"
+                    defaultValue={String(draft.canvas.h)} className="w-36 font-poppins"
+          onChange={v => { draft.canvas.h = +v || draft.canvas.h; onChange(); }}
         />
       </div>
       <div className="flex flex-col gap-2 pb-3">
         <FieldLabel>背景透明</FieldLabel>
         <div className="flex h-12 items-center">
-          <Switch size="sm" aria-label="背景透明"
+          <TSwitch aria-label="背景透明"
             isSelected={!!draft.canvas.transparent}
-            onValueChange={b => {
+            onChange={b => {
               if (b) draft.canvas.transparent = true;
               else delete draft.canvas.transparent;
               onChange();
@@ -695,9 +722,9 @@ export function PromptBar({ draft, onChange, compact }: {
     <div className={compact ? "flex flex-col gap-2" : "flex flex-col gap-2"}>
       <FieldLabel>顶部命令行装饰</FieldLabel>
       <div className="flex h-12 items-center">
-        <Switch size="sm" aria-label="显示顶部命令行装饰"
+        <TSwitch aria-label="显示顶部命令行装饰"
           isSelected={!!draft.prompt}
-          onValueChange={b => {
+          onChange={b => {
             if (b) {
               draft.prompt = { user: "streamer@pc", cmd: "./sysmon --source=aida64 --interval=1s", cursor: true, size: 19 };
             } else {
@@ -713,30 +740,30 @@ export function PromptBar({ draft, onChange, compact }: {
     <>
       <div className="flex flex-col gap-2">
         <FieldLabel>用户@主机</FieldLabel>
-        <Input aria-label="命令行用户" size="lg" variant="flat"
+        <TF aria-label="命令行用户"
           className={compact ? "font-poppins" : "w-56 font-poppins"}
           value={draft.prompt.user ?? ""}
-          onValueChange={v => { draft.prompt!.user = v; onChange(); }} />
+          onChange={v => { draft.prompt!.user = v; onChange(); }} />
       </div>
       <div className="flex min-w-0 flex-1 flex-col gap-2">
         <FieldLabel>命令行文本</FieldLabel>
-        <Input aria-label="命令行文本" size="lg" variant="flat"
+        <TF aria-label="命令行文本"
           className={compact ? "w-full font-poppins" : "min-w-[280px] font-poppins"}
           value={draft.prompt.cmd ?? ""}
-          onValueChange={v => { draft.prompt!.cmd = v; onChange(); }} />
+          onChange={v => { draft.prompt!.cmd = v; onChange(); }} />
       </div>
       <div className="flex flex-col gap-2">
         <FieldLabel>命令行字号</FieldLabel>
-        <Input aria-label="命令行字号" type="number" size="lg" variant="flat" className="w-24 font-poppins"
+        <TF aria-label="命令行字号" type="number" className="w-24 font-poppins"
           value={String(draft.prompt.size ?? 19)}
-          onValueChange={v => { draft.prompt!.size = +v || 19; onChange(); }} />
+          onChange={v => { draft.prompt!.size = +v || 19; onChange(); }} />
       </div>
       <div className="flex flex-col gap-2 pb-3">
         <FieldLabel>闪烁光标</FieldLabel>
         <div className="flex h-12 items-center">
-          <Switch size="sm" aria-label="闪烁光标"
+          <TSwitch aria-label="闪烁光标"
             isSelected={draft.prompt.cursor ?? true}
-            onValueChange={b => { draft.prompt!.cursor = b; onChange(); }} />
+            onChange={b => { draft.prompt!.cursor = b; onChange(); }} />
         </div>
       </div>
     </>
@@ -782,7 +809,7 @@ function PresetThumb({ cfg }: { cfg: OverlayConfig }) {
     <div className="relative w-full overflow-hidden border border-white/10 bg-[#0e0f12]"
       style={{ aspectRatio: `${c.w} / ${c.h}` }}>
       {!free && cfg.prompt && (
-        <div className="absolute left-0 top-0 h-[6%] w-full bg-primary/25"
+        <div className="absolute left-0 top-0 h-[6%] w-full bg-accent/25"
           style={{ marginTop: pct(pad[0], c.h) }} />
       )}
       {cfg.widgets.map((w, i) => {
@@ -796,7 +823,7 @@ function PresetThumb({ cfg }: { cfg: OverlayConfig }) {
             }
           : { left: pct(pad[1], c.w), top: pct(cursor, c.h), width: pct(c.w - pad[1] * 2, c.w), height: pct(h, c.h) };
         if (!free) cursor += h + 8;
-        return <div key={i} className="absolute bg-primary/45" style={style} />;
+        return <div key={i} className="absolute bg-accent/45" style={style} />;
       })}
     </div>
   );
@@ -839,10 +866,10 @@ export function TemplatePicker({ isOpen, onOpenChange, onPick, current }: {
         name: name.trim() || "我的版式", desc: desc.trim(), config: current,
       });
       if (!rep.saved) {
-        addToast({ title: "存为模板失败", description: (rep.errors || []).join("；"), color: "danger" });
+        toast.danger("存为模板失败", { description: (rep.errors || []).join("；"), timeout: 6000 });
         return;
       }
-      addToast({ title: `已存入模板库：${rep.entry!.name}`, color: "success" });
+      toast.success(`已存入模板库：${rep.entry!.name}`, { timeout: 2000 });
       setForm(false); setName(""); setDesc("");
       load();
     } finally {
@@ -864,13 +891,13 @@ export function TemplatePicker({ isOpen, onOpenChange, onPick, current }: {
       const pname = String(data?.name || f.name.replace(/\.json$/i, "")).slice(0, 40);
       const rep = await api.saveLayoutPreset({ name: pname, desc: String(data?.desc || "导入的模板"), config: cfg });
       if (!rep.saved) {
-        addToast({ title: "导入失败", description: (rep.errors || []).join("；"), color: "danger" });
+        toast.danger("导入失败", { description: (rep.errors || []).join("；"), timeout: 6000 });
       } else {
-        addToast({ title: `已导入模板：${pname}`, color: "success" });
+        toast.success(`已导入模板：${pname}`, { timeout: 2000 });
         load();
       }
     } catch (e) {
-      addToast({ title: "导入失败", description: `文件不是合法 JSON：${e}`, color: "danger" });
+      toast.danger("导入失败", { description: `文件不是合法 JSON：${e}`, timeout: 6000 });
     } finally {
       setBusy(false);
       if (fileRef.current) fileRef.current.value = "";
@@ -881,33 +908,33 @@ export function TemplatePicker({ isOpen, onOpenChange, onPick, current }: {
     const rep = await api.removeLayoutPreset(p.id);
     if (rep.removed) {
       setList(l => (l || []).filter(x => x.id !== p.id));
-      addToast({ title: `已删除模板：${p.name}`, color: "default" });
+      toast(`已删除模板：${p.name}`);
     } else {
-      addToast({ title: "删除失败", description: rep.error, color: "danger" });
+      toast.danger("删除失败", { description: rep.error, timeout: 6000 });
     }
   };
 
   const card = (p: LayoutPreset) => (
     <div key={p.id} className="relative">
       <button type="button"
-        className="flex w-full flex-col gap-2 border border-white/10 bg-[#1a1a1d] p-3 text-left transition-colors hover:border-primary/70"
+        className="flex w-full flex-col gap-2 border border-white/10 bg-[#1a1a1d] p-3 text-left transition-colors hover:border-accent/70"
         onClick={() => { onPick(p); onOpenChange(false); }}>
         <PresetThumb cfg={p.config} />
         <span className="flex items-baseline gap-2">
-          <span className="text-sm font-bold text-default-700">{p.name}</span>
+          <span className="text-sm font-bold text-foreground">{p.name}</span>
           {p.source === "user" && (
-            <span className="rounded bg-primary/20 px-1.5 py-0.5 text-[10px] font-bold text-primary">我的</span>
+            <span className="rounded bg-accent/20 px-1.5 py-0.5 text-[10px] font-bold text-accent">我的</span>
           )}
-          <span className="font-poppins text-[11px] text-default-500">
+          <span className="font-poppins text-[11px] text-muted">
             {p.config.canvas.w}×{p.config.canvas.h}
             {p.config.canvas.mode === "free" ? " · 自由" : " · 流式"}
           </span>
         </span>
-        <span className="text-xs leading-5 text-default-500">{p.desc}</span>
+        <span className="text-xs leading-5 text-muted">{p.desc}</span>
       </button>
       {p.source === "user" && (
         <button type="button" title="删除这个模板" onClick={() => remove(p)}
-          className="absolute right-2 top-2 z-10 grid size-6 place-items-center rounded border border-white/10 bg-black/60 text-xs text-default-400 transition-colors hover:border-danger hover:bg-danger hover:text-white">
+          className="absolute right-2 top-2 z-10 grid size-6 place-items-center rounded border border-white/10 bg-black/60 text-xs text-muted transition-colors hover:border-danger hover:bg-danger hover:text-white">
           ✕
         </button>
       )}
@@ -918,60 +945,71 @@ export function TemplatePicker({ isOpen, onOpenChange, onPick, current }: {
   const builtin = (list || []).filter(p => p.source !== "user");
   const grid = "grid grid-cols-2 gap-3";
   return (
-    <Modal isOpen={isOpen} onOpenChange={onOpenChange} size="2xl">
-      <ModalContent>
-        {() => (
-          <>
-            <ModalHeader className="flex-col items-start gap-1">模板库</ModalHeader>
-            <div className="flex flex-wrap items-center gap-2">
-              <Button size="sm" variant="flat" className="bg-[#27272a]" isDisabled={busy}
-                onPress={() => fileRef.current?.click()}
-                title="从 .json 文件导入一套模板（导出文件 / 别人的分享 / 你保存的版式）">
-                导入文件
-              </Button>
-              <Button size="sm" variant="flat" className="bg-[#27272a]" isDisabled={!current || busy}
-                onPress={() => setForm(v => !v)}
-                title="把编辑器里这份草稿存进模板库，以后随时一键载入">
-                存为模板
-              </Button>
-              <Button size="sm" variant="flat" className="bg-[#27272a]" isDisabled={!current || busy}
-                onPress={exportCurrent}
-                title="把当前草稿下载成模板文件（备份 / 分享）">
-                导出当前版式
-              </Button>
-              <input ref={fileRef} type="file" accept=".json,application/json" className="hidden"
-                onChange={e => { const f = e.target.files?.[0]; if (f) importFile(f); }} />
-            </div>
-            {form && (
-              <div className="flex flex-wrap items-end gap-2 rounded-lg border border-white/10 bg-[#1a1a1d] p-3">
-                <Input size="sm" label="模板名" value={name} onValueChange={setName}
-                  placeholder="例如：我的直播底栏" className="w-52"
-                  onKeyDown={e => { if (e.key === "Enter" && !busy) save(); }} />
-                <Input size="sm" label="一句话简介（可选）" value={desc} onValueChange={setDesc}
-                  className="min-w-52 flex-1"
-                  onKeyDown={e => { if (e.key === "Enter" && !busy) save(); }} />
-                <Button size="sm" color="primary" isLoading={busy} onPress={save}>保存</Button>
+    <Modal>
+      <Modal.Backdrop isOpen={isOpen} onOpenChange={onOpenChange}>
+        <Modal.Container size="lg">
+          <Modal.Dialog className="sm:max-w-[860px]">
+            <Modal.CloseTrigger />
+            <Modal.Header>
+              <Modal.Heading>模板库</Modal.Heading>
+            </Modal.Header>
+            <Modal.Body>
+              <div className="flex flex-col gap-3">
+                <div className="flex flex-wrap items-center gap-2">
+                  <Btn size="sm" variant="secondary" className="bg-[#27272a]" isDisabled={busy}
+                    onPress={() => fileRef.current?.click()}
+                    title="从 .json 文件导入一套模板（导出文件 / 别人的分享 / 你保存的版式）">
+                    导入文件
+                  </Btn>
+                  <Btn size="sm" variant="secondary" className="bg-[#27272a]" isDisabled={!current || busy}
+                    onPress={() => setForm(v => !v)}
+                    title="把编辑器里这份草稿存进模板库，以后随时一键载入">
+                    存为模板
+                  </Btn>
+                  <Btn size="sm" variant="secondary" className="bg-[#27272a]" isDisabled={!current || busy}
+                    onPress={exportCurrent}
+                    title="把当前草稿下载成模板文件（备份 / 分享）">
+                    导出当前版式
+                  </Btn>
+                  <input ref={fileRef} type="file" accept=".json,application/json" className="hidden"
+                    onChange={e => { const f = e.target.files?.[0]; if (f) importFile(f); }} />
+                </div>
+                {form && (
+                  <div className="flex flex-wrap items-end gap-2 rounded-lg border border-white/10 bg-[#1a1a1d] p-3">
+                    <TextField className="w-52" value={name} onChange={setName}
+                      onKeyDown={e => { if (e.key === "Enter" && !busy) save(); }}>
+                      <Label>模板名</Label>
+                      <Input placeholder="例如：我的直播底栏" />
+                    </TextField>
+                    <TextField className="min-w-52 flex-1" value={desc} onChange={setDesc}
+                      onKeyDown={e => { if (e.key === "Enter" && !busy) save(); }}>
+                      <Label>一句话简介（可选）</Label>
+                      <Input />
+                    </TextField>
+                    <Btn size="sm" isDisabled={busy} onPress={save}>保存</Btn>
+                  </div>
+                )}
+                <div className="flex max-h-[58vh] flex-col gap-3 overflow-y-auto pr-1">
+                  {!list && <Hint>加载模板列表…</Hint>}
+                  {list?.length === 0 && <Hint>模板库是空的 —— 调好版式后点上面「存为模板」。</Hint>}
+                  {!!mine.length && (
+                    <>
+                      <Hint>我的模板（存在本机，升级不丢；点右上 ✕ 删除）</Hint>
+                      <div className={grid}>{mine.map(card)}</div>
+                    </>
+                  )}
+                  {!!builtin.length && (
+                    <>
+                      {list?.length ? <Hint>内置模板</Hint> : null}
+                      <div className={grid}>{builtin.map(card)}</div>
+                    </>
+                  )}
+                </div>
               </div>
-            )}
-            <ModalBody className="max-h-[60vh] overflow-y-auto">
-              {!list && <Hint>加载模板列表…</Hint>}
-              {list?.length === 0 && <Hint>模板库是空的 —— 调好版式后点上面「存为模板」。</Hint>}
-              {!!mine.length && (
-                <>
-                  <Hint>我的模板（存在本机，升级不丢；点右上 ✕ 删除）</Hint>
-                  <div className={grid}>{mine.map(card)}</div>
-                </>
-              )}
-              {!!builtin.length && (
-                <>
-                  {list?.length ? <Hint>内置模板</Hint> : null}
-                  <div className={grid}>{builtin.map(card)}</div>
-                </>
-              )}
-            </ModalBody>
-          </>
-        )}
-      </ModalContent>
+            </Modal.Body>
+          </Modal.Dialog>
+        </Modal.Container>
+      </Modal.Backdrop>
     </Modal>
   );
 }

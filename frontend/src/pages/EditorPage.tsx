@@ -1,10 +1,10 @@
-import { addToast, Button, Input } from "@heroui/react";
+import { toast } from "@heroui/react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { api, clone, outPaths } from "../api";
 import { clearDraft, loadDraft, saveDraft } from "../draftStore";
 import type { CardsWidget, ChipsWidget, LayoutPreset, OverlayConfig, TextWidget } from "../types";
 import type { Shared } from "../App";
-import { CARD_CLS, FieldLabel, Hint, Page, Section, SubTitle } from "../ui";
+import { Btn, CARD_CLS, FieldLabel, Hint, Page, Section, SubTitle} from "../ui";
 import {
   CanvasFields, CardsEditor, ChipsEditor, PromptBar, TemplatePicker, TextEditor,
 } from "./editors";
@@ -116,7 +116,7 @@ export default function EditorPage({ shared }: { shared: Shared }) {
     const rep = await api.saveConfig(draft);
     if (!rep.saved) {
       setMsg({ text: `✗ 保存失败：${(rep.errors || []).join("；")}`, kind: "bad" });
-      addToast({ title: "保存失败", description: (rep.errors || []).join("；"), color: "danger" });
+      toast.danger("保存失败", { description: (rep.errors || []).join("；"), timeout: 6000 });
       return;
     }
     setCfg(clone(draft));
@@ -124,7 +124,7 @@ export default function EditorPage({ shared }: { shared: Shared }) {
     clearDraft("flow");
     setPvKey(k => k + 1);
     setMsg({ text: "✓ 已保存", kind: "ok" });
-    addToast({ title: "已保存", description: "OBS 里没变化就点「刷新缓存」", color: "success" });
+    toast.success("已保存", { description: "OBS 里没变化就点「刷新缓存」", timeout: 2000 });
     try {
       const c = await api.layoutCheck();
       setCheck(c);
@@ -148,7 +148,7 @@ export default function EditorPage({ shared }: { shared: Shared }) {
   const discardDraft = useCallback(async () => {
     clearDraft("flow");
     await loadConfig();
-    addToast({ title: "已放弃未保存的改动", color: "default" });
+    toast("已放弃未保存的改动");
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [loadConfig]);
 
@@ -185,7 +185,7 @@ export default function EditorPage({ shared }: { shared: Shared }) {
     onChange();
   };
 
-  const msgColor = msg.kind === "ok" ? "text-primary"
+  const msgColor = msg.kind === "ok" ? "text-accent"
     : msg.kind === "bad" ? "text-danger"
       : msg.kind === "warn" ? "text-warning" : "text-color-desc";
 
@@ -206,13 +206,12 @@ export default function EditorPage({ shared }: { shared: Shared }) {
       Object.assign(draft, clone(p.config));
       setDraft({ ...draft });
       onChange();
-      addToast({
-        title: `已装进草稿：${p.name}`,
+      toast.success(`已装进草稿：${p.name}`, {
         description: seeded.added ? `已顺带注册 ${seeded.added} 个默认指标` : "满意就点保存",
-        color: "success",
+        timeout: 2000,
       });
     } catch (e) {
-      addToast({ title: "加载模板失败", description: String(e), color: "danger" });
+      toast.danger("加载模板失败", { description: String(e), timeout: 6000 });
     }
   };
 
@@ -227,9 +226,9 @@ export default function EditorPage({ shared }: { shared: Shared }) {
         {draft.widgets.length === 0 && (
           <div className="flex flex-col gap-2">
             <Hint>画布是空的。</Hint>
-            <Button variant="flat" size="lg" className="w-fit bg-[#27272a]" onPress={() => setTplOpen(true)}>
+            <Btn variant="secondary" size="lg" className="w-fit bg-[#27272a]" onPress={() => setTplOpen(true)}>
               从模板加载
-            </Button>
+            </Btn>
           </div>
         )}
         {check && !check.errors.length && !check.warnings.length && (
@@ -253,9 +252,9 @@ export default function EditorPage({ shared }: { shared: Shared }) {
             return (
               <div key={i} className={CARD_CLS}>
                 <div className="flex items-center justify-between border-b border-white/[0.04] px-4 py-3">
-                  <b className="text-sm font-bold text-default-800">部件 {i + 1} · {meta}</b>
-                  <Button size="sm" variant="light" className="h-7 min-w-0 px-2 text-xs text-default-400"
-                    onPress={() => removeWidget(i)}>删除这一部件</Button>
+                  <b className="text-sm font-bold text-foreground">部件 {i + 1} · {meta}</b>
+                  <Btn size="sm" variant="ghost" className="h-7 min-w-0 px-2 text-xs text-muted"
+                    onPress={() => removeWidget(i)}>删除这一部件</Btn>
                 </div>
                 <div className="px-4 py-3">
                   {w.type === "cards" && <CardsEditor w={w as CardsWidget} metrics={metrics} onChange={onChange} />}
@@ -268,7 +267,7 @@ export default function EditorPage({ shared }: { shared: Shared }) {
         </div>
 
         <div className="mb-14 mt-3 grid grid-cols-2 gap-2">
-          <Button variant="flat" size="lg" className="bg-[#27272a]" disableRipple onPress={() => {
+          <Btn variant="secondary" size="lg" className="bg-[#27272a]" onPress={() => {
             const first = outPaths(metrics)[0];
             addWidget({
               type: "cards", items: [{
@@ -276,10 +275,10 @@ export default function EditorPage({ shared }: { shared: Shared }) {
                 value: { metrics: [first] }, sub: { sep: " · ", metrics: [] },
               }],
             });
-          }}>+ 加一行指标卡片</Button>
-          <Button variant="flat" size="lg" className="bg-[#27272a]" disableRipple onPress={() => {
+          }}>+ 加一行指标卡片</Btn>
+          <Btn variant="secondary" size="lg" className="bg-[#27272a]" onPress={() => {
             addWidget({ type: "text", text: "CPU {cpu.usage}% · {cpu.temp}°C", size: 19, margin_top: 6 });
-          }}>+ 加一行自定义文字</Button>
+          }}>+ 加一行自定义文字</Btn>
         </div>
       </Section>
 
@@ -305,12 +304,12 @@ export default function EditorPage({ shared }: { shared: Shared }) {
       {/* 吸底保存条 */}
       <div className={`sticky bottom-4 z-10 flex items-center gap-3 ${CARD_CLS} px-4 py-3 shadow-lg`}>
         <SubTitle>流式版式</SubTitle>
-        <Button color="primary" size="lg" className="px-7" isDisabled={!dirty} onPress={save}>保存</Button>
-        <Button size="lg" variant="flat" className="bg-[#27272a]" onPress={undo}>还原上一版</Button>
-        <Button size="lg" variant="flat" className="bg-[#27272a]" isDisabled={!dirty} onPress={discardDraft}
-          title="丢掉没保存的改动，回到已保存的版式">放弃改动</Button>
-        <Button size="lg" variant="flat" className="bg-[#27272a]" onPress={() => setTplOpen(true)}
-          title="模板库：载入模板，或把当前草稿存为你的模板">模板</Button>
+        <Btn size="lg" className="px-7" isDisabled={!dirty} onPress={save}>保存</Btn>
+        <Btn size="lg" variant="secondary" className="bg-[#27272a]" onPress={undo}>还原上一版</Btn>
+        <Btn size="lg" variant="secondary" className="bg-[#27272a]" isDisabled={!dirty} onPress={discardDraft}
+          title="丢掉没保存的改动，回到已保存的版式">放弃改动</Btn>
+        <Btn size="lg" variant="secondary" className="bg-[#27272a]" onPress={() => setTplOpen(true)}
+          title="模板库：载入模板，或把当前草稿存为你的模板">模板</Btn>
         {dirty && <span className="text-sm text-warning">● 有未保存的改动</span>}
         <span className="flex-1" />
         <span className={`text-sm ${msgColor}`}>{msg.text}</span>

@@ -1,7 +1,34 @@
-import { Divider } from "@heroui/react";
+import { Button, Separator, Switch } from "@heroui/react";
+
+/** v3 的 Button 不再转发原生 title（RAC filterDOMProps 白名单没有它）——编辑器里
+ * 那三十来处中文悬停提示全靠它。包一层：有 title 就套个 inline-flex 的 span 承接，
+ * 没有就原样透出，调用点无感。 */
+export function Btn({ title, ...props }: React.ComponentProps<typeof Button> & { title?: string }) {
+  const btn = <Button {...props} />;
+  return title
+    ? <span title={title} className="inline-flex">{btn}</span>
+    : btn;
+}
+
+/** v3 Switch 的根只是 SwitchField（状态容器），隐藏 input 由 Switch.Content 渲染 ——
+ * 裸 Control/Thumb 组合不可交互。无可见标签的开关统一走这个封装。 */
+export function TSwitch({ title, ...props }:
+  React.ComponentProps<typeof Switch> & { title?: string }) {
+  const sw = (
+    <Switch {...props}>
+      <Switch.Content>
+        <Switch.Control>
+          <Switch.Thumb />
+        </Switch.Control>
+      </Switch.Content>
+    </Switch>
+  );
+  return title ? <span title={title} className="inline-flex">{sw}</span> : sw;
+}
 
 /** Now Playing 版式的公共零件：页面标题、分区标题、字段小标签、灰色说明。
- * 尺寸照抄它的设置页：页题 30px 粗白、区题 20px、小节题 16px、字段标签 12px 淡蓝加粗。 */
+ * 尺寸照抄它的设置页：页题 30px 粗白、区题 20px、小节题 16px、字段标签 12px 淡蓝加粗。
+ * v3 删掉了 default-500/800 数字色阶：前景用 text-foreground、弱化说明用 text-muted。 */
 
 export const Page = ({ title, children }: {
   title: string;
@@ -23,12 +50,12 @@ export const Section = ({ title, right, children, divider = true }: {
   <>
     <div className="flex flex-col">
       <div className="flex flex-row items-end justify-between gap-2">
-        <h2 className="text-xl font-bold leading-9 text-default-800">{title}</h2>
+        <h2 className="text-xl font-bold leading-9 text-foreground">{title}</h2>
         {right}
       </div>
       {children}
     </div>
-    {divider && <Divider />}
+    {divider && <Separator />}
   </>
 );
 
@@ -38,14 +65,14 @@ export const SubTitle = ({ children, right }: {
   right?: React.ReactNode;
 }) => (
   <div className="flex items-center gap-1.5">
-    <h3 className="flex items-center gap-1.5 text-base font-bold leading-6 text-default-800">{children}</h3>
+    <h3 className="flex items-center gap-1.5 text-base font-bold leading-6 text-foreground">{children}</h3>
     {right}
   </div>
 );
 
 /** 字段小标签：淡蓝色 12px 加粗，Now Playing 的表单标签通用样式。 */
 export const FieldLabel = ({ children }: { children: React.ReactNode }) => (
-  <span className="cursor-default text-xs font-bold text-primary-900">{children}</span>
+  <span className="cursor-default text-xs font-bold text-accent">{children}</span>
 );
 
 /** 灰色说明文字。 */
