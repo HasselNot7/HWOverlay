@@ -44,7 +44,8 @@ export default function MetricsTablePage({ shared }: { shared: Shared }) {
           {!metrics || !hw ? (
             <Hint className="py-4">载入中…</Hint>
           ) : (
-            <Table aria-label="指标总表">
+            <Table>
+              <Table.ScrollContainer>
               <Table.Content aria-label="指标总表">
                 <Table.Header>
                   <Table.Column className={TH_CLS}>指标</Table.Column>
@@ -86,6 +87,7 @@ export default function MetricsTablePage({ shared }: { shared: Shared }) {
                   })}
                 </Table.Body>
               </Table.Content>
+              </Table.ScrollContainer>
             </Table>
           )}
         </div>
