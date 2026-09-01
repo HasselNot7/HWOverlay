@@ -19,6 +19,8 @@ JetBrains字体 + 控制台风格，与 [Now Playing](https://github.com/Widdit/
 - **自由排版编辑器**：部件拖拽，边缘/中线自动吸附，网格
 - **多种内置部件**：指标卡、小指标行、大数字、进度条、圆环仪表、文本、自定义 HTML
 - **模板库**：调好的版式可存为自己的模板（存在本机数据目录，升级不丢），也能导出 `.json` 文件备份、分享给别人或从文件导入
+- **多版式档位**：不同直播场景（全屏 / 角落 / 竖屏）各存一套已发布版式，侧栏一键切换生效，OBS 实时跟着变
+- **OBS 一键复制 + 连接排障**：浏览器源 URL 点一下就复制；AIDA64 连接异常时状态点可点开分步解决指南；非编辑页右下角常驻可拖动的实时预览窗
 - **自定义组件带脚本**：HTML 部件里可以写 `<script>`，提供 `HWOB` 数据 API（取数 / 历史 / 每帧回调）
 - **自定义指标**：AIDA64 导出了但还没注册的传感器
 - **字节预算条**：AIDA64 共享内存只有 4096 字节，选指标本质是分配字节，超没超一眼看见
@@ -111,7 +113,7 @@ python -m hwobs --open            # 管理页 http://localhost:8765/admin
                    ├── /api/*        管理页 API
                    ├── /hw.json /overlay.json /metrics.json /sensors
                    ├── /            叠加层 web/monitor.html（零依赖原生页面，OBS 用）
-                   └── /admin       管理页（React 构建产物，静态文件）
+                   └── /admin       管理页（React 19 + HeroUI v3 构建产物，静态文件）
 ```
 
 监控项走三级管线：**AIDA64 导出 → 注册表映射成指标 → 版式引用**。
@@ -149,6 +151,7 @@ python -m hwobs --open            # 管理页 http://localhost:8765/admin
 | PUT `/api/config`；POST `/api/config/rollback` | 版式写盘（校验不过不落盘、备份、原子替换）/ 回滚 |
 | GET `/api/sensors/unknown`；POST/DELETE `/api/metrics/custom` | 自定义指标（删除 = 回未知池） |
 | POST `/api/metrics/preset`；GET/POST/DELETE `/api/layout/presets` | 一键注册默认指标集 / 模板库：内置+用户模板列表、存为模板（保存前过一遍完整校验）、删除 |
+| GET/POST/DELETE `/api/profiles`；POST `/api/profiles/activate` | 多版式档位：列表 / 把当前发布版式另存为档 / 删除 / 切换生效（走 config.save：校验+备份） |
 | POST `/api/app/shutdown` | 退出程序（需 `confirm`，管理页按钮用） |
 
 ### 注册表模型（0.3.0 起）

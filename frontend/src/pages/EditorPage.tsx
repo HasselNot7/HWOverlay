@@ -4,7 +4,7 @@ import { api, clone, outPaths } from "../api";
 import { clearDraft, loadDraft, saveDraft } from "../draftStore";
 import type { CardsWidget, ChipsWidget, LayoutPreset, OverlayConfig, TextWidget } from "../types";
 import type { Shared } from "../App";
-import { Btn, CARD_CLS, FieldLabel, Hint, Page, Section, SubTitle} from "../ui";
+import { Btn, CARD_CLS, FieldLabel, Hint, Page, Section } from "../ui";
 import {
   CanvasFields, CardsEditor, ChipsEditor, PromptBar, TemplatePicker, TextEditor,
 } from "./editors";
@@ -302,17 +302,16 @@ export default function EditorPage({ shared }: { shared: Shared }) {
       </Section>
 
       {/* 吸底保存条 */}
-      <div className={`sticky bottom-4 z-10 flex items-center gap-3 ${CARD_CLS} px-4 py-3 shadow-lg`}>
-        <SubTitle>流式版式</SubTitle>
+      <div className={`sticky bottom-4 z-10 flex flex-wrap items-center gap-x-3 gap-y-2 ${CARD_CLS} px-4 py-3 shadow-lg`}>
+        <b className="shrink-0 whitespace-nowrap text-base font-bold text-foreground">流式版式</b>
         <Btn size="lg" className="px-7" isDisabled={!dirty} onPress={save}>保存</Btn>
         <Btn size="lg" variant="secondary" className="bg-[#27272a]" onPress={undo}>还原上一版</Btn>
         <Btn size="lg" variant="secondary" className="bg-[#27272a]" isDisabled={!dirty} onPress={discardDraft}
           title="丢掉没保存的改动，回到已保存的版式">放弃改动</Btn>
         <Btn size="lg" variant="secondary" className="bg-[#27272a]" onPress={() => setTplOpen(true)}
           title="模板库：载入模板，或把当前草稿存为你的模板">模板</Btn>
-        {dirty && <span className="text-sm text-warning">● 有未保存的改动</span>}
-        <span className="flex-1" />
-        <span className={`text-sm ${msgColor}`}>{msg.text}</span>
+        {dirty && <span className="whitespace-nowrap text-sm text-warning">● 有未保存的改动</span>}
+        <span className={`ml-auto whitespace-nowrap text-sm ${msgColor}`}>{msg.text}</span>
       </div>
 
       <TemplatePicker isOpen={tplOpen} onOpenChange={setTplOpen} onPick={applyPreset} current={draft} />
