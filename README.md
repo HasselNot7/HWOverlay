@@ -2,10 +2,10 @@
 
 ![HWOverlay 效果预览](/images/overlay_preview.png)
 
-<h2>直播用的硬件监控叠加层 —— 读 AIDA64 传感器，OBS 浏览器源直接挂</h2>
+<h2>直播用的硬件监控叠加层 —— 使用AIDA64数据</h2>
 
 自由拼装显示部件、拖拽排版、实时预览，自带本地管理页。<br>
-像素字体 + 控制台风格，与 [Now Playing](https://github.com/Widdit/now-playing-service) 搭配使用效果极佳。
+JetBrains字体 + 控制台风格，与 [Now Playing](https://github.com/Widdit/now-playing-service) 搭配使用效果极佳。
 
 </div>
 
@@ -16,13 +16,12 @@
 ### 核心功能
 
 - **零依赖叠加层**：`web/monitor.html` 单文件原生页面，OBS 浏览器源直接跑，不吃直播机器性能
-- **自由排版编辑器**：部件随便拖，边缘/中线自动吸附，网格步长随画布尺寸与缩放自适应
+- **自由排版编辑器**：部件拖拽，边缘/中线自动吸附，网格
 - **多种内置部件**：指标卡、小指标行、大数字、进度条、圆环仪表、文本、自定义 HTML
 - **模板库**：内置几套常用尺寸版式，一键载入；调好的版式可存为自己的模板（存在本机数据目录，升级不丢），也能导出 `.json` 文件备份、分享给别人或从文件导入
-- **自定义组件带脚本**：HTML 部件里可以写 `<script>`，提供 `HWOB` 数据 API（取数 / 历史 / 每帧回调），想要什么图都能自己画
-- **自定义指标**：AIDA64 导出了但还没注册的传感器列出来，点一下就成指标，不用重启
+- **自定义组件带脚本**：HTML 部件里可以写 `<script>`，提供 `HWOB` 数据 API（取数 / 历史 / 每帧回调）
+- **自定义指标**：AIDA64 导出了但还没注册的传感器
 - **字节预算条**：AIDA64 共享内存只有 4096 字节，选指标本质是分配字节，超没超一眼看见
-- **对 AIDA64 只读**：绝不写它的 ini。缺什么传感器只告诉你，勾不勾随你
 
 ### 部件类型
 
@@ -38,10 +37,10 @@
 
 ### 兼容性
 
-- 直播软件：OBS Studio（浏览器源）；其它能填本地 URL 的直播伴侣同理
+- 直播软件：OBS Studio
 - 操作系统：Windows 10 / 11（64 位）
 - 数据源：[AIDA64](https://www.aida64.com/)，需在 Sensor Data 页面勾选 Shared Memory
-
+![AIDA64设置](/images/aida64.png)
 ---
 
 ## 界面预览
@@ -49,18 +48,19 @@
 ![管理页 · 自由排版](/images/editor_preview.png)
 
 管理页共 6 个视图：开始使用 / 状态总览 / 流式排版 / 自由排版 / 自定义指标 / 指标总表。
-版式写盘前强制校验：内容超高、引用不存在的指标、卡片 key 重复都会被拒。
 
 ---
 
 ## 搭配 Now Playing 使用
 
-两者同为像素字体 / 控制台配色，叠在一起毫无违和：
+使用Now Playing中的Shell风格：
 
 1. Now Playing 用它的 OBS 浏览器源组件展示「正在播放」
 2. HWOverlay 画布设置里打开**背景透明**，OBS 里就是无边底色直接叠在画面上
-3. 把 HWOverlay 的宽高填成画布尺寸（如 2000 × 200），摆在歌曲条正下方对齐同一基线
-4. 顶部装饰命令行的 `cmd` 填你自己的口吻，比如 `./sysmon --source=aida64 --interval=1s`
+3. 把 HWOverlay 的宽高填成画布尺寸
+
+你可以得到类似下面的直播界面：
+![OBS View](/images/obs.png)
 
 ---
 
@@ -68,15 +68,14 @@
 
 ### 方法一：下载整合包（推荐）
 
-- 前往本仓库的 Releases 页面下载 `HWOverlay-<版本>-win64.zip`（仓库建好后把这里换成真实链接）
-- 解压双击 `HWOverlay.exe`，自动打开管理页，开箱即用
-- 未签名 exe 会被 SmartScreen 拦一下：点"更多信息"→"仍要运行"
+- 前往本仓库的 Releases 页面下载 `HWOverlay-<版本>-win64.zip`
+- 解压双击 `HWOverlay.exe`，自动打开管理页
 
 ### 方法二：从源码运行
 
 ```bash
 python -m pip install -r requirements.txt
-python -m hwobs --open            # 管理页 http://127.0.0.1:8765/admin
+python -m hwobs --open            # 管理页 http://localhost:8765/admin
 ```
 
 ### 在 OBS 里挂载
@@ -85,7 +84,7 @@ python -m hwobs --open            # 管理页 http://127.0.0.1:8765/admin
 
 | 字段 | 值 |
 |:---:|:---|
-| URL | `http://127.0.0.1:8765/` |
+| URL | `http://localhost:8765/` |
 | 宽度 / 高度 | 管理页「状态总览」里写的画布尺寸 |
 
 改过版式后要在浏览器源属性里点一次**刷新缓存**。服务进程一关，叠加层自动压暗 ——
@@ -97,7 +96,7 @@ python -m hwobs --open            # 管理页 http://127.0.0.1:8765/admin
 
 | 操作 | 命令 |
 |:---:|:---|
-| 起后端 | `python -m hwobs`（127.0.0.1:8765） |
+| 起后端 | `python -m hwobs`（localhost:8765） |
 | 前端开发 | `cd frontend && npm ci && npm run dev`（5173，API 自动代理到 8765） |
 | 打包 exe | `python -m pip install -r requirements-dev.txt && python scripts/build.py` |
 
