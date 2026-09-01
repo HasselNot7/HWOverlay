@@ -103,7 +103,7 @@ export default function CustomMetricsPage({ shared }: { shared: Shared }) {
                 {unknown.unknown.map(s => (
                   <tr key={s.id} className="border-b border-white/[0.04] last:border-0">
                     <td className="px-2 py-2">
-                      <code className="rounded-md bg-[#27272a] px-1.5 py-0.5 font-poppins text-xs">{s.id}</code>
+                      <code className="rounded-md bg-[#27272a] px-1.5 py-0.5 font-jetbrains text-xs">{s.id}</code>
                     </td>
                     <td className="px-2 py-2">{s.label}</td>
                     <td className="px-2 py-2 text-right font-poppins tabular-nums">{s.value}</td>

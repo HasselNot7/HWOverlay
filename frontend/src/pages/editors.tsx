@@ -1,4 +1,4 @@
-import { Accordion, Checkbox, Input, Label, ListBox, Modal, Select, TextArea, TextField, toast } from "@heroui/react";
+import { Accordion, Checkbox, cn, Input, Label, ListBox, Modal, Select, TextArea, TextField, toast } from "@heroui/react";
 /** 版式编辑器的子组件：指标选择器、槽位编辑、卡片/chips/text 部件编辑器、模板库弹窗。
  * 控件一律用 HeroUI，样式学 Now Playing（淡蓝字段标签、flat 控件、卡片底）。
  * 草稿对象直接原地改，改完调 onChange() 触发上层重渲染 + 防抖校验。 */
@@ -9,15 +9,17 @@ import type {
   MetricRef, OverlayConfig, ProgressWidget, StatWidget, TextWidget, Widget,
 } from "../types";
 type TFProps = React.ComponentProps<typeof TextField>;
+import { AnimatedRow } from "../motion";
 import { api } from "../api";
 import { Btn, CARD_CLS, FieldLabel, Hint, TSwitch } from "../ui";
 
 /** v3 把输入框拆成 TextField（状态）+ Input（外观）两层。这里薄封装回单节点写法：
  * 状态 props（value/defaultValue/onChange/type/placeholder/aria-label/onBlur）挂外壳，
- * variant 统一 secondary（我们全是嵌在卡片/面板里的矮富度输入）。 */
+ * variant 统一 secondary（我们全是嵌在卡片/面板里的矮富度输入）。
+ * 数值框自动用 JetBrains Mono + tabular-nums（等宽、数字不跳位），文本框用 Poppins。 */
 export const TF = ({ className = "", placeholder, title, ...props }: TFProps & { placeholder?: string; title?: string }) => {
   const f = (
-    <TextField className={`font-poppins ${className}`} variant="secondary" {...props}>
+    <TextField className={cn(className, props.type === "number" ? "font-jetbrains tabular-nums" : "font-poppins")} variant="secondary" {...props}>
       <Input placeholder={placeholder} />
     </TextField>
   );
@@ -26,7 +28,7 @@ export const TF = ({ className = "", placeholder, title, ...props }: TFProps & {
 
 /** 多行版（自定义 HTML 编辑器用）。rows 是原生 textarea 属性，走 TextArea。 */
 export const TFArea = ({ className = "", rows, placeholder, ...props }: TFProps & { rows?: number; placeholder?: string }) => (
-  <TextField className={`font-poppins ${className}`} variant="secondary" {...props}>
+  <TextField className={cn("font-poppins", className)} variant="secondary" {...props}>
     <TextArea rows={rows} placeholder={placeholder} />
   </TextField>
 );
@@ -62,7 +64,7 @@ export function MetricSelect({ metrics, value, allowEmpty = true, compact, onCha
     <Select
       aria-label="选择指标"
       placeholder="选择指标"
-      className={`${compact ? "w-full" : "w-[240px] flex-none"} font-poppins`}
+      className={cn(compact ? "w-full" : "w-[240px] flex-none", "font-jetbrains")}
       value={selected ?? null}
       onChange={k => onChange(!k || k === NONE ? "" : String(k))}
     >
@@ -453,7 +455,7 @@ export function ChipsEditor({ w, metrics, onChange }: { w: ChipsWidget; metrics:
                           <Checkbox.Content>
                             <Checkbox.Control><Checkbox.Indicator /></Checkbox.Control>
                             <span className="text-sm">{m?.name ?? p}
-                              <span className="ml-1 font-poppins text-xs text-muted">{p}</span>
+                              <span className="ml-1 font-jetbrains text-xs text-muted">{p}</span>
                             </span>
                           </Checkbox.Content>
                         </Checkbox>
@@ -735,48 +737,54 @@ export function PromptBar({ draft, onChange, compact }: {
       </div>
     </div>
   );
-  if (!draft.prompt) return <div className="mt-2 flex flex-wrap items-end gap-5">{toggle}</div>;
   const fields = (
     <>
       <div className="flex flex-col gap-2">
         <FieldLabel>用户@主机</FieldLabel>
         <TF aria-label="命令行用户"
           className={compact ? "font-poppins" : "w-56 font-poppins"}
-          value={draft.prompt.user ?? ""}
+          value={draft.prompt?.user ?? ""}
           onChange={v => { draft.prompt!.user = v; onChange(); }} />
       </div>
       <div className="flex min-w-0 flex-1 flex-col gap-2">
         <FieldLabel>命令行文本</FieldLabel>
         <TF aria-label="命令行文本"
           className={compact ? "w-full font-poppins" : "min-w-[280px] font-poppins"}
-          value={draft.prompt.cmd ?? ""}
+          value={draft.prompt?.cmd ?? ""}
           onChange={v => { draft.prompt!.cmd = v; onChange(); }} />
       </div>
       <div className="flex flex-col gap-2">
         <FieldLabel>命令行字号</FieldLabel>
         <TF aria-label="命令行字号" type="number" className="w-24 font-poppins"
-          value={String(draft.prompt.size ?? 19)}
+          value={String(draft.prompt?.size ?? 19)}
           onChange={v => { draft.prompt!.size = +v || 19; onChange(); }} />
       </div>
       <div className="flex flex-col gap-2 pb-3">
         <FieldLabel>闪烁光标</FieldLabel>
         <div className="flex h-12 items-center">
           <TSwitch aria-label="闪烁光标"
-            isSelected={draft.prompt.cursor ?? true}
+            isSelected={draft.prompt?.cursor ?? true}
             onChange={b => { draft.prompt!.cursor = b; onChange(); }} />
         </div>
       </div>
     </>
   );
-  if (compact) {
-    return (
-      <div className="mt-2 flex flex-col gap-3">
-        <div className="flex items-center gap-10">{toggle}</div>
+  // 开/关命令行装饰时，字段整块 spring 滑入滑出（AnimatedRow 退出期保留旧内容，不闪不崩）
+  return compact ? (
+    <div className="mt-2 flex flex-col gap-3">
+      {toggle}
+      <AnimatedRow show={!!draft.prompt}>
         <div className="flex flex-col gap-3">{fields}</div>
-      </div>
-    );
-  }
-  return <div className="mt-2 flex flex-wrap items-end gap-5">{toggle}{fields}</div>;
+      </AnimatedRow>
+    </div>
+  ) : (
+    <div className="mt-2 flex flex-wrap items-end gap-5">
+      {toggle}
+      <AnimatedRow show={!!draft.prompt}>
+        <div className="flex flex-wrap items-end gap-5">{fields}</div>
+      </AnimatedRow>
+    </div>
+  );
 }
 
 /** 模板缩略图：按画布真实比例画各部件占位块，一眼看清尺寸与布局。 */
@@ -917,7 +925,7 @@ export function TemplatePicker({ isOpen, onOpenChange, onPick, current }: {
   const card = (p: LayoutPreset) => (
     <div key={p.id} className="relative">
       <button type="button"
-        className="flex w-full flex-col gap-2 border border-white/10 bg-[#1a1a1d] p-3 text-left transition-colors hover:border-accent/70"
+        className="flex w-full flex-col gap-2 border border-white/10 bg-[#1a1a1d] p-3 text-left transition-all duration-200 hover:-translate-y-0.5 hover:border-accent/70"
         onClick={() => { onPick(p); onOpenChange(false); }}>
         <PresetThumb cfg={p.config} />
         <span className="flex items-baseline gap-2">

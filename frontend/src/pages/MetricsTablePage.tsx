@@ -69,9 +69,9 @@ export default function MetricsTablePage({ shared }: { shared: Shared }) {
                       <Table.Row key={m.id} className={isUsed ? "" : "opacity-45"}>
                         <Table.Cell>{m.name}{m.rate_untrusted ? " ⚠" : ""}</Table.Cell>
                         <Table.Cell className="text-right font-poppins tabular-nums">{fmt(v, m)}</Table.Cell>
-                        <Table.Cell className="font-poppins text-xs text-muted">{src || "无数据"}</Table.Cell>
+                        <Table.Cell className="font-jetbrains text-xs text-muted">{src || "无数据"}</Table.Cell>
                         <Table.Cell>{isUsed ? "是" : "—"}</Table.Cell>
-                        <Table.Cell className="font-poppins text-xs text-muted">
+                        <Table.Cell className="font-jetbrains text-xs text-muted">
                           {(m.sources?.aida64 || []).join(" ") || m.agg || "winapi"}
                         </Table.Cell>
                         <Table.Cell>

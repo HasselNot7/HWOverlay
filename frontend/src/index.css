@@ -7,6 +7,7 @@
    表单控件用 Poppins（@fontsource 打进包里，离线可用）。 */
 @theme {
   --font-poppins: "Poppins", sans-serif;
+  --font-jetbrains: "JetBrains Mono", ui-monospace, monospace;
 }
 
 :root {
@@ -37,8 +38,13 @@ body {
 }
 
 /* Toast 字体：v3 的 toast 根节点 BEM 类 .toast（v2 是 [data-toast]） */
-.toast {
+.toast,
+[data-toast="true"] {
   font-family: "Poppins", sans-serif;
+}
+
+::selection {
+  background: color-mix(in oklab, var(--accent) 35%, transparent);
 }
 
 /* 滚动条学 Now Playing 的 overlayscrollbars：圆头短轨，悬停提亮 */
@@ -61,4 +67,30 @@ body {
 ::-webkit-scrollbar-thumb:hover {
   background: #52525b;
   background-clip: padding-box;
+}
+
+/* OverlayScrollbars（主内容区用它替换原生滚动条，观感更精致）：深色胶囊滑块 */
+:root {
+  --os-handle-bg: #3d3d45;
+  --os-handle-bg-hover: #52525b;
+  --os-handle-bg-active: #71717a;
+  --os-size: 10px;
+  --os-padding-perpendicular: 2px;
+  --os-handle-border-radius: 9999px;
+}
+
+/* 呼吸辉光：连接状态点、在线指示的底座（NP breathing-bg 思路） */
+@keyframes hw-breathe {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.45; }
+}
+.hw-breathe {
+  animation: hw-breathe 2.4s ease-in-out infinite;
+}
+
+/* 尊重系统"减少动态效果"：关掉呼吸与自定义过渡（framer-motion 由 MotionConfig 处理） */
+@media (prefers-reduced-motion: reduce) {
+  .hw-breathe {
+    animation: none;
+  }
 }

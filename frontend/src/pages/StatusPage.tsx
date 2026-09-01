@@ -49,7 +49,7 @@ function Row({ k, v, sub }: { k: string; v: React.ReactNode; sub?: string }) {
         <span className="text-sm text-muted">{k}</span>
         {sub && <span className="text-xs text-color-desc">{sub}</span>}
       </div>
-      <span className="text-right text-sm font-poppins">{v}</span>
+      <span className="text-right text-sm font-jetbrains tabular-nums">{v}</span>
     </div>
   );
 }
@@ -124,7 +124,7 @@ export default function StatusPage({ shared }: { shared: Shared }) {
       </div>
 
       <DetailCard title="OBS 设置">
-        <Row k="URL" v={<code className="rounded-md bg-[#27272a] px-2 py-1 font-poppins">{location.origin}/</code>} />
+        <Row k="URL" v={<code className="rounded-md bg-[#27272a] px-2 py-1 font-jetbrains">{location.origin}/</code>} />
         <Row k="宽 × 高" v={`${check?.canvas_w ?? "—"} × ${check?.canvas_h ?? "—"}`} />
         <Row k="内容预估高" v={`${check?.est_height ?? "—"} px`} />
       </DetailCard>

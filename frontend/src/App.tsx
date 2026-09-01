@@ -1,5 +1,7 @@
 import { Modal, toast } from "@heroui/react";
+import { MotionConfig } from "framer-motion";
 import { useCallback, useEffect, useRef, useState } from "react";
+import { ScrollArea } from "./motion";
 import {
   House, Activity, LayoutGrid, Move, FlaskConical, Table2, RefreshCw,
   ExternalLink, Power,
@@ -148,7 +150,8 @@ export default function App() {
   const shared: Shared = { metrics, hw, check, status, reloadMetrics, refreshAll, goto: switchView };
 
   return (
-    <div className="dark bg-background font-sans text-foreground antialiased">
+    <MotionConfig reducedMotion="user">
+    <div className="dark h-screen overflow-hidden bg-background font-sans text-foreground antialiased">
       {/* 侧栏：w-72 + 分隔线 + p-6，与 Now Playing 逐像素同款 */}
       <aside className="fixed inset-y-0 left-0 z-20 h-screen w-72 border-r border-border bg-background">
         <div className="flex h-full flex-col p-6">
@@ -203,24 +206,27 @@ export default function App() {
         </Modal.Backdrop>
       </Modal>
 
-      {/* 主体：居中列。表单类页保持 NP 的 800px；表格/编辑器这类数据密集页放宽到 1200px。
-          自由排版是全屏工作台（自带工具栏/面板/保存条），不走这列。 */}
+      {/* 主体：居中列 + OverlayScrollbars 滚动区（上下边缘渐隐）。表单类页保持 NP 的 800px；
+          表格/编辑器这类数据密集页放宽到 1200px。自由排版是全屏工作台，不走这列。 */}
       {view === "free" ? <FreeEditorPage shared={shared} /> : (
-        <main className="relative ml-72 min-h-screen">
-          <div className="flex justify-center">
-            <div className={`flex w-full flex-col gap-6 px-10 py-6 ${
-              view === "editor" || view === "metrics" || view === "custom"
-                ? "max-w-[1200px]" : "max-w-[800px]"
-            }`}>
-              {view === "start" && <WizardPage shared={shared} />}
-              {view === "status" && <StatusPage shared={shared} />}
-              {view === "editor" && <EditorPage shared={shared} />}
-              {view === "custom" && <CustomMetricsPage shared={shared} />}
-              {view === "metrics" && <MetricsTablePage shared={shared} />}
+        <main className="ml-72 h-screen">
+          <ScrollArea scrollKey={view}>
+            <div className="flex justify-center">
+              <div className={`flex w-full flex-col gap-6 px-10 py-6 ${
+                view === "editor" || view === "metrics" || view === "custom"
+                  ? "max-w-[1200px]" : "max-w-[800px]"
+              }`}>
+                {view === "start" && <WizardPage shared={shared} />}
+                {view === "status" && <StatusPage shared={shared} />}
+                {view === "editor" && <EditorPage shared={shared} />}
+                {view === "custom" && <CustomMetricsPage shared={shared} />}
+                {view === "metrics" && <MetricsTablePage shared={shared} />}
+              </div>
             </div>
-          </div>
+          </ScrollArea>
         </main>
       )}
     </div>
+    </MotionConfig>
   );
 }

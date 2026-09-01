@@ -108,7 +108,7 @@ export default function WizardPage({ shared }: { shared: Shared }) {
   const step3 = (
     <StepCard kind={step3kind} num={3} title="在 OBS 里添加“浏览器”源" Icon={MonitorPlay}>
       <Hint>
-        URL <code className="rounded-md bg-[#27272a] px-1.5 py-0.5 font-poppins text-xs">{location.origin}/</code>
+        URL <code className="rounded-md bg-[#27272a] px-1.5 py-0.5 font-jetbrains text-xs">{location.origin}/</code>
         　宽 {check?.canvas_w ?? "—"} × 高 {check?.canvas_h ?? "—"}
         {!laid && " —— 版式还是空的，先去排版"}
         <br />

@@ -919,7 +919,7 @@ export default function FreeEditorPage({ shared }: { shared: Shared }) {
             const numInput = (label: string, key: "x" | "y" | "w" | "h", val?: number) => (
               <div className="flex flex-col gap-1.5">
                 <FieldLabel>{label}</FieldLabel>
-                <TextField type="number" className="w-20 font-poppins"
+                <TextField type="number" className="w-20 font-jetbrains tabular-nums"
                   value={String(val ?? 0)}
                   onChange={v => {
                     (pos as unknown as Record<string, number>)[key] = +v || 0;
@@ -1033,7 +1033,7 @@ export default function FreeEditorPage({ shared }: { shared: Shared }) {
             const pnum = (label: string, key: "x" | "y", val: number) => (
               <div className="flex flex-col gap-1.5">
                 <FieldLabel>{label}</FieldLabel>
-                <TextField type="number" className="w-20 font-poppins"
+                <TextField type="number" className="w-20 font-jetbrains tabular-nums"
                   value={String(val)}
                   onChange={v => {
                     p[key] = Math.max(0, +v || 0);

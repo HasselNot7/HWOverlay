@@ -81,5 +81,23 @@ export const Hint = ({ children, className = "" }: {
   className?: string;
 }) => <p className={`text-sm leading-6 text-color-desc ${className}`}>{children}</p>;
 
+/** 设置行：Now Playing 全站通用的高 64px 行 —— 左边标题 + 灰描述，右边控件。
+ * NP 把这套 class 配方复制了 40+ 次没抽组件，我们抽出来。divider 控制行底分隔线。 */
+export const SettingsRow = ({ title, desc, right, divider = true }: {
+  title: React.ReactNode;
+  desc?: React.ReactNode;
+  right: React.ReactNode;
+  divider?: boolean;
+}) => (
+  <div className={`flex min-h-16 items-center justify-between gap-6 ${
+    divider ? "border-b border-white/[0.04]" : ""}`}>
+    <div className="flex min-w-0 flex-col gap-[2px]">
+      <span className="text-sm font-medium text-foreground">{title}</span>
+      {desc && <span className="text-xs text-color-desc">{desc}</span>}
+    </div>
+    <div className="flex shrink-0 items-center gap-2">{right}</div>
+  </div>
+);
+
 /** Now Playing 卡片底：近黑底 + 极淡描边 + rounded-xl，悬停微亮。 */
 export const CARD_CLS = "rounded-xl border border-white/[0.04] bg-[#1a1a1d]";
