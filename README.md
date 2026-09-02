@@ -70,7 +70,7 @@ JetBrains字体 + 控制台风格，与 [Now Playing](https://github.com/Widdit/
 
 ### 方法一：下载整合包（推荐）
 
-- 前往本仓库的 [Release](https://github.com/Widdit/now-playing-service/releases) 页面下载 `HWOverlay-<版本>-win64.zip`
+- 前往本仓库的 [Release](https://github.com/HasselNot7/HWOverlay/releases) 页面下载 `HWOverlay-<版本>-win64.zip`
 - 解压双击 `HWOverlay.exe`，自动打开管理页
 
 ### 方法二：从源码运行
