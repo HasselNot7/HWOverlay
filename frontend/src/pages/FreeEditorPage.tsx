@@ -216,7 +216,7 @@ export default function FreeEditorPage({ shared }: { shared: Shared }) {
     const isDirty = JSON.stringify(d) !== JSON.stringify(c);
     setDirty(isDirty);
     setMsg(restored
-      ? { text: "已恢复上次没保存的排版（不要就点「放弃改动」）", kind: "warn" }
+      ? { text: "已恢复上次没保存的排版", kind: "warn" }
       : isDirty
         ? { text: wasFlow ? "已把版式切到自由画布（还没保存）" : "有未保存的改动", kind: "warn" }
         : { text: "", kind: "" });

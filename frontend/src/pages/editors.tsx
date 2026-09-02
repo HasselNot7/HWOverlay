@@ -306,13 +306,11 @@ export function SlotEditor({ card, defKey, title, allowLabel, metrics, onChange,
           <MiniBtn title={allowLabel ? "这一行再加一个值" : "这一格再加一个值"} onClick={addItem}>+ 加指标</MiniBtn>
           <MiniBtn title="两个指标相除，比如 显存 已用/总量" onClick={addPair}>+ 加比值</MiniBtn>
         </div>
-        {!allowLabel && <div className="mt-1 text-xs text-color-desc">只显示数值；要加前缀字，放小字行</div>}
       </div>
     </div>
   );
 }
 
-/** 大数字格的组级设置：分隔符 + 单位显示策略（分段选择器学它的 Tabs 药丸样式）。 */
 /** 大数字格的组级设置：只剩分隔符 —— 单位改成每行自己的开关了。 */
 export function ValueGroupEditor({ card, onChange, compact }: { card: CardItem; onChange: () => void; compact?: boolean }) {
   const ensure = (): GroupDef => {
@@ -328,7 +326,6 @@ export function ValueGroupEditor({ card, onChange, compact }: { card: CardItem; 
           defaultValue={card.value?.sep ?? " · "} className="w-32 font-poppins"
           onChange={v => { ensure().sep = v; onChange(); }}
         />
-        <span className="text-xs text-color-desc">每个值的单位在它自己的行上开关</span>
       </div>
     </div>
   );
@@ -999,10 +996,10 @@ export function TemplatePicker({ isOpen, onOpenChange, onPick, current }: {
                 )}
                 <div className="flex max-h-[58vh] flex-col gap-3 overflow-y-auto pr-1">
                   {!list && <Hint>加载模板列表…</Hint>}
-                  {list?.length === 0 && <Hint>模板库是空的 —— 调好版式后点上面「存为模板」。</Hint>}
+                  {list?.length === 0 && <Hint>模板库是空的</Hint>}
                   {!!mine.length && (
                     <>
-                      <Hint>我的模板（存在本机，升级不丢；点右上 ✕ 删除）</Hint>
+                      <Hint>我的模板</Hint>
                       <div className={grid}>{mine.map(card)}</div>
                     </>
                   )}

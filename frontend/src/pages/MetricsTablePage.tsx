@@ -91,9 +91,6 @@ export default function MetricsTablePage({ shared }: { shared: Shared }) {
             </Table>
           )}
         </div>
-        <Hint className="mt-2 text-xs">
-          灰色行为未使用的指标
-        </Hint>
       </Section>
 
       <Modal>

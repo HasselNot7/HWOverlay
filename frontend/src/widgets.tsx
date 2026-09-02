@@ -219,9 +219,7 @@ export function ProfileSwitcher({ onPublished }: { onPublished?: () => void }) {
           <Plus size={12} /> 存为
         </button>
       </div>
-      {profiles.length === 0 ? (
-        <span className="text-xs text-color-desc">还没有档位 —— 调好版式后点「存为」</span>
-      ) : (
+      {profiles.length === 0 ? null : (
         <div className="flex flex-wrap gap-1.5">
           {profiles.map(p => (
             <span key={p.name} className="group relative">

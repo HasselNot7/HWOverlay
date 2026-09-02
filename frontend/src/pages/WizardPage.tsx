@@ -56,7 +56,7 @@ export default function WizardPage({ shared }: { shared: Shared }) {
 
   const step1 = !status ? (
     <StepCard kind="todo" num={1} title="连接 AIDA64" Icon={Cable}>
-      <Hint>状态接口还没读到 —— 服务可能刚启动，点侧栏「刷新数据」重试。</Hint>
+      <Hint>状态接口还没读到 —— 服务可能刚启动</Hint>
     </StepCard>
   ) : status.error ? (
     <StepCard kind="bad" num={1} title="连接 AIDA64" Icon={Cable}>
@@ -93,7 +93,7 @@ export default function WizardPage({ shared }: { shared: Shared }) {
           </Btn>
           <Btn size="sm" variant="secondary" className="bg-[#27272a]"
             onPress={() => shared.goto("editor")}>
-            去排版（{laid ? `已 ${widgetCount} 个部件` : "空白画布，可从模板一键加载"}）
+            去排版（{laid ? `已 ${widgetCount} 个部件` : "空白画布"}）
             <ArrowRight size={14} />
           </Btn>
         </>
