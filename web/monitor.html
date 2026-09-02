@@ -201,8 +201,10 @@
 
     let HW = null;
     const byOut = new Map();  // 输出路径 -> 注册表条目
-    const history = {};       // 指标路径 -> 采样数组（cards 的迷你曲线用）
+    // spark 指标路径 -> { buf: 采样数组, sampled: 最后补样的帧号 }
+    const history = {};
     let instances = [];
+    let tickSeq = 0;          // 每次 render() 自增：一条曲线被多张卡引用时，一帧只补一个采样
 
     // 预览模式（/?preview=1，只有管理页会用）：布局不从 overlay.json 读，
     // 由父页面 postMessage 推送草稿，改一下推一次 —— OBS 里不带这个参数，不受影响。
@@ -293,6 +295,11 @@
     }
     const text = s => document.createTextNode(s);
 
+    // innerHTML 拼接前的转义：指标名/单位来自用户注册表，混进 < & 这类字符时不能破坏结构。
+    // text 部件走文本节点不需要它；html 部件本来就是用户全权的 HTML。
+    const esc = s => String(s).replace(/[&<>"']/g, c =>
+      ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+
     // 几何内联应用：CSS 里的值只是无配置时的兜底，校验器算的是同一份配置数
     function applyCanvas(canvas) {
       if (!canvas) return;
@@ -344,7 +351,7 @@
         states[c.key] = { el: card, value, bar, subText, spark,
                           barMetric: c.bar, barFull: c.bar_full,
                           valueDef: c.value, subDef: c.sub, sparkMetric: c.spark };
-        if (c.spark && !history[c.spark]) history[c.spark] = [];
+        if (c.spark && !history[c.spark]) history[c.spark] = { buf: [], sampled: 0 };
       }
       document.body.appendChild(grid);
 
@@ -370,10 +377,13 @@
             c.el.classList.toggle('tight', probe.scrollWidth > room);
 
             if (c.sparkMetric) {
-              const h = history[c.sparkMetric];
-              h.push(HW ? dig(HW, c.sparkMetric) : null);
-              while (h.length > HISTORY) h.shift();
-              drawSpark(c.spark, h, (byOut.get(c.sparkMetric) || {}).warn);
+              const s = history[c.sparkMetric];
+              if (s.sampled !== tickSeq) {   // 同一指标被多张卡引用：第二张卡直接复用本帧采样
+                s.sampled = tickSeq;
+                s.buf.push(HW ? dig(HW, c.sparkMetric) : null);
+                while (s.buf.length > HISTORY) s.buf.shift();
+              }
+              drawSpark(c.spark, s.buf, (byOut.get(c.sparkMetric) || {}).warn);
             }
           }
         }
@@ -412,7 +422,7 @@
             const v = HW ? dig(HW, s.metric) : null;
             if (v == null) continue;
             html.push(`<div class="chip${isHigh(v, mt.warn) ? ' warn' : ''}">` +
-                      `<b>${mt.name}</b><span>${txt(v, mt)}</span></div>`);
+                      `<b>${esc(mt.name)}</b><span>${esc(txt(v, mt))}</span></div>`);
           }
           host.innerHTML = html.join('');
           if (host.dataset.fit === 'shrink') {

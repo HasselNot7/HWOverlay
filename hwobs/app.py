@@ -1,8 +1,8 @@
 """命令行入口：`python -m hwobs`（或等价的 `python -m hwobs.app`）。"""
 
-import os
 import socket
 import sys
+import time
 import webbrowser
 
 import uvicorn
@@ -58,15 +58,28 @@ def already_running():
     return ctypes.windll.kernel32.GetLastError() == ERROR_ALREADY_EXISTS, handle
 
 
-def main():
-    # windowed 打包（console=False）双击运行时没有 stdout/stderr（是 None），
-    # uvicorn 的日志格式化器会调 sys.stdout.isatty() 直接崩
-    # （ValueError: Unable to configure formatter 'default'）。挂到 devnull 兜底；
-    # 带控制台的启动（python -m hwobs、重定向）不受影响。
+def setup_stdio():
+    """windowed 打包（console=False）双击运行时没有 stdout/stderr（是 None）：
+    uvicorn 的日志格式化器会调 sys.stdout.isatty() 直接崩
+    （ValueError: Unable to configure formatter 'default'）。
+    两个流都落到数据目录的 crash.log（追加）—— 打包版没有控制台，启动失败
+    （端口被占、配置坏了）能留下的唯一痕迹就是它；未捕获异常的 traceback 和
+    SystemExit 的说明默认也写 sys.stderr，落在同一个文件里。
+    带控制台的启动（python -m hwobs、重定向）不受影响。"""
+    if sys.stdout is not None and sys.stderr is not None:
+        return
+    log_dir = paths.data_root()
+    log_dir.mkdir(parents=True, exist_ok=True)
+    log = (log_dir / "crash.log").open("a", buffering=1, encoding="utf-8")
+    log.write(f"\n===== {time.strftime('%Y-%m-%d %H:%M:%S')} 启动 =====\n")
     if sys.stdout is None:
-        sys.stdout = open(os.devnull, "w", encoding="utf-8")
+        sys.stdout = log
     if sys.stderr is None:
-        sys.stderr = open(os.devnull, "w", encoding="utf-8")
+        sys.stderr = log
+
+
+def main():
+    setup_stdio()
     paths.ensure_overlay("monitor")
     running, _keep = already_running()
     if running:

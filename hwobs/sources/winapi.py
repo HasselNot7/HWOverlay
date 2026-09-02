@@ -89,21 +89,27 @@ def _sample_once():
 
 
 def start_net_sampler(interval=NET_SAMPLE_INTERVAL):
-    """幂等启动后台采样线程。只在 AIDA64 供不上网卡速率时才调用。"""
+    """幂等启动后台采样线程。只在 AIDA64 供不上网卡速率时才调用。
+
+    check-and-start 全程持锁：/hw.json 每秒被 OBS 轮询，同步端点跑线程池，
+    并发调用若锁外建线程会起出多个采样线程、PowerShell 翻倍拉起。
+    首次采样也放进线程里（PowerShell 单次约 1.3 秒，不能堵请求路径），
+    采满两轮之前 net_mbps() 是 (None, None)，指标先显示 --。
+    """
     global _THREAD
     with _LOCK:
         if _THREAD and _THREAD.is_alive():
             return _THREAD
-    _sample_once()
-    _THREAD = threading.Thread(target=_loop, args=(interval,), daemon=True, name="net-sampler")
-    _THREAD.start()
-    return _THREAD
+        _THREAD = threading.Thread(target=_loop, args=(interval,), daemon=True, name="net-sampler")
+        _THREAD.start()
+        return _THREAD
 
 
 def _loop(interval):
+    # 先采后睡：线程一启动就补第一个样本，而不是白等一个周期
     while True:
-        time.sleep(interval)
         _sample_once()
+        time.sleep(interval)
 
 
 def net_mbps():

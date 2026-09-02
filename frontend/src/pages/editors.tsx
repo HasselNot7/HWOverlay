@@ -475,9 +475,10 @@ export function TextEditor({ w, metrics, onChange, compact }: { w: TextWidget; m
   return (
     <div>
       <Hint className="mb-2">{"{指标路径}"} 插实时值；{"{time} {date}"} 为本地时钟/日期。</Hint>
+      {/* 受控：快捷插入按钮直接改 w.text，非受控框看不见这种外部改动，还会被下一次键入覆盖 */}
       <TF
         aria-label="正文" placeholder="想写的话 + {指标} 占位符"
-        defaultValue={w.text ?? ""} className={compact ? "font-poppins" : "max-w-xl font-poppins"}
+        value={w.text ?? ""} className={compact ? "font-poppins" : "max-w-xl font-poppins"}
         onChange={v => { w.text = v; onChange(); }}
       />
       <div className="mt-2 flex flex-wrap items-center gap-4">
