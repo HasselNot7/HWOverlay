@@ -73,7 +73,7 @@ export function MetricSelect({ metrics, value, allowEmpty = true, compact, onCha
         <Select.Indicator />
       </Select.Trigger>
       <Select.Popover>
-        <ListBox className="max-h-72">
+        <ListBox>
           {options.map(o => (
             <ListBox.Item key={o.id} id={o.id} textValue={o.label}>
               {o.label}

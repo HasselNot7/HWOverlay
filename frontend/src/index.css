@@ -6,8 +6,8 @@
 /* 字体学 Now Playing：正文交给系统 sans-serif（中文落微软雅黑），
    表单控件用 Poppins（@fontsource 打进包里，离线可用）。 */
 @theme {
-  --font-poppins: "Poppins", sans-serif;
-  --font-jetbrains: "JetBrains Mono", ui-monospace, monospace;
+  --font-poppins: "Poppins", "Microsoft YaHei", "PingFang SC", sans-serif;
+  --font-jetbrains: "JetBrains Mono", ui-monospace, "Microsoft YaHei", "PingFang SC", monospace;
 }
 
 :root {
@@ -30,7 +30,9 @@ body {
   margin: 0;
   background: var(--background);
   color: var(--foreground);
-  font-family: sans-serif;
+  /* 显式钉死中文落点：弹出层（Select 面板等）portal 到 body，
+     裸 sans-serif 在部分环境会落到宋体，和界面其它文字不一致 */
+  font-family: "Poppins", "Microsoft YaHei", "PingFang SC", sans-serif;
 }
 
 .text-color-desc {
