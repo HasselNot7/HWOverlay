@@ -101,7 +101,7 @@ python -m hwobs --open            # 管理页 http://localhost:8765/admin
 | 前端开发 | `cd frontend && npm ci && npm run dev`（5173，API 自动代理到 8765） |
 | 打包 exe | `python -m pip install -r requirements-dev.txt && python scripts/build.py` |
 
-构建期需要 Node.js ≥ 18；运行期不需要。
+构建需要 Node.js ≥ 18
 
 ---
 
@@ -115,7 +115,7 @@ python -m hwobs --open            # 管理页 http://localhost:8765/admin
                    └── /admin       管理页（React 19 + HeroUI v3 构建产物，静态文件）
 ```
 
-监控项走三级管线：**AIDA64 导出 → 注册表映射成指标 → 版式引用**。
+监控项：**AIDA64 导出 → 注册表映射成指标 → 版式引用**。
 管理页"自定义指标"视图会把未注册的传感器列出来，点"做成指标"填名字单位即可，
 存 `metrics.user.json`（用户数据目录），不需要重启。
 
@@ -175,16 +175,14 @@ python -m hwobs --open            # 管理页 http://localhost:8765/admin
 
 ## 致谢
 
-- [Now Playing](https://github.com/Widdit/now-playing-service) —— 本项目的很多灵感来自它：控制台 / Shell 风格的叠加层形态、管理页的排版与微动效语言，都是照着它学出来的。
-
+- [Now Playing](https://github.com/Widdit/now-playing-service) —— 本项目大量参考了Now Playing，在此为Now Playing的所有开发者表示感谢
 ## 参与
 
-Issues 和 PR 都欢迎。
+项目里仍存在大大小小的Bug或功能缺损，欢迎各位的Issues以及PR。
 
 ---
 
 ## 许可证
 
-[MIT](LICENSE)。可自由使用、修改、分发（含商用），保留版权声明即可；
-软件按"原样"提供，不附带任何担保。
+[MIT](LICENSE)。可自由使用、修改、分发，保留版权声明即可；软件按"原样"提供，不附带任何担保。
 
