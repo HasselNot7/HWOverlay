@@ -22,8 +22,8 @@ ICON = str(ROOT / "assets" / "app.ico")   # python scripts/make_icon.py 生成
 
 datas = [
     ('web/monitor.html', 'web'),
-    # 只带模板库；overlays/monitor.json 是各人机器上的运行时版式，不进包
-    ('overlays/presets.json', 'overlays'),
+    # 模板库不再随包分发（内置模板已删，用户自己存/导入）；
+    # overlays/monitor.json 是各人机器上的运行时版式，本来就不进包
     ('hwobs/registry/metrics.json', 'hwobs/registry'),
 ]
 if FRONTEND_DIST.is_dir():

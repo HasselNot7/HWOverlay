@@ -57,7 +57,7 @@ def validate(cfg, path=OVERLAY_FILE):
                                           "typical_bytes", "fits", "truncated_at")}
     if not cfg.get("widgets"):
         rep["warnings"] = rep.get("warnings", []) + \
-            ["版式是空的：去「版式编辑」加部件，或点「加载默认样式」一键上手"]
+            ["版式是空的：去「版式编辑」加部件"]
     rep["target"] = str(path)
     return rep
 
