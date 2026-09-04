@@ -732,6 +732,7 @@
     if (PREVIEW) document.fonts.ready.then(reportRectsSoon);
 
     function render() {
+      tickSeq++;                 // 帧号推进：spark 的 sampled!==tickSeq 判据全靠它
       document.body.classList.toggle('offline', !HW);
       document.body.classList.toggle('degraded', !!(HW && HW.degraded));
       for (const inst of instances) inst.update();
