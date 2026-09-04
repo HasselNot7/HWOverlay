@@ -90,7 +90,7 @@ export function MetricSelect({ metrics, value, allowEmpty = true, compact, onCha
 const MiniBtn = ({ onClick, title, children }: {
   onClick: () => void; title?: string; children: React.ReactNode;
 }) => (
-  <Btn className="h-7 min-w-0 px-2 text-xs text-muted"
+  <Btn size="sm" className="h-8 rounded-lg bg-[#1a1a1d] px-3 font-poppins text-sm text-foreground hover:bg-[#222226]"
     title={title} onPress={onClick}>
     {children}
   </Btn>
@@ -111,7 +111,9 @@ function SlotRow({ arr, i, total, unitAll, allowLabel, metrics, onChange, rebuil
 }) {
   const item = arr[i];
   const del = (
-    <Btn isIconOnly variant="ghost" className="h-7 w-7 min-w-0 rounded-full text-muted"
+    <Btn isIconOnly variant="ghost" className={compact
+      ? "h-8 w-8 min-w-0 shrink-0 rounded-lg text-muted hover:bg-danger/15 hover:text-danger"
+      : "h-7 w-7 min-w-0 rounded-full text-muted"}
       title="移除这一项" onPress={() => { arr.splice(i, 1); rebuild(); onChange(); }}>
       ✕
     </Btn>
@@ -132,7 +134,7 @@ function SlotRow({ arr, i, total, unitAll, allowLabel, metrics, onChange, rebuil
   };
 
   const metricSel = compact ? (
-    <div className="w-full">
+    <div className="min-w-0 flex-1">
       <MetricSelect metrics={metrics}
         value={typeof item === "string" ? item : (item && "metric" in item ? item.metric : undefined)}
         allowEmpty={false} compact
@@ -155,13 +157,13 @@ function SlotRow({ arr, i, total, unitAll, allowLabel, metrics, onChange, rebuil
       }} />
   );
 
-  const rowCls = compact ? "my-1.5 flex flex-wrap items-center gap-1.5" : "my-1 flex items-center gap-1.5";
+  const rowCls = compact ? "flex items-center gap-2" : "my-1 flex items-center gap-1.5";
 
   if (typeof item === "string") {
     return (
       <div className={rowCls}>
         {metricSel}
-        {!allowLabel && <TSwitch aria-label="这个值带单位" title="显示单位"
+        {!allowLabel && <TSwitch className="shrink-0" aria-label="这个值带单位" title="显示单位"
           isSelected={unitOn} onChange={setUnit} />}
         {allowLabel && (
           <TF
@@ -180,7 +182,7 @@ function SlotRow({ arr, i, total, unitAll, allowLabel, metrics, onChange, rebuil
     return (
       <div className={rowCls}>
         {metricSel}
-        {!allowLabel && <TSwitch aria-label="这个值带单位" title="显示单位"
+        {!allowLabel && <TSwitch className="shrink-0" aria-label="这个值带单位" title="显示单位"
           isSelected={unitOn} onChange={setUnit} />}
         {allowLabel && (
           <TF
@@ -238,8 +240,8 @@ function SlotRow({ arr, i, total, unitAll, allowLabel, metrics, onChange, rebuil
                 onBlur={e => { item.label = e.target.value || undefined; onChange(); }} />
             </label>
           )}
-          {!allowLabel && <TSwitch aria-label="这个值带单位" title="显示单位"
-            isSelected={unitOn} onChange={setUnit} />}
+          {!allowLabel && <TSwitch className="shrink-0" aria-label="这个值带单位" title="显示单位"
+          isSelected={unitOn} onChange={setUnit} />}
         </div>
       </div>
     );
@@ -299,11 +301,11 @@ export function SlotEditor({ card, defKey, title, allowLabel, metrics, onChange,
   };
 
   return (
-    <div className={compact ? "my-2 flex flex-col gap-1.5" : "my-2.5 flex items-start gap-3"}>
+    <div className={compact ? "flex flex-col gap-2" : "my-2.5 flex items-start gap-3"}>
       <span className={compact ? "" : "w-[110px] flex-none pt-2"}><FieldLabel>{title}</FieldLabel></span>
-      <div className="min-w-0 flex-1">
+      <div className="flex min-w-0 flex-col gap-2">
         {rows}
-        <div className="mt-1 flex gap-2">
+        <div className="flex gap-2 pt-0.5">
           <MiniBtn title={allowLabel ? "这一行再加一个值" : "这一格再加一个值"} onClick={addItem}>+ 加指标</MiniBtn>
           <MiniBtn title="两个指标相除，比如 显存 已用/总量" onClick={addPair}>+ 加比值</MiniBtn>
         </div>
@@ -319,15 +321,13 @@ export function ValueGroupEditor({ card, onChange, compact }: { card: CardItem; 
     return card.value;
   };
   return (
-    <div className={compact ? "my-2 flex flex-col gap-1.5" : "my-2.5 flex items-start gap-3"}>
+    <div className={compact ? "flex flex-col gap-1.5" : "my-2.5 flex items-start gap-3"}>
       <span className={compact ? "" : "w-[110px] flex-none pt-2"}><FieldLabel>分隔符</FieldLabel></span>
-      <div className="flex flex-wrap items-center gap-2.5">
-        <TF
-          aria-label="分隔符"
-          defaultValue={card.value?.sep ?? " · "} className="w-32 font-poppins"
-          onChange={v => { ensure().sep = v; onChange(); }}
-        />
-      </div>
+      <TF
+        aria-label="分隔符"
+        defaultValue={card.value?.sep ?? " · "} className={compact ? "w-full font-poppins" : "w-32 font-poppins"}
+        onChange={v => { ensure().sep = v; onChange(); }}
+      />
     </div>
   );
 }
@@ -341,59 +341,61 @@ function CardEditor({ w, card, index, metrics, onChange, compact }: {
   compact?: boolean;
 }) {
   return (
-    <div className={`${CARD_CLS} p-4`}>
-      <div className="mb-3 flex items-center justify-between">
-        <FieldLabel>卡 {index + 1}</FieldLabel>
-        <Btn variant="ghost" className="h-6 min-w-0 px-1.5 text-xs text-muted"
+    <div className={`${CARD_CLS} rounded-2xl p-4`}>
+      <div className="mb-4 flex items-center justify-between">
+        <b className="text-[15px] font-bold text-foreground">卡 {index + 1}</b>
+        <Btn variant="ghost" className="h-7 min-w-0 px-2 text-xs text-muted hover:text-danger"
           onPress={() => { w.items.splice(index, 1); onChange(); }}>
           删卡
         </Btn>
       </div>
 
-      <div className="my-3 flex flex-col gap-1.5">
-        <span className="text-xs text-color-desc">标题（卡片左上）</span>
-        <TF
-          aria-label="卡片标题"
-          defaultValue={card.label ?? ""} className={compact ? "font-poppins" : "max-w-md font-poppins"}
-          onChange={v => { card.label = v; onChange(); }}
-        />
-      </div>
+      <div className="flex flex-col gap-4">
+        <div className="flex flex-col gap-1.5">
+          <FieldLabel>标题（卡片左上）</FieldLabel>
+          <TF
+            aria-label="卡片标题"
+            defaultValue={card.label ?? ""} className={compact ? "w-full font-poppins" : "max-w-md font-poppins"}
+            onChange={v => { card.label = v; onChange(); }}
+          />
+        </div>
 
-      <div className={compact ? "my-3 flex flex-col gap-2" : "my-3 flex flex-wrap items-center gap-5"}>
-        <label className={compact ? "flex items-center gap-2 text-xs text-color-desc" : "flex items-center gap-2 text-xs text-color-desc"}>进度条
-          <MetricSelect metrics={metrics} value={card.bar} compact={compact}
-            onChange={v => { if (v) card.bar = v; else delete card.bar; onChange(); }} />
-        </label>
-        <label className="flex items-center gap-2 text-xs text-color-desc">迷你曲线
-          <MetricSelect metrics={metrics} value={card.spark} compact={compact}
-            onChange={v => { if (v) card.spark = v; else delete card.spark; onChange(); }} />
-        </label>
-      </div>
+        <div className="grid grid-cols-2 gap-3">
+          <div className="flex min-w-0 flex-col gap-1.5">
+            <FieldLabel>进度条</FieldLabel>
+            <MetricSelect metrics={metrics} value={card.bar} compact onChange={
+              v => { if (v) card.bar = v; else delete card.bar; onChange(); }} />
+          </div>
+          <div className="flex min-w-0 flex-col gap-1.5">
+            <FieldLabel>迷你曲线</FieldLabel>
+            <MetricSelect metrics={metrics} value={card.spark} compact onChange={
+              v => { if (v) card.spark = v; else delete card.spark; onChange(); }} />
+          </div>
+        </div>
 
-      <SlotEditor card={card} defKey="value" title="大数字（右上）" allowLabel={false} metrics={metrics} onChange={onChange} compact={compact} />
-      <ValueGroupEditor card={card} onChange={onChange} compact={compact} />
-      <SlotEditor card={card} defKey="sub" title="小字（下方一行）" allowLabel metrics={metrics} onChange={onChange} compact={compact} />
+        <SlotEditor card={card} defKey="value" title="大数字（右上）" allowLabel={false} metrics={metrics} onChange={onChange} compact={compact} />
+        <ValueGroupEditor card={card} onChange={onChange} compact={compact} />
+        <SlotEditor card={card} defKey="sub" title="小字（下方一行）" allowLabel metrics={metrics} onChange={onChange} compact={compact} />
+      </div>
     </div>
   );
 }
 
 export function CardsEditor({ w, metrics, onChange, compact }: { w: CardsWidget; metrics: Metric[]; onChange: () => void; compact?: boolean }) {
   return (
-    <div>
+    <div className="flex flex-col gap-3">
       {w.items.map((c, i) => (
         <CardEditor key={c.key ?? i} w={w} card={c} index={i} metrics={metrics} onChange={onChange} compact={compact} />
       ))}
-      <div className="mt-2">
-        <MiniBtn onClick={() => {
-          const first = outPaths(metrics)[0];
-          const keys = new Set(w.items.map(c => c.key));
-          let n = 1;
-          while (keys.has(`card${n}`)) n += 1;
-          w.items.push({ key: `card${n}`, label: "新卡片", bar: first,
-            value: { metrics: [first] }, sub: { sep: " · ", metrics: [] } });
-          onChange();
-        }}>+ 加一张卡</MiniBtn>
-      </div>
+      <MiniBtn onClick={() => {
+        const first = outPaths(metrics)[0];
+        const keys = new Set(w.items.map(c => c.key));
+        let n = 1;
+        while (keys.has(`card${n}`)) n += 1;
+        w.items.push({ key: `card${n}`, label: "新卡片", bar: first,
+          value: { metrics: [first] }, sub: { sep: " · ", metrics: [] } });
+        onChange();
+      }}>+ 加一张卡</MiniBtn>
     </div>
   );
 }
@@ -408,17 +410,17 @@ export function ChipsEditor({ w, metrics, onChange }: { w: ChipsWidget; metrics:
   }
   return (
     <div>
-      <div className="flex items-center gap-2.5">
-        <span className="text-xs text-color-desc">字号</span>
+      <div className="flex flex-col gap-1.5">
+        <FieldLabel>字号</FieldLabel>
         <TF
           aria-label="字号" type="number"
-          defaultValue={String(w.font ?? 15)} className="w-24"
+          defaultValue={String(w.font ?? 15)} className="w-full font-poppins"
           onChange={v => { w.font = +v || 15; onChange(); }}
         />
       </div>
       <Accordion
         allowsMultipleExpanded variant="surface"
-        className="mt-2" hideSeparator
+        className="mt-3" hideSeparator
         defaultExpandedKeys={[...byPrefix].filter(([, paths]) => paths.some(p => inChips.has(p))).map(([k]) => k)}
       >
         {[...byPrefix].map(([prefix, paths]) => {
@@ -437,12 +439,13 @@ export function ChipsEditor({ w, metrics, onChange }: { w: ChipsWidget; metrics:
               </Accordion.Heading>
               <Accordion.Panel>
                 <Accordion.Body className="pb-2">
-                  <div className="grid grid-cols-[repeat(auto-fill,minmax(230px,1fr))] gap-y-1 gap-x-4">
+                  <div className="flex flex-col gap-0.5">
                     {paths.map(p => {
                       const m = metrics.find(x => x.out === p);
                       return (
                         <Checkbox
                           key={p}
+                          className="rounded-lg px-2 py-1.5 hover:bg-white/[0.04]"
                           isSelected={inChips.has(p)}
                           onChange={checked => {
                             w.items = (w.items || []).filter(x => x !== p);
@@ -474,36 +477,39 @@ const QUICK = ["cpu.usage", "cpu.temp", "gpu.usage", "gpu.temp", "ram.used", "ra
 
 export function TextEditor({ w, metrics, onChange, compact }: { w: TextWidget; metrics: Metric[]; onChange: () => void; compact?: boolean }) {
   return (
-    <div>
-      <Hint className="mb-2">{"{指标路径}"} 插实时值；{"{time} {date}"} 为本地时钟/日期。</Hint>
-      {/* 受控：快捷插入按钮直接改 w.text，非受控框看不见这种外部改动，还会被下一次键入覆盖 */}
-      <TF
-        aria-label="正文" placeholder="想写的话 + {指标} 占位符"
-        value={w.text ?? ""} className={compact ? "font-poppins" : "max-w-xl font-poppins"}
-        onChange={v => { w.text = v; onChange(); }}
-      />
-      <div className="mt-2 flex flex-wrap items-center gap-4">
-        <div className="flex items-center gap-2.5">
-          <span className="text-xs text-color-desc">字号</span>
-          <TF
-            aria-label="字号" type="number"
-            defaultValue={String(w.size ?? 19)} className="w-24 font-poppins"
-            onChange={v => { w.size = +v || 19; onChange(); }}
-          />
-        </div>
-        <div className="flex flex-wrap items-center gap-1.5 pb-1">
-          <span className="text-xs text-color-desc">点击插入指标：</span>
+    <div className="flex flex-col gap-4">
+      <div className="flex flex-col gap-1.5">
+        <FieldLabel>正文</FieldLabel>
+        {/* 受控：快捷插入按钮直接改 w.text，非受控框看不见这种外部改动，还会被下一次键入覆盖 */}
+        <TF
+          aria-label="正文" placeholder="想写的话 + {指标} 占位符"
+          value={w.text ?? ""} className={compact ? "w-full font-poppins" : "max-w-xl font-poppins"}
+          onChange={v => { w.text = v; onChange(); }}
+        />
+        <Hint className="text-xs">{"{指标路径}"} 插实时值；{"{time} {date}"} 为本地时钟/日期。</Hint>
+      </div>
+      <div className="flex flex-col gap-1.5">
+        <FieldLabel>字号</FieldLabel>
+        <TF
+          aria-label="字号" type="number"
+          defaultValue={String(w.size ?? 19)} className={compact ? "w-full font-poppins" : "w-24 font-poppins"}
+          onChange={v => { w.size = +v || 19; onChange(); }}
+        />
+      </div>
+      <div className="flex flex-col gap-2">
+        <FieldLabel>点击插入指标</FieldLabel>
+        <div className="flex flex-wrap gap-1.5">
           {QUICK.map(p => {
             const name = metrics.find(m => m.out === p)?.name || p;
             return (
-              <Btn key={p} className="h-7 min-w-0 px-2 font-poppins text-xs"
+              <Btn key={p} size="sm" className="h-8 rounded-lg bg-[#1a1a1d] px-3 font-poppins text-sm text-muted hover:bg-[#222226] hover:text-foreground"
                 onPress={() => { w.text = `${w.text || ""}{${p}}`; onChange(); }}>
                 {name}
               </Btn>
             );
           })}
           {["time", "date"].map(p => (
-            <Btn key={p} className="h-7 min-w-0 px-2 font-poppins text-xs text-accent"
+            <Btn key={p} size="sm" className="h-8 rounded-lg bg-[#1a1a1d] px-3 font-poppins text-sm text-accent hover:bg-[#222226]"
               title={p === "time" ? "本地时钟 HH:MM:SS，每秒跳动" : "本地日期 YYYY-MM-DD"}
               onPress={() => { w.text = `${w.text || ""}{${p}}`; onChange(); }}>
               {p === "time" ? "时钟" : "日期"}
@@ -519,23 +525,25 @@ export function TextEditor({ w, metrics, onChange, compact }: { w: TextWidget; m
 
 export function StatEditor({ w, metrics, onChange, compact }: { w: StatWidget; metrics: Metric[]; onChange: () => void; compact?: boolean }) {
   return (
-    <div className="flex flex-col gap-2">
-      <div className="flex items-center gap-2.5">
-        <span className="w-[64px] flex-none text-xs text-color-desc">指标</span>
-        <MetricSelect metrics={metrics} value={w.metric} allowEmpty={false} compact={compact}
+    <div className="flex flex-col gap-4">
+      <div className="flex min-w-0 flex-col gap-1.5">
+        <FieldLabel>指标</FieldLabel>
+        <MetricSelect metrics={metrics} value={w.metric} allowEmpty={false} compact
           onChange={v => { if (v) { w.metric = v; onChange(); } }} />
       </div>
-      <div className="flex items-center gap-2.5">
-        <span className="w-[64px] flex-none text-xs text-color-desc">名字</span>
-        <TF className={compact ? "min-w-0 flex-1 font-poppins" : "w-56 font-poppins"} placeholder="可空"
-          defaultValue={w.label ?? ""}
-          onChange={v => { w.label = v || undefined; onChange(); }} />
-      </div>
-      <div className="flex items-center gap-2.5">
-        <span className="w-[64px] flex-none text-xs text-color-desc">字号</span>
-        <TF type="number" className="w-24 font-poppins"
-          defaultValue={String(w.size ?? 26)}
-          onChange={v => { w.size = +v || 26; onChange(); }} />
+      <div className="grid grid-cols-2 gap-3">
+        <div className="flex min-w-0 flex-col gap-1.5">
+          <FieldLabel>名字（可空）</FieldLabel>
+          <TF className="w-full font-poppins" placeholder="如 CPU"
+            defaultValue={w.label ?? ""}
+            onChange={v => { w.label = v || undefined; onChange(); }} />
+        </div>
+        <div className="flex min-w-0 flex-col gap-1.5">
+          <FieldLabel>字号</FieldLabel>
+          <TF type="number" className="w-full font-poppins"
+            defaultValue={String(w.size ?? 26)}
+            onChange={v => { w.size = +v || 26; onChange(); }} />
+        </div>
       </div>
     </div>
   );
@@ -543,23 +551,25 @@ export function StatEditor({ w, metrics, onChange, compact }: { w: StatWidget; m
 
 export function ProgressEditor({ w, metrics, onChange, compact }: { w: ProgressWidget; metrics: Metric[]; onChange: () => void; compact?: boolean }) {
   return (
-    <div className="flex flex-col gap-2">
-      <div className="flex items-center gap-2.5">
-        <span className="w-[64px] flex-none text-xs text-color-desc">指标</span>
-        <MetricSelect metrics={metrics} value={w.metric} allowEmpty={false} compact={compact}
+    <div className="flex flex-col gap-4">
+      <div className="flex min-w-0 flex-col gap-1.5">
+        <FieldLabel>指标</FieldLabel>
+        <MetricSelect metrics={metrics} value={w.metric} allowEmpty={false} compact
           onChange={v => { if (v) { w.metric = v; onChange(); } }} />
       </div>
-      <div className="flex items-center gap-2.5">
-        <span className="w-[64px] flex-none text-xs text-color-desc">宽度</span>
-        <TF type="number" className="w-24 font-poppins"
-          defaultValue={String(w.w ?? 260)}
-          onChange={v => { w.w = +v || 260; onChange(); }} />
-      </div>
-      <div className="flex items-center gap-2.5">
-        <span className="w-[64px] flex-none text-xs text-color-desc">条高</span>
-        <TF type="number" className="w-24 font-poppins"
-          defaultValue={String(w.height ?? 10)}
-          onChange={v => { w.height = +v || 10; onChange(); }} />
+      <div className="grid grid-cols-2 gap-3">
+        <div className="flex min-w-0 flex-col gap-1.5">
+          <FieldLabel>宽度</FieldLabel>
+          <TF type="number" className="w-full font-poppins"
+            defaultValue={String(w.w ?? 260)}
+            onChange={v => { w.w = +v || 260; onChange(); }} />
+        </div>
+        <div className="flex min-w-0 flex-col gap-1.5">
+          <FieldLabel>条高</FieldLabel>
+          <TF type="number" className="w-full font-poppins"
+            defaultValue={String(w.height ?? 10)}
+            onChange={v => { w.height = +v || 10; onChange(); }} />
+        </div>
       </div>
     </div>
   );
@@ -567,29 +577,31 @@ export function ProgressEditor({ w, metrics, onChange, compact }: { w: ProgressW
 
 export function GaugeEditor({ w, metrics, onChange, compact }: { w: GaugeWidget; metrics: Metric[]; onChange: () => void; compact?: boolean }) {
   return (
-    <div className="flex flex-col gap-2">
-      <div className="flex items-center gap-2.5">
-        <span className="w-[64px] flex-none text-xs text-color-desc">指标</span>
-        <MetricSelect metrics={metrics} value={w.metric} allowEmpty={false} compact={compact}
+    <div className="flex flex-col gap-4">
+      <div className="flex min-w-0 flex-col gap-1.5">
+        <FieldLabel>指标</FieldLabel>
+        <MetricSelect metrics={metrics} value={w.metric} allowEmpty={false} compact
           onChange={v => { if (v) { w.metric = v; onChange(); } }} />
       </div>
-      <div className="flex items-center gap-2.5">
-        <span className="w-[64px] flex-none text-xs text-color-desc">标签</span>
-        <TF className="font-poppins" placeholder="圆环下的小字（可空）"
+      <div className="flex min-w-0 flex-col gap-1.5">
+        <FieldLabel>标签（圆环下小字，可空）</FieldLabel>
+        <TF className="w-full font-poppins" placeholder="如 CPU"
           defaultValue={typeof w.label === "string" ? w.label : ""}
           onChange={v => { w.label = v || undefined; onChange(); }} />
       </div>
-      <div className="flex items-center gap-2.5">
-        <span className="w-[64px] flex-none text-xs text-color-desc">大小</span>
-        <TF type="number" className="w-24 font-poppins"
-          defaultValue={String(w.size ?? 120)}
-          onChange={v => { w.size = +v || 120; onChange(); }} />
-      </div>
-      <div className="flex items-center gap-2.5">
-        <span className="w-[64px] flex-none text-xs text-color-desc">环宽</span>
-        <TF type="number" className="w-24 font-poppins"
-          defaultValue={String(w.ring ?? 10)}
-          onChange={v => { w.ring = +v || 10; onChange(); }} />
+      <div className="grid grid-cols-2 gap-3">
+        <div className="flex min-w-0 flex-col gap-1.5">
+          <FieldLabel>大小</FieldLabel>
+          <TF type="number" className="w-full font-poppins"
+            defaultValue={String(w.size ?? 120)}
+            onChange={v => { w.size = +v || 120; onChange(); }} />
+        </div>
+        <div className="flex min-w-0 flex-col gap-1.5">
+          <FieldLabel>环宽</FieldLabel>
+          <TF type="number" className="w-full font-poppins"
+            defaultValue={String(w.ring ?? 10)}
+            onChange={v => { w.ring = +v || 10; onChange(); }} />
+        </div>
       </div>
     </div>
   );

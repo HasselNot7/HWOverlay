@@ -1282,7 +1282,7 @@ export default function EditorPage({ shared }: { shared: Shared }) {
                 {promptRect && (
                   <div className="flex flex-wrap items-center gap-2">
                     <span className="text-xs text-muted">对齐命令行：</span>
-                    <Btn size="sm" variant="secondary" className="bg-[#27272a]"
+                    <Btn size="sm" className="h-8 rounded-lg bg-[#1a1a1d] px-3 text-sm hover:bg-[#222226]"
                       title="把这个部件的左缘贴到命令行第一个字符的位置"
                       onPress={() => {
                         pushHistory();
@@ -1290,7 +1290,7 @@ export default function EditorPage({ shared }: { shared: Shared }) {
                         setDraft({ ...draft });
                         onChange();
                       }}>左缘</Btn>
-                    <Btn size="sm" variant="secondary" className="bg-[#27272a]"
+                    <Btn size="sm" className="h-8 rounded-lg bg-[#1a1a1d] px-3 text-sm hover:bg-[#222226]"
                       title="把这个部件的顶边贴到命令行的顶边"
                       onPress={() => {
                         pushHistory();
@@ -1298,7 +1298,7 @@ export default function EditorPage({ shared }: { shared: Shared }) {
                         setDraft({ ...draft });
                         onChange();
                       }}>顶边</Btn>
-                    <Btn size="sm" variant="secondary" className="bg-[#27272a]"
+                    <Btn size="sm" className="h-8 rounded-lg bg-[#1a1a1d] px-3 text-sm hover:bg-[#222226]"
                       title="把部件底部挪到命令行下方一点，从顶部开始排"
                       onPress={() => {
                         pushHistory();
@@ -1309,7 +1309,7 @@ export default function EditorPage({ shared }: { shared: Shared }) {
                   </div>
                 )}
                 {stretchable(w.type) && pos.w !== undefined && (
-                  <Btn size="sm" variant="secondary" className="w-fit bg-[#27272a]"
+                  <Btn size="sm" className="w-fit rounded-lg bg-[#1a1a1d] px-3 text-sm hover:bg-[#222226]"
                     title="清掉固定宽度，从 X 拉到画布右缘"
                     onPress={() => {
                       delete pos.w;
@@ -1317,20 +1317,22 @@ export default function EditorPage({ shared }: { shared: Shared }) {
                       onChange();
                     }}>拉通到右缘</Btn>
                 )}
-                <div className="flex flex-wrap gap-2">
-                  <Btn size="sm" variant="secondary" className="bg-[#27272a]"
+                {/* 操作行：复制/删除在左，层级四枚图标按钮收在右（不再六个药丸换行乱飘） */}
+                <div className="flex items-center gap-2">
+                  <Btn size="sm" className="h-8 rounded-lg bg-[#1a1a1d] px-3 text-sm hover:bg-[#222226]"
                     title="Ctrl+D：复制这个部件并错位落下"
                     onPress={() => duplicateWidget(selected)}>复制</Btn>
-                  <Btn size="sm" variant="secondary" className="bg-[#27272a]" title="后加的部件盖在前面之上"
-                    onPress={() => toFront(selected)}>置顶</Btn>
-                  <Btn size="sm" variant="secondary" className="bg-[#27272a]" title="压到所有部件底下"
-                    onPress={() => toBack(selected)}>置底</Btn>
-                  <Btn size="sm" variant="secondary" className="bg-[#27272a]" title="与上面一个部件交换层级"
-                    onPress={() => moveLayer(selected, 1)}>上移一层</Btn>
-                  <Btn size="sm" variant="secondary" className="bg-[#27272a]" title="与下面一个部件交换层级"
-                    onPress={() => moveLayer(selected, -1)}>下移一层</Btn>
-                  <Btn size="sm" variant="secondary" className="bg-danger/20 text-danger"
+                  <Btn size="sm" className="h-8 rounded-lg bg-danger/15 px-3 text-sm text-danger hover:bg-danger/25"
                     title="Delete" onPress={() => removeWidget(selected)}>删除</Btn>
+                  <span className="flex-1" />
+                  <Btn isIconOnly size="sm" className="size-8 rounded-lg bg-[#1a1a1d] text-muted hover:bg-[#222226] hover:text-foreground"
+                    title="与上一个部件交换层级" onPress={() => moveLayer(selected, 1)}><ChevronUp size={14} /></Btn>
+                  <Btn isIconOnly size="sm" className="size-8 rounded-lg bg-[#1a1a1d] text-muted hover:bg-[#222226] hover:text-foreground"
+                    title="与下一个部件交换层级" onPress={() => moveLayer(selected, -1)}><ChevronDown size={14} /></Btn>
+                  <Btn isIconOnly size="sm" className="size-8 rounded-lg bg-[#1a1a1d] text-muted hover:bg-[#222226] hover:text-foreground"
+                    title="盖到所有部件最上面" onPress={() => toFront(selected)}><ArrowUpToLine size={14} /></Btn>
+                  <Btn isIconOnly size="sm" className="size-8 rounded-lg bg-[#1a1a1d] text-muted hover:bg-[#222226] hover:text-foreground"
+                    title="压到所有部件最底下" onPress={() => toBack(selected)}><ArrowDownToLine size={14} /></Btn>
                 </div>
                 <div className="border-t border-white/[0.04] pt-4">
                   {w.type === "stat" && <StatEditor w={w as StatWidget} metrics={metrics} onChange={onChange} compact />}
@@ -1368,7 +1370,7 @@ export default function EditorPage({ shared }: { shared: Shared }) {
                   {pnum("Y", "y", p.y ?? pad[0])}
                 </div>
                 <div className="flex flex-wrap gap-2">
-                  <Btn size="sm" variant="secondary" className="bg-[#27272a]"
+                  <Btn size="sm" className="h-8 rounded-lg bg-[#1a1a1d] px-3 text-sm hover:bg-[#222226]"
                     title="回到画布内边距处"
                     onPress={() => {
                       pushHistory();
@@ -1376,7 +1378,7 @@ export default function EditorPage({ shared }: { shared: Shared }) {
                       setDraft({ ...draft });
                       onChange();
                     }}>回到默认位置</Btn>
-                  <Btn size="sm" variant="secondary" className="bg-danger/20 text-danger"
+                  <Btn size="sm" className="h-8 rounded-lg bg-danger/15 px-3 text-sm text-danger hover:bg-danger/25"
                     title="Delete" onPress={removePrompt}>删除</Btn>
                 </div>
                 <div className="border-t border-white/[0.04] pt-4">
