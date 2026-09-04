@@ -16,6 +16,10 @@ export default defineConfig({
       "/overlay.json": BACKEND,
       "/metrics.json": BACKEND,
       "/sensors": BACKEND,
+      // 编辑器预览 iframe 的同源入口：/preview?preview=1 → 后端的 /。
+      // 直接跨域指到 8765 的话，contentDocument 是 null，拖动时没法直改
+      // iframe 里的宿主节点做跟手预览（见 EditorPage 的 BACKEND）。
+      "^/preview": { target: BACKEND, rewrite: () => "/", changeOrigin: true },
     },
   },
   base: "/admin/",

@@ -43,7 +43,8 @@ const TYPE_ICONS: Record<string, LucideIcon> = {
   stat: Hash, progress: Equal, html: Code, gauge: CircleDashed,
 };
 
-/** 开发态预览 iframe 指向 python 后端（跨源也能收发 postMessage）；构建产物里留空 = 同源。 */
+/** 预览 iframe 入口：构建产物里留空 = 同源直连 FastAPI；dev 模式（.env.development）
+ * 给 /preview —— vite 代理回后端的 /，保持同源，拖动时才能直改 iframe 里的宿主节点。 */
 const BACKEND = (import.meta.env.VITE_BACKEND as string | undefined) || "";
 
 interface Rect { x: number; y: number; w: number; h: number; }
