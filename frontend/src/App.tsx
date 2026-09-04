@@ -139,7 +139,7 @@ export default function App() {
       <div className="flex h-screen items-center justify-center bg-background">
         <div className="max-w-md px-6 text-center">
           <Power size={40} strokeWidth={1.5} className="mx-auto mb-4 text-muted" />
-          <h1 className="text-3xl font-bold leading-9 text-white">Now-Monitor 已退出</h1>
+          <h1 className="text-3xl font-bold leading-9 text-white">Now Monitor 已退出</h1>
           <p className="mt-3 text-sm leading-6 text-color-desc">
             OBS 叠加层已停止。要再启动，双击 Now-Monitor.exe；本页面可以关掉了。
           </p>
@@ -158,7 +158,7 @@ export default function App() {
         <div className="flex h-full flex-col p-6">
           <div className="mb-8 mt-4 flex items-center gap-2 px-3">
             <LogoMark size={24} />
-            <span className="text-[19px] font-bold tracking-tight">Now-Monitor</span>
+            <span className="text-[19px] font-bold tracking-tight">Now Monitor</span>
           </div>
 
           <ProfileSwitcher onPublished={refreshAll} />
@@ -193,7 +193,7 @@ export default function App() {
             <Modal.Dialog>
               <Modal.CloseTrigger />
               <Modal.Header>
-                <Modal.Heading>退出 Now-Monitor？</Modal.Heading>
+                <Modal.Heading>退出 Now Monitor？</Modal.Heading>
               </Modal.Header>
               <Modal.Body>
                 <p className="text-sm leading-6 text-color-desc">

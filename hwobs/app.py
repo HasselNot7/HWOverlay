@@ -83,7 +83,7 @@ def main():
     paths.ensure_overlay("monitor")
     running, _keep = already_running()
     if running:
-        print("已经有一个 Now-Monitor 在跑了，直接打开管理页。")
+        print("已经有一个 Now Monitor 在跑了，直接打开管理页。")
         webbrowser.open(f"http://127.0.0.1:{PORT}/admin")
         return
     port = bind_port()

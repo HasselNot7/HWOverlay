@@ -1,6 +1,6 @@
 <div align="center">
 
-![Now-Monitor 效果预览](/images/overlay_preview.png)
+![Now Monitor 效果预览](/images/overlay_preview.png)
 
 <h2>直播用的硬件监控叠加层 —— 使用AIDA64数据</h2>
 
@@ -59,8 +59,8 @@ JetBrains字体 + 控制台风格，与 [Now Playing](https://github.com/Widdit/
 使用Now Playing中的Shell风格：
 
 1. Now Playing 用它的 OBS 浏览器源组件展示「正在播放」
-2. Now-Monitor 画布设置里打开**背景透明**，OBS 里就是无边底色直接叠在画面上
-3. 把 Now-Monitor 的宽高填成画布尺寸
+2. Now Monitor 画布设置里打开**背景透明**，OBS 里就是无边底色直接叠在画面上
+3. 把 Now Monitor 的宽高填成画布尺寸
 
 你可以得到类似下面的直播界面：
 ![OBS View](/images/obs.png)
