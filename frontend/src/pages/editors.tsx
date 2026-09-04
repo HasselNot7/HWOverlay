@@ -19,7 +19,7 @@ import { Btn, CARD_CLS, FieldLabel, Hint, TSwitch } from "../ui";
  * 数值框自动用 JetBrains Mono + tabular-nums（等宽、数字不跳位），文本框用 Poppins。 */
 export const TF = ({ className = "", placeholder, title, ...props }: TFProps & { placeholder?: string; title?: string }) => {
   const f = (
-    <TextField className={cn(className, props.type === "number" ? "font-jetbrains tabular-nums" : "font-poppins")} variant="secondary" {...props}>
+    <TextField className={cn(className, "font-poppins tabular-nums")} variant="secondary" {...props}>
       <Input placeholder={placeholder} />
     </TextField>
   );
@@ -675,15 +675,16 @@ export function HtmlEditor({ w, onChange }: { w: HtmlWidget; onChange: () => voi
 
 // --- 排版页共用块 ---------------------------------------------------------------
 
-/** 画布尺寸输入：原地改 draft.canvas，调用方负责重渲染。 */
+/** 画布尺寸输入：原地改 draft.canvas，调用方负责重渲染。
+ * NP 行式布局：小标签在上、通栏圆角输入框在下；开关行标签左、控件右。 */
 export function CanvasFields({ draft, onChange }: { draft: OverlayConfig; onChange: () => void }) {
   return (
-    <div className="mt-2 flex flex-wrap items-end gap-5">
+    <div className="mt-2 flex flex-col gap-5">
       <div className="flex flex-col gap-2">
         <FieldLabel>叠加层宽</FieldLabel>
         <TF
           aria-label="叠加层宽" type="number"
-                    defaultValue={String(draft.canvas.w)} className="w-36 font-poppins"
+          defaultValue={String(draft.canvas.w)} className="w-full"
           onChange={v => { draft.canvas.w = +v || draft.canvas.w; onChange(); }}
         />
       </div>
@@ -691,48 +692,44 @@ export function CanvasFields({ draft, onChange }: { draft: OverlayConfig; onChan
         <FieldLabel>叠加层高</FieldLabel>
         <TF
           aria-label="叠加层高" type="number"
-                    defaultValue={String(draft.canvas.h)} className="w-36 font-poppins"
+          defaultValue={String(draft.canvas.h)} className="w-full"
           onChange={v => { draft.canvas.h = +v || draft.canvas.h; onChange(); }}
         />
       </div>
-      <div className="flex flex-col gap-2 pb-3">
+      <div className="flex items-center justify-between gap-4">
         <FieldLabel>背景透明</FieldLabel>
-        <div className="flex h-12 items-center">
-          <TSwitch aria-label="背景透明"
-            isSelected={!!draft.canvas.transparent}
-            onChange={b => {
-              if (b) draft.canvas.transparent = true;
-              else delete draft.canvas.transparent;
-              onChange();
-            }} />
-        </div>
+        <TSwitch size="lg" aria-label="背景透明"
+          isSelected={!!draft.canvas.transparent}
+          onChange={b => {
+            if (b) draft.canvas.transparent = true;
+            else delete draft.canvas.transparent;
+            onChange();
+          }} />
       </div>
     </div>
   );
 }
 
 /** 顶部装饰命令行：整行开关 + 内容/字号/光标。原地改 draft.prompt。
- * compact：自由排版右侧面板（420px）用竖排，不然定宽输入框会横向溢出。 */
+ * NP 行式：开关行标签左控件右，文本/数字通栏；编辑器右侧面板专用竖排。 */
 export function PromptBar({ draft, onChange, compact }: {
   draft: OverlayConfig;
   onChange: () => void;
   compact?: boolean;
 }) {
   const toggle = (
-    <div className={compact ? "flex flex-col gap-2" : "flex flex-col gap-2"}>
+    <div className="flex items-center justify-between gap-4">
       <FieldLabel>顶部命令行装饰</FieldLabel>
-      <div className="flex h-12 items-center">
-        <TSwitch aria-label="显示顶部命令行装饰"
-          isSelected={!!draft.prompt}
-          onChange={b => {
-            if (b) {
-              draft.prompt = { user: "streamer@pc", cmd: "./sysmon --source=aida64 --interval=1s", cursor: true, size: 19 };
-            } else {
-              delete draft.prompt;
-            }
-            onChange();
-          }} />
-      </div>
+      <TSwitch size="lg" aria-label="显示顶部命令行装饰"
+        isSelected={!!draft.prompt}
+        onChange={b => {
+          if (b) {
+            draft.prompt = { user: "streamer@pc", cmd: "./sysmon --source=aida64 --interval=1s", cursor: true, size: 19 };
+          } else {
+            delete draft.prompt;
+          }
+          onChange();
+        }} />
     </div>
   );
   const fields = (
@@ -740,46 +737,37 @@ export function PromptBar({ draft, onChange, compact }: {
       <div className="flex flex-col gap-2">
         <FieldLabel>用户@主机</FieldLabel>
         <TF aria-label="命令行用户"
-          className={compact ? "font-poppins" : "w-56 font-poppins"}
+          className="w-full"
           value={draft.prompt?.user ?? ""}
           onChange={v => { draft.prompt!.user = v; onChange(); }} />
       </div>
-      <div className="flex min-w-0 flex-1 flex-col gap-2">
+      <div className="flex flex-col gap-2">
         <FieldLabel>命令行文本</FieldLabel>
         <TF aria-label="命令行文本"
-          className={compact ? "w-full font-poppins" : "min-w-[280px] font-poppins"}
+          className="w-full"
           value={draft.prompt?.cmd ?? ""}
           onChange={v => { draft.prompt!.cmd = v; onChange(); }} />
       </div>
       <div className="flex flex-col gap-2">
         <FieldLabel>命令行字号</FieldLabel>
-        <TF aria-label="命令行字号" type="number" className="w-24 font-poppins"
+        <TF aria-label="命令行字号" type="number" className="w-full"
           value={String(draft.prompt?.size ?? 19)}
           onChange={v => { draft.prompt!.size = +v || 19; onChange(); }} />
       </div>
-      <div className="flex flex-col gap-2 pb-3">
+      <div className="flex items-center justify-between gap-4">
         <FieldLabel>闪烁光标</FieldLabel>
-        <div className="flex h-12 items-center">
-          <TSwitch aria-label="闪烁光标"
-            isSelected={draft.prompt?.cursor ?? true}
-            onChange={b => { draft.prompt!.cursor = b; onChange(); }} />
-        </div>
+        <TSwitch size="lg" aria-label="闪烁光标"
+          isSelected={draft.prompt?.cursor ?? true}
+          onChange={b => { draft.prompt!.cursor = b; onChange(); }} />
       </div>
     </>
   );
   // 开/关命令行装饰时，字段整块 spring 滑入滑出（AnimatedRow 退出期保留旧内容，不闪不崩）
-  return compact ? (
-    <div className="mt-2 flex flex-col gap-3">
+  return (
+    <div className={`mt-2 flex flex-col ${compact ? "gap-4" : "gap-5"}`}>
       {toggle}
       <AnimatedRow show={!!draft.prompt}>
-        <div className="flex flex-col gap-3">{fields}</div>
-      </AnimatedRow>
-    </div>
-  ) : (
-    <div className="mt-2 flex flex-wrap items-end gap-5">
-      {toggle}
-      <AnimatedRow show={!!draft.prompt}>
-        <div className="flex flex-wrap items-end gap-5">{fields}</div>
+        <div className="flex flex-col gap-4">{fields}</div>
       </AnimatedRow>
     </div>
   );

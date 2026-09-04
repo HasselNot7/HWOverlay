@@ -49,6 +49,18 @@ body {
   background: color-mix(in oklab, var(--accent) 35%, transparent);
 }
 
+/* Now Playing 的输入框没有原生步进箭头：数字框全靠 ±/方向键/直接改值，
+   上下小三角在深色底上又亮又抢注意力，统一藏掉 */
+input[type="number"]::-webkit-outer-spin-button,
+input[type="number"]::-webkit-inner-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+input[type="number"] {
+  -moz-appearance: textfield;
+  appearance: textfield;
+}
+
 /* 滚动条学 Now Playing 的 overlayscrollbars：圆头短轨，悬停提亮 */
 ::-webkit-scrollbar {
   width: 10px;
