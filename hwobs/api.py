@@ -45,7 +45,7 @@ async def _json_body(request: Request):
 
 
 def create_app() -> FastAPI:
-    app = FastAPI(title="HWOverlay", docs_url=None, redoc_url=None, openapi_url=None)
+    app = FastAPI(title="Now-Monitor", docs_url=None, redoc_url=None, openapi_url=None)
 
     # ---------- 叠加层与数据端点 ----------
 

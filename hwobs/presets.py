@@ -3,7 +3,7 @@
 - 内置：overlays/presets.json —— 机制保留但默认不随包分发；
   文件不存在时内置侧为空列表，模板库只显示用户自己的模板。
 - 用户：overlays/user_presets.json（可写数据目录 —— 开发态在仓库，
-  打包后在 %LOCALAPPDATA%\\HWOverlay），编辑器里"存为模板 / 导入文件"写这里，
+  打包后在 %LOCALAPPDATA%\\Now-Monitor），编辑器里"存为模板 / 导入文件"写这里，
   升级换包不丢自己的模板。
 
 条目形状与内置一致：{id, name, desc, config}；对外列表统一带 source 标记。

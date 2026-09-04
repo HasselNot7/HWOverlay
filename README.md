@@ -1,6 +1,6 @@
 <div align="center">
 
-![HWOverlay 效果预览](/images/overlay_preview.png)
+![Now-Monitor 效果预览](/images/overlay_preview.png)
 
 <h2>直播用的硬件监控叠加层 —— 使用AIDA64数据</h2>
 
@@ -59,8 +59,8 @@ JetBrains字体 + 控制台风格，与 [Now Playing](https://github.com/Widdit/
 使用Now Playing中的Shell风格：
 
 1. Now Playing 用它的 OBS 浏览器源组件展示「正在播放」
-2. HWOverlay 画布设置里打开**背景透明**，OBS 里就是无边底色直接叠在画面上
-3. 把 HWOverlay 的宽高填成画布尺寸
+2. Now-Monitor 画布设置里打开**背景透明**，OBS 里就是无边底色直接叠在画面上
+3. 把 Now-Monitor 的宽高填成画布尺寸
 
 你可以得到类似下面的直播界面：
 ![OBS View](/images/obs.png)
@@ -71,8 +71,8 @@ JetBrains字体 + 控制台风格，与 [Now Playing](https://github.com/Widdit/
 
 ### 方法一：下载整合包（推荐）
 
-- 前往本仓库的 [Release](https://github.com/HasselNot7/HWOverlay/releases) 页面下载 `HWOverlay-<版本>-win64.zip`
-- 解压双击 `HWOverlay.exe`，自动打开管理页
+- 前往本仓库的 [Release](https://github.com/HasselNot7/Now-Monitor/releases) 页面下载 `Now-Monitor-<版本>-win64.zip`
+- 解压双击 `Now-Monitor.exe`，自动打开管理页
 
 ### 方法二：从源码运行
 
@@ -126,7 +126,7 @@ python -m hwobs --open            # 管理页 http://localhost:8765/admin
 ### 自定义版式（schema v2）
 
 版式是 JSON（管理页可视化编辑，存 `overlays/monitor.json`，打包后落在
-`%LOCALAPPDATA%\HWOverlay`）：
+`%LOCALAPPDATA%\Now-Monitor`）：
 
 ```jsonc
 {

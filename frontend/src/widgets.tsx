@@ -9,11 +9,11 @@ export function troubleshoot(st: AidaStatus | null): { title: string; steps: str
   if (!st) return [];
   const out: { title: string; steps: string[] }[] = [];
   if (st.error) {
-    out.push({ title: "读取状态出错", steps: [st.error, "点侧栏「刷新数据」重试；持续失败看 HWOverlay.exe 控制台窗口"] });
+    out.push({ title: "读取状态出错", steps: [st.error, "点侧栏「刷新数据」重试；持续失败看 Now-Monitor.exe 控制台窗口"] });
     return out;
   }
   if (!st.running) {
-    out.push({ title: "AIDA64 没在运行", steps: ["启动 AIDA64（HWOverlay 只读它的共享内存，不代它启动）", "启动后回到本页，点「刷新数据」"] });
+    out.push({ title: "AIDA64 没在运行", steps: ["启动 AIDA64（Now-Monitor 只读它的共享内存，不代它启动）", "启动后回到本页，点「刷新数据」"] });
   }
   if (st.running && !st.shm_readable) {
     out.push({

@@ -3,7 +3,7 @@
 开发态两者都是仓库根，所以现有的 overlays/monitor.json 不用搬家，测试也照旧能跑。
 打包后：
   - 只读资源在 sys._MEIPASS（onefile 模式那是临时解压目录，**不能往里写**）
-  - 可写配置在 %LOCALAPPDATA%\\HWOverlay，首次运行时生成空白版式
+  - 可写配置在 %LOCALAPPDATA%\\Now-Monitor，首次运行时生成空白版式
     （分发场景每块屏幕尺寸都不同，默认给空画布，版式靠编辑器/模板库自己攒）
 """
 
@@ -40,7 +40,12 @@ def data_root():
     """可写配置目录。开发态就是仓库根，避免两套文件来回分叉。"""
     if not FROZEN:
         return resource_root()
-    base = Path(os.environ.get("LOCALAPPDATA") or str(Path.home())) / "HWOverlay"
+    base = Path(os.environ.get("LOCALAPPDATA") or str(Path.home())) / "Now-Monitor"
+    if not base.exists():
+        # 更名（HWOverlay → Now-Monitor）前的老目录：整体搬家，版式/设置/模板不丢
+        legacy = base.parent / "HWOverlay"
+        if legacy.exists():
+            legacy.rename(base)
     base.mkdir(parents=True, exist_ok=True)
     return base
 

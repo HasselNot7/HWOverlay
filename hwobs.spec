@@ -63,7 +63,7 @@ exe = EXE(
     a.scripts,
     [],
     exclude_binaries=True,
-    name='HWOverlay',
+    name='Now-Monitor',
     debug=False,
     strip=None,
     upx=False,
@@ -77,5 +77,5 @@ coll = COLLECT(
     a.datas,
     strip=None,
     upx=False,
-    name=f'HWOverlay-{__version__}-win64',
+    name=f'Now-Monitor-{__version__}-win64',
 )

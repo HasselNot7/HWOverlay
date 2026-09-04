@@ -53,19 +53,19 @@ def main():
 
     sys.path.insert(0, str(ROOT))
     from hwobs import __version__
-    out = ROOT / "dist" / f"HWOverlay-{__version__}-win64"
+    out = ROOT / "dist" / f"Now-Monitor-{__version__}-win64"
     if not out.is_dir():
         print(f"没找到产物目录 {out}")
         return 1
 
-    zip_path = ROOT / "dist" / f"HWOverlay-{__version__}-win64.zip"
+    zip_path = ROOT / "dist" / f"Now-Monitor-{__version__}-win64.zip"
     with zipfile.ZipFile(zip_path, "w", zipfile.ZIP_DEFLATED) as z:
         for p in sorted(out.rglob("*")):
             if p.is_file():
                 z.write(p, p.relative_to(out.parent).as_posix())
 
     print(f"\n产物：{zip_path}  （{zip_path.stat().st_size / 1024 / 1024:.1f} MB）")
-    print("解压后双击 HWOverlay.exe：会自动开浏览器到管理页，按「开始使用」完成配置。")
+    print("解压后双击 Now-Monitor.exe：会自动开浏览器到管理页，按「开始使用」完成配置。")
     print('首次运行未签名，Windows SmartScreen 会拦一下：点"更多信息"→"仍要运行"。')
     return 0
 
