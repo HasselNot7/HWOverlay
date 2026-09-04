@@ -197,21 +197,22 @@ interface DragState {
 
 interface CtxMenu { x: number; y: number; kind: "widget" | "prompt"; i: number; }
 
-/** Figma 式小图标按钮（顶栏与图层行共用） */
-function IconBtn({ title, on, danger, onPress, children }: {
-  title: string; on?: boolean; danger?: boolean;
-  onPress: () => void; children: React.ReactNode;
+/** Now Playing 式分段药丸容器：无边框，靠表面亮度分层，激活段 bg-surface */
+function SegGroup({ children }: { children: React.ReactNode }) {
+  return <div className="flex h-10 items-center gap-0.5 rounded-xl bg-[#1a1a1d] p-1">{children}</div>;
+}
+
+/** 药丸容器里的一个段（图标或短文字） */
+function Seg({ on, onPress, title, wide, children }: {
+  on?: boolean; onPress: () => void; title: string; wide?: boolean; children: React.ReactNode;
 }) {
   return (
-    <span title={title} className="inline-flex">
-      <button type="button" onClick={onPress}
-        className={`grid size-7 cursor-pointer place-items-center rounded-md transition-colors ${
-          on ? "bg-accent/20 text-accent"
-            : danger ? "text-muted hover:bg-danger/15 hover:text-danger"
-              : "text-muted hover:bg-white/10 hover:text-foreground"}`}>
-        {children}
-      </button>
-    </span>
+    <button type="button" title={title} onClick={onPress}
+      className={`flex h-8 cursor-pointer items-center justify-center gap-1.5 whitespace-nowrap rounded-lg px-2 text-sm font-medium transition-colors duration-150 ${
+        wide ? "min-w-14 px-3" : "min-w-8"} ${
+        on ? "bg-surface text-foreground" : "text-muted hover:bg-white/[0.06] hover:text-foreground"}`}>
+      {children}
+    </button>
   );
 }
 
@@ -985,52 +986,46 @@ export default function EditorPage({ shared }: { shared: Shared }) {
 
   return (
     <main className="fixed inset-y-0 right-0 left-72 z-10 flex flex-col bg-background">
-      {/* 顶栏：左=标题/模板 · 中=缩放 · 右=吸附/网格/面板开关（Figma 一条杠吸顶） */}
-      <header className="flex h-12 shrink-0 items-center gap-1.5 border-b border-border px-4">
-        <h1 className="mr-1 text-base font-bold text-white">版式编辑</h1>
-        <Btn size="sm" variant="secondary" className="bg-[#27272a]" onPress={() => setTplOpen(true)}
-          title="模板库：载入模板，或把当前草稿存为你的模板">模板</Btn>
-        <span className="mx-2 h-5 w-px bg-white/10" />
-        <IconBtn title="缩小（Shift+1 适应画布）" onPress={() => setZoom(Math.max(MIN_ZOOM, zoomStep(pvScale, -1)))}>
-          <span className="text-sm font-bold">−</span>
-        </IconBtn>
-        <span title="点击恢复自动适应" className="min-w-12 text-center">
-          <button type="button" onClick={() => setZoom(null)}
-            className="cursor-pointer rounded px-1 font-poppins text-sm hover:bg-white/10">{scalePct}%</button>
-        </span>
-        <IconBtn title="放大" onPress={() => setZoom(Math.min(MAX_ZOOM, zoomStep(pvScale, 1)))}>
-          <span className="text-sm font-bold">＋</span>
-        </IconBtn>
-        <Btn size="sm" variant={zoom === null ? "primary" : "secondary"} className={zoom === null ? undefined : "bg-[#27272a]"}
-          title="整幅画布缩放进视口（Shift+1）；100% 按 Shift+0"
-          onPress={() => setZoom(null)}>适应</Btn>
+      {/* 顶栏：NP 式 —— 无边框，控件装进暗色药丸分组，靠表面亮度分层 */}
+      <header className="flex h-16 shrink-0 items-center gap-3 px-6">
+        <h1 className="mr-1 text-lg font-bold text-white">版式编辑</h1>
+        <SegGroup>
+          <Seg onPress={() => setTplOpen(true)} title="模板库：载入模板，或把当前草稿存为你的模板" wide>模板</Seg>
+        </SegGroup>
+        <SegGroup>
+          <Seg title="缩小" onPress={() => setZoom(Math.max(MIN_ZOOM, zoomStep(pvScale, -1)))}>−</Seg>
+          <Seg title="点击恢复自动适应" onPress={() => setZoom(null)} wide>{scalePct}%</Seg>
+          <Seg title="放大" onPress={() => setZoom(Math.min(MAX_ZOOM, zoomStep(pvScale, 1)))}>＋</Seg>
+          <Seg on={zoom === null} title="整幅画布缩放进视口（Shift+1）；100% 按 Shift+0" onPress={() => setZoom(null)}>适应</Seg>
+        </SegGroup>
         <span className="flex-1" />
-        <Btn size="sm" variant={snapOn ? "primary" : "secondary"} className={snapOn ? undefined : "bg-[#27272a]"}
-          title="拖近画布边缘或其他部件的边缘/中线时自动对齐（Figma 式智能参考线）"
-          onPress={() => setSnapOn(s => !s)}><Magnet size={15} />吸附</Btn>
-        <Btn size="sm" variant={gridOn ? "primary" : "secondary"} className={gridOn ? undefined : "bg-[#27272a]"}
-          title={`自适应网格：按画布宽度分档（当前 ${gridStep}px，屏幕约 ${Math.round(gridStep * pvScale)}px），拖动就近对齐到网格线`}
-          onPress={() => setGridOn(g => !g)}><Grid3x3 size={15} />网格</Btn>
-        <span className="mx-1 h-5 w-px bg-white/10" />
-        <IconBtn title={layersOpen ? "收起图层面板" : "展开图层面板"}
-          onPress={() => setLayersOpen(o => { localStorage.setItem("hwobs.editorLayers", o ? "0" : "1"); return !o; })}>
-          {layersOpen ? <PanelLeftClose size={16} /> : <PanelLeftOpen size={16} />}
-        </IconBtn>
-        <IconBtn title={propsOpen ? "收起属性面板" : "展开属性面板"}
-          onPress={() => setPropsOpen(o => { localStorage.setItem(PANEL_KEY, o ? "0" : "1"); return !o; })}>
-          {propsOpen ? <PanelRightClose size={16} /> : <PanelRightOpen size={16} />}
-        </IconBtn>
+        <SegGroup>
+          <Seg on={snapOn} title="拖近画布边缘或其他部件的边缘/中线时自动对齐（Figma 式智能参考线）"
+            onPress={() => setSnapOn(s => !s)}><Magnet size={15} />吸附</Seg>
+          <Seg on={gridOn} title={`自适应网格：按画布宽度分档（当前 ${gridStep}px，屏幕约 ${Math.round(gridStep * pvScale)}px），拖动就近对齐到网格线`}
+            onPress={() => setGridOn(g => !g)}><Grid3x3 size={15} />网格</Seg>
+        </SegGroup>
+        <SegGroup>
+          <Seg on={layersOpen} title={layersOpen ? "收起图层面板" : "展开图层面板"}
+            onPress={() => setLayersOpen(o => { localStorage.setItem("hwobs.editorLayers", o ? "0" : "1"); return !o; })}>
+            {layersOpen ? <PanelLeftClose size={16} /> : <PanelLeftOpen size={16} />}
+          </Seg>
+          <Seg on={propsOpen} title={propsOpen ? "收起属性面板" : "展开属性面板"}
+            onPress={() => setPropsOpen(o => { localStorage.setItem(PANEL_KEY, o ? "0" : "1"); return !o; })}>
+            {propsOpen ? <PanelRightClose size={16} /> : <PanelRightOpen size={16} />}
+          </Seg>
+        </SegGroup>
       </header>
 
       <div className="flex min-h-0 flex-1">
         {/* 图层面板（Figma 左栏）：顶层在上；悬停出层级/删除按钮；右键有菜单 */}
         {layersOpen && (
-        <aside className="flex w-56 shrink-0 flex-col border-r border-border bg-[#141416]">
-          <div className="flex items-center justify-between px-3 pb-1 pt-3">
-            <span className="text-[11px] font-bold uppercase tracking-widest text-muted">图层</span>
-            <span className="font-jetbrains text-[11px] text-muted">{draft.widgets.length}</span>
+        <aside className="flex w-60 shrink-0 flex-col px-3 py-2">
+          <div className="flex items-center justify-between px-2 pb-2 pt-1">
+            <span className="text-xs font-bold text-accent">图层</span>
+            <span className="font-jetbrains text-xs text-muted">{draft.widgets.length}</span>
           </div>
-          <div className="min-h-0 flex-1 overflow-y-auto px-1.5 pb-2">
+          <div className="min-h-0 flex-1 overflow-y-auto pb-2">
             {draft.widgets.length === 0 && !draft.prompt && (
               <Hint className="px-2 py-1 text-xs">还没有部件 —— 用下面的「添加部件」。</Hint>
             )}
@@ -1040,58 +1035,57 @@ export default function EditorPage({ shared }: { shared: Shared }) {
               const on = selected === i;
               return (
                 <div key={i}
-                  className={`group flex cursor-default items-center gap-2 rounded-md px-2 py-1 text-sm transition-colors ${
-                    on ? "bg-accent/15 text-foreground ring-1 ring-accent/60"
-                      : "text-muted hover:bg-white/5 hover:text-foreground"}`}
+                  className={`group flex h-11 cursor-default items-center gap-3 rounded-xl px-3 text-[15px] transition-colors duration-150 ${
+                    on ? "bg-[#2a2a2e] text-foreground" : "text-muted hover:bg-white/[0.04] hover:text-foreground"}`}
                   onMouseDown={() => { if (!spaceRef.current) { setSelected(i); setSelPrompt(false); } }}
                   onContextMenu={e => openCtx(e, "widget", i)}>
-                  <Icon size={14} strokeWidth={1.8} className="shrink-0 opacity-70" />
+                  <Icon size={17} strokeWidth={1.8} className="shrink-0 opacity-70" />
                   <span className="min-w-0 flex-1 truncate">{layerName(w)}</span>
                   <span className="hidden shrink-0 items-center group-hover:flex">
-                    <button type="button" title="上移一层" className="cursor-pointer rounded p-0.5 hover:bg-white/10"
-                      onMouseDown={e => e.stopPropagation()} onClick={() => moveLayer(i, 1)}><ChevronUp size={13} /></button>
-                    <button type="button" title="下移一层" className="cursor-pointer rounded p-0.5 hover:bg-white/10"
-                      onMouseDown={e => e.stopPropagation()} onClick={() => moveLayer(i, -1)}><ChevronDown size={13} /></button>
-                    <button type="button" title="删除（Delete）" className="cursor-pointer rounded p-0.5 hover:bg-danger/20 hover:text-danger"
-                      onMouseDown={e => e.stopPropagation()} onClick={() => removeWidget(i)}><Trash2 size={13} /></button>
+                    <button type="button" title="上移一层" className="grid size-7 cursor-pointer place-items-center rounded-lg hover:bg-white/[0.08]"
+                      onMouseDown={e => e.stopPropagation()} onClick={() => moveLayer(i, 1)}><ChevronUp size={14} /></button>
+                    <button type="button" title="下移一层" className="grid size-7 cursor-pointer place-items-center rounded-lg hover:bg-white/[0.08]"
+                      onMouseDown={e => e.stopPropagation()} onClick={() => moveLayer(i, -1)}><ChevronDown size={14} /></button>
+                    <button type="button" title="删除（Delete）" className="grid size-7 cursor-pointer place-items-center rounded-lg hover:bg-danger/20 hover:text-danger"
+                      onMouseDown={e => e.stopPropagation()} onClick={() => removeWidget(i)}><Trash2 size={14} /></button>
                   </span>
                 </div>
               );
             })}
             {draft.prompt && (
               <div
-                className={`group flex cursor-default items-center gap-2 rounded-md px-2 py-1 text-sm transition-colors ${
-                  selPrompt ? "bg-accent/15 text-foreground ring-1 ring-accent/60"
-                    : "text-muted hover:bg-white/5 hover:text-foreground"}`}
+                className={`group flex h-11 cursor-default items-center gap-3 rounded-xl px-3 text-[15px] transition-colors duration-150 ${
+                  selPrompt ? "bg-[#2a2a2e] text-foreground" : "text-muted hover:bg-white/[0.04] hover:text-foreground"}`}
                 onMouseDown={() => { if (!spaceRef.current) { setSelected(null); setSelPrompt(true); } }}
                 onContextMenu={e => openCtx(e, "prompt", -1)}>
-                <Code size={14} strokeWidth={1.8} className="shrink-0 opacity-70" />
+                <Code size={17} strokeWidth={1.8} className="shrink-0 opacity-70" />
                 <span className="min-w-0 flex-1 truncate">命令行装饰 · {draft.prompt.user || "user@host"}</span>
-                <button type="button" title="删除（Delete）" className="cursor-pointer rounded p-0.5 opacity-0 hover:bg-danger/20 hover:text-danger group-hover:opacity-100"
-                  onMouseDown={e => e.stopPropagation()} onClick={removePrompt}><Trash2 size={13} /></button>
+                <button type="button" title="删除（Delete）" className="grid size-7 cursor-pointer place-items-center rounded-lg opacity-0 hover:bg-danger/20 hover:text-danger group-hover:opacity-100"
+                  onMouseDown={e => e.stopPropagation()} onClick={removePrompt}><Trash2 size={14} /></button>
               </div>
             )}
           </div>
-          {/* 添加部件（Figma 插入菜单的极简版） */}
-          <div className="relative border-t border-border p-2">
+          {/* 添加部件：NP「更多」式的大药丸，菜单浮在其上方 */}
+          <div className="relative p-1">
             {addOpen && (
-              <div className="absolute bottom-12 left-2 z-50 w-44 rounded-lg border border-white/10 bg-[#2a2a2e] p-1 shadow-2xl"
+              <div className="absolute bottom-13 left-0 z-50 w-full rounded-2xl bg-[#26262a] p-1.5 shadow-2xl"
                 onMouseDown={e => e.stopPropagation()}>
                 {ADD_TYPES.map(([t, label]) => {
                   const Icon = TYPE_ICONS[t] ?? LayoutGrid;
                   return (
                     <button key={t} type="button"
-                      className="flex w-full cursor-pointer items-center gap-2.5 rounded-md px-2.5 py-1.5 text-left text-sm text-foreground hover:bg-accent hover:text-white"
+                      className="flex h-11 w-full cursor-pointer items-center gap-3 rounded-xl px-3 text-left text-[15px] text-foreground transition-colors hover:bg-white/[0.08]"
                       onClick={() => { setAddOpen(false); addFree(t); }}>
-                      <Icon size={14} strokeWidth={1.8} /> + {label}
+                      <Icon size={16} strokeWidth={1.8} className="text-muted" /> {label}
                     </button>
                   );
                 })}
               </div>
             )}
-            <Btn size="sm" variant="secondary" className="w-full bg-[#27272a]" onPress={() => setAddOpen(o => !o)}>
-              <Plus size={14} /> 添加部件
-            </Btn>
+            <button type="button" onClick={() => setAddOpen(o => !o)}
+              className="flex h-11 w-full cursor-pointer items-center justify-center gap-1.5 rounded-xl bg-[#1a1a1d] text-[15px] font-medium text-foreground transition-colors hover:bg-[#222226]">
+              <Plus size={16} /> 添加部件
+            </button>
           </div>
         </aside>
         )}
@@ -1207,28 +1201,28 @@ export default function EditorPage({ shared }: { shared: Shared }) {
             </div>
           </div>
 
-          {/* 右键上下文菜单（Figma 式）：部件与命令行装饰共用 */}
+          {/* 右键上下文菜单：NP popover 语言 —— 大圆角、无边框、行高 44px */}
           {ctxMenu && (
-            <div className="fixed z-[999] w-48 rounded-lg border border-white/10 bg-[#2a2a2e] p-1 shadow-2xl"
-              style={{ left: Math.min(ctxMenu.x, window.innerWidth - 200), top: Math.min(ctxMenu.y, window.innerHeight - 240) }}
+            <div className="fixed z-[999] w-56 rounded-2xl bg-[#26262a] p-1.5 shadow-2xl"
+              style={{ left: Math.min(ctxMenu.x, window.innerWidth - 230), top: Math.min(ctxMenu.y, window.innerHeight - 300) }}
               onMouseDown={e => e.stopPropagation()}>
               {ctxMenu.kind === "widget" ? ([
-                ["复制", <Copy size={13} />, "Ctrl+D", () => duplicateWidget(ctxMenu.i)],
-                ["上移一层", <ChevronUp size={13} />, "", () => moveLayer(ctxMenu.i, 1)],
-                ["下移一层", <ChevronDown size={13} />, "", () => moveLayer(ctxMenu.i, -1)],
-                ["置于顶层", <ArrowUpToLine size={13} />, "", () => toFront(ctxMenu.i)],
-                ["置于底层", <ArrowDownToLine size={13} />, "", () => toBack(ctxMenu.i)],
-                ["删除", <Trash2 size={13} />, "Delete", () => removeWidget(ctxMenu.i)],
+                ["复制", <Copy size={15} />, "Ctrl+D", () => duplicateWidget(ctxMenu.i)],
+                ["上移一层", <ChevronUp size={15} />, "", () => moveLayer(ctxMenu.i, 1)],
+                ["下移一层", <ChevronDown size={15} />, "", () => moveLayer(ctxMenu.i, -1)],
+                ["置于顶层", <ArrowUpToLine size={15} />, "", () => toFront(ctxMenu.i)],
+                ["置于底层", <ArrowDownToLine size={15} />, "", () => toBack(ctxMenu.i)],
+                ["删除", <Trash2 size={15} />, "Delete", () => removeWidget(ctxMenu.i)],
               ] as [string, React.ReactNode, string, () => void][]).map(([label, icon, hint, fn]) => (
                 <button key={label} type="button"
-                  className={`flex w-full cursor-pointer items-center gap-2.5 rounded-md px-2.5 py-1.5 text-left text-sm hover:bg-accent hover:text-white ${
-                    label === "删除" ? "text-danger hover:bg-danger hover:text-white" : "text-foreground"}`}
+                  className={`flex h-11 w-full cursor-pointer items-center gap-3 rounded-xl px-3 text-left text-[15px] transition-colors hover:bg-white/[0.08] ${
+                    label === "删除" ? "text-danger" : "text-foreground"}`}
                   onClick={() => { setCtxMenu(null); fn(); }}>
                   {icon}<span className="flex-1">{label}</span>
-                  {hint && <span className="text-[11px] opacity-60">{hint}</span>}
+                  {hint && <span className="text-xs text-muted">{hint}</span>}
                 </button>
               )) : ([
-                ["回到默认位置", <ArrowUpToLine size={13} />, "", () => {
+                ["回到默认位置", <ArrowUpToLine size={15} />, "", () => {
                   const d = draftRef.current;
                   if (!d?.prompt) return;
                   pushHistory();
@@ -1236,24 +1230,25 @@ export default function EditorPage({ shared }: { shared: Shared }) {
                   d.prompt.x = pad[1]; d.prompt.y = pad[0];
                   setDraft({ ...d }); onChange();
                 }],
-                ["删除命令行装饰", <Trash2 size={13} />, "Delete", removePrompt],
+                ["删除命令行装饰", <Trash2 size={15} />, "Delete", removePrompt],
               ] as [string, React.ReactNode, string, () => void][]).map(([label, icon, hint, fn]) => (
                 <button key={label} type="button"
-                  className="flex w-full cursor-pointer items-center gap-2.5 rounded-md px-2.5 py-1.5 text-left text-sm text-foreground hover:bg-accent hover:text-white"
+                  className="flex h-11 w-full cursor-pointer items-center gap-3 rounded-xl px-3 text-left text-[15px] text-foreground transition-colors hover:bg-white/[0.08]"
                   onClick={() => { setCtxMenu(null); fn(); }}>
                   {icon}<span className="flex-1">{label}</span>
-                  {hint && <span className="text-[11px] opacity-60">{hint}</span>}
+                  {hint && <span className="text-xs text-muted">{hint}</span>}
                 </button>
               ))}
             </div>
           )}
         </div>
 
-        {/* 属性面板（Figma 右栏）：选中部件 → 参数；没选中 → 画布设置 */}
+        {/* 属性面板（右栏）：选中部件 → 参数；没选中 → 画布设置。NP 语言：无边框无底色，
+            小节靠间距与极淡分隔线分层，输入框吃满列宽 */}
         {propsOpen && (
-        <aside className="w-[300px] shrink-0 overflow-y-auto border-l border-border bg-[#141416] p-4">
+        <aside className="w-[320px] shrink-0 overflow-y-auto px-5 py-4">
           {!metrics.length && (
-            <div className="mb-3 rounded-lg border border-warning/40 bg-warning/10 px-3 py-2 text-xs text-warning">
+            <div className="mb-3 rounded-xl bg-warning/10 px-3 py-2 text-sm text-warning">
               还没有注册任何指标 —— 去「自定义指标」注册。
             </div>
           )}
@@ -1263,7 +1258,7 @@ export default function EditorPage({ shared }: { shared: Shared }) {
             const numInput = (label: string, key: "x" | "y" | "w" | "h", val?: number) => (
               <div className="flex flex-col gap-1.5">
                 <FieldLabel>{label}</FieldLabel>
-                <TextField type="number" className="w-[72px] font-jetbrains tabular-nums"
+                <TextField type="number" className="w-full font-jetbrains tabular-nums"
                   value={String(val ?? 0)}
                   onChange={v => {
                     (pos as unknown as Record<string, number>)[key] = +v || 0;
@@ -1276,17 +1271,17 @@ export default function EditorPage({ shared }: { shared: Shared }) {
             );
             const showW = pos.w !== undefined || w.type === "html" || w.type === "progress" || w.type === "stat";
             return (
-              <div className="flex flex-col gap-3">
+              <div className="flex flex-col gap-4">
                 <SubTitle>{WIDGET_LABEL[w.type] ?? w.type}</SubTitle>
-                <div className="flex flex-wrap items-end gap-3">
+                <div className={`grid gap-3 ${showW ? (w.type === "html" ? "grid-cols-2" : "grid-cols-3") : "grid-cols-2"}`}>
                   {numInput("X", "x", pos.x)}
                   {numInput("Y", "y", pos.y)}
                   {showW && numInput("宽", "w", pos.w)}
                   {w.type === "html" && numInput("高", "h", pos.h)}
                 </div>
                 {promptRect && (
-                  <div className="flex flex-wrap gap-2">
-                    <span className="self-center text-xs text-color-desc">对齐命令行：</span>
+                  <div className="flex flex-wrap items-center gap-2">
+                    <span className="text-xs text-muted">对齐命令行：</span>
                     <Btn size="sm" variant="secondary" className="bg-[#27272a]"
                       title="把这个部件的左缘贴到命令行第一个字符的位置"
                       onPress={() => {
@@ -1310,11 +1305,11 @@ export default function EditorPage({ shared }: { shared: Shared }) {
                         pos.y = promptRect.y + promptRect.h + 8;
                         setDraft({ ...draft });
                         onChange();
-                      }}>移到命令行下方</Btn>
+                      }}>移到下方</Btn>
                   </div>
                 )}
                 {stretchable(w.type) && pos.w !== undefined && (
-                  <Btn size="sm" variant="secondary" className="bg-[#27272a]"
+                  <Btn size="sm" variant="secondary" className="w-fit bg-[#27272a]"
                     title="清掉固定宽度，从 X 拉到画布右缘"
                     onPress={() => {
                       delete pos.w;
@@ -1337,7 +1332,7 @@ export default function EditorPage({ shared }: { shared: Shared }) {
                   <Btn size="sm" variant="secondary" className="bg-danger/20 text-danger"
                     title="Delete" onPress={() => removeWidget(selected)}>删除</Btn>
                 </div>
-                <div className="border-t border-white/[0.06] pt-3">
+                <div className="border-t border-white/[0.04] pt-4">
                   {w.type === "stat" && <StatEditor w={w as StatWidget} metrics={metrics} onChange={onChange} compact />}
                   {w.type === "progress" && <ProgressEditor w={w as ProgressWidget} metrics={metrics} onChange={onChange} compact />}
                   {w.type === "gauge" && <GaugeEditor w={w as GaugeWidget} metrics={metrics} onChange={onChange} compact />}
@@ -1354,7 +1349,7 @@ export default function EditorPage({ shared }: { shared: Shared }) {
             const pnum = (label: string, key: "x" | "y", val: number) => (
               <div className="flex flex-col gap-1.5">
                 <FieldLabel>{label}</FieldLabel>
-                <TextField type="number" className="w-[72px] font-jetbrains tabular-nums"
+                <TextField type="number" className="w-full font-jetbrains tabular-nums"
                   value={String(val)}
                   onChange={v => {
                     p[key] = Math.max(0, +v || 0);
@@ -1366,9 +1361,9 @@ export default function EditorPage({ shared }: { shared: Shared }) {
               </div>
             );
             return (
-              <div className="flex flex-col gap-3">
+              <div className="flex flex-col gap-4">
                 <SubTitle>命令行装饰</SubTitle>
-                <div className="flex flex-wrap items-end gap-3">
+                <div className="grid grid-cols-2 gap-3">
                   {pnum("X", "x", p.x ?? pad[1])}
                   {pnum("Y", "y", p.y ?? pad[0])}
                 </div>
@@ -1384,36 +1379,38 @@ export default function EditorPage({ shared }: { shared: Shared }) {
                   <Btn size="sm" variant="secondary" className="bg-danger/20 text-danger"
                     title="Delete" onPress={removePrompt}>删除</Btn>
                 </div>
-                <div className="border-t border-white/[0.06] pt-3">
+                <div className="border-t border-white/[0.04] pt-4">
                   <PromptBar draft={draft} onChange={onChange} compact />
                 </div>
               </div>
             );
           })() : (
-            <div className="flex flex-col gap-3">
+            <div className="flex flex-col gap-4">
               <SubTitle>画布设置</SubTitle>
               <CanvasFields draft={draft} onChange={onChange} />
-              <div className="border-t border-white/[0.06] pt-3">
+              <div className="border-t border-white/[0.04] pt-4">
                 <PromptBar draft={draft} onChange={onChange} compact />
               </div>
-              <div className="border-t border-white/[0.06] pt-3">
+              <div className="border-t border-white/[0.04] pt-4">
                 <SubTitle>校验</SubTitle>
-                {check && !check.errors.length && !check.warnings.length && (
-                  <Hint className="text-xs"><span className="text-success">✓ 版式无错误、无提醒</span></Hint>
-                )}
-                {check?.errors.map((e, i) => (
-                  <div key={i} className="text-xs text-danger">✗ {e}</div>
-                ))}
-                {check?.warnings.map((w, i) => (
-                  <div key={i} className="text-xs text-warning">▲ {w}</div>
-                ))}
+                <div className="pt-1.5">
+                  {check && !check.errors.length && !check.warnings.length && (
+                    <Hint className="text-sm"><span className="text-success">✓ 版式无错误、无提醒</span></Hint>
+                  )}
+                  {check?.errors.map((e, i) => (
+                    <div key={i} className="text-sm leading-6 text-danger">✗ {e}</div>
+                  ))}
+                  {check?.warnings.map((w, i) => (
+                    <div key={i} className="text-sm leading-6 text-warning">▲ {w}</div>
+                  ))}
+                </div>
               </div>
-              <div className="border-t border-white/[0.06] pt-3">
+              <div className="border-t border-white/[0.04] pt-4">
                 <SubTitle>快捷键</SubTitle>
-                <Hint className="text-xs">
+                <Hint className="text-sm">
                   Ctrl/⌘+滚轮 指针处缩放 · 空格或中键拖动画布<br />
                   Shift+1 适应 · Shift+0 100%<br />
-                  拖动自动吸附对齐 · 网格按画布尺寸与缩放自适应分档<br />
+                  拖动自动吸附对齐 · 网格自适应分档<br />
                   右键部件有菜单 · 方向键微调（Shift = 10px）<br />
                   Ctrl+Z 撤销 · Ctrl+D 复制 · Delete 删除<br />
                   Esc 取消选中 · Ctrl+S 保存
@@ -1425,13 +1422,13 @@ export default function EditorPage({ shared }: { shared: Shared }) {
         )}
       </div>
 
-      {/* 吸底保存条 */}
-      <div className="flex shrink-0 flex-wrap items-center gap-x-3 gap-y-2 border-t border-border px-5 py-2.5">
-        <Btn size="lg" className="px-7" isDisabled={!dirty} onPress={save}>保存</Btn>
-        <Btn size="lg" variant="secondary" className="bg-[#27272a]" onPress={undoEdit}
+      {/* 吸底保存条：NP 式大药丸按钮 */}
+      <div className="flex shrink-0 flex-wrap items-center gap-x-3 gap-y-2 px-6 pb-4 pt-2">
+        <Btn size="lg" className="rounded-xl px-8" isDisabled={!dirty} onPress={save}>保存</Btn>
+        <Btn size="lg" variant="secondary" className="rounded-xl bg-[#1a1a1d] hover:bg-[#222226]" onPress={undoEdit}
           title="Ctrl+Z：回退上一步拖动/增删">撤销</Btn>
-        <Btn size="lg" variant="secondary" className="bg-[#27272a]" onPress={undoSaved}>还原上一版</Btn>
-        <Btn size="lg" variant="secondary" className="bg-[#27272a]" isDisabled={!dirty} onPress={discardDraft}
+        <Btn size="lg" variant="secondary" className="rounded-xl bg-[#1a1a1d] hover:bg-[#222226]" onPress={undoSaved}>还原上一版</Btn>
+        <Btn size="lg" variant="secondary" className="rounded-xl bg-[#1a1a1d] hover:bg-[#222226]" isDisabled={!dirty} onPress={discardDraft}
           title="丢掉没保存的改动，回到已保存的版式">放弃改动</Btn>
         {dirty && <span className="whitespace-nowrap text-sm text-warning">● 有未保存的改动</span>}
         <span className={`ml-auto whitespace-nowrap text-sm ${msgColor}`}>{msg.text}</span>
