@@ -13,14 +13,15 @@ import { AnimatedRow } from "../motion";
 import { api } from "../api";
 import { Btn, CARD_CLS, FieldLabel, Hint, TSwitch } from "../ui";
 
-/** v3 把输入框拆成 TextField（状态）+ Input（外观）两层。这里薄封装回单节点写法：
+/** v3 的输入框拆成 TextField（状态）+ Input（外观）两层。这里薄封装回单节点写法：
  * 状态 props（value/defaultValue/onChange/type/placeholder/aria-label/onBlur）挂外壳，
  * variant 统一 secondary（我们全是嵌在卡片/面板里的矮富度输入）。
- * 数值框自动用 JetBrains Mono + tabular-nums（等宽、数字不跳位），文本框用 Poppins。 */
+ * Input 加 px-4 py-3：v3 没有 size=lg，NP 的大输入框（size lg + px-4）用内边距抄出来。
+ * 字体一律 Poppins + tabular-nums（NP 数字也不写等宽体，改值时不跳位靠 tnum）。 */
 export const TF = ({ className = "", placeholder, title, ...props }: TFProps & { placeholder?: string; title?: string }) => {
   const f = (
     <TextField className={cn(className, "font-poppins tabular-nums")} variant="secondary" {...props}>
-      <Input placeholder={placeholder} />
+      <Input className="px-4 py-3" placeholder={placeholder} />
     </TextField>
   );
   return title ? <span title={title} className="inline-flex">{f}</span> : f;
@@ -29,7 +30,7 @@ export const TF = ({ className = "", placeholder, title, ...props }: TFProps & {
 /** 多行版（自定义 HTML 编辑器用）。rows 是原生 textarea 属性，走 TextArea。 */
 export const TFArea = ({ className = "", rows, placeholder, ...props }: TFProps & { rows?: number; placeholder?: string }) => (
   <TextField className={cn("font-poppins", className)} variant="secondary" {...props}>
-    <TextArea rows={rows} placeholder={placeholder} />
+    <TextArea className="px-4 py-3" rows={rows} placeholder={placeholder} />
   </TextField>
 );
 
@@ -68,14 +69,14 @@ export function MetricSelect({ metrics, value, allowEmpty = true, compact, onCha
       value={selected ?? null}
       onChange={k => onChange(!k || k === NONE ? "" : String(k))}
     >
-      <Select.Trigger>
+      <Select.Trigger className="min-h-12 px-4">
         <Select.Value />
         <Select.Indicator />
       </Select.Trigger>
       <Select.Popover>
         <ListBox>
           {options.map(o => (
-            <ListBox.Item key={o.id} id={o.id} textValue={o.label}>
+            <ListBox.Item key={o.id} id={o.id} textValue={o.label} className="min-h-11 px-4 text-base">
               {o.label}
               <ListBox.ItemIndicator />
             </ListBox.Item>
@@ -697,7 +698,7 @@ export function CanvasFields({ draft, onChange }: { draft: OverlayConfig; onChan
         />
       </div>
       <div className="flex items-center justify-between gap-4">
-        <FieldLabel>背景透明</FieldLabel>
+        <span className="text-[15px] font-medium text-foreground">背景透明</span>
         <TSwitch size="lg" aria-label="背景透明"
           isSelected={!!draft.canvas.transparent}
           onChange={b => {
@@ -719,7 +720,10 @@ export function PromptBar({ draft, onChange, compact }: {
 }) {
   const toggle = (
     <div className="flex items-center justify-between gap-4">
-      <FieldLabel>顶部命令行装饰</FieldLabel>
+      <div className="flex flex-col gap-[2px]">
+        <span className="text-[15px] font-medium text-foreground">顶部命令行装饰</span>
+        <span className="text-sm text-color-desc">画布顶部的 user@host &gt; 假命令行</span>
+      </div>
       <TSwitch size="lg" aria-label="显示顶部命令行装饰"
         isSelected={!!draft.prompt}
         onChange={b => {
@@ -755,7 +759,7 @@ export function PromptBar({ draft, onChange, compact }: {
           onChange={v => { draft.prompt!.size = +v || 19; onChange(); }} />
       </div>
       <div className="flex items-center justify-between gap-4">
-        <FieldLabel>闪烁光标</FieldLabel>
+        <span className="text-[15px] font-medium text-foreground">闪烁光标</span>
         <TSwitch size="lg" aria-label="闪烁光标"
           isSelected={draft.prompt?.cursor ?? true}
           onChange={b => { draft.prompt!.cursor = b; onChange(); }} />

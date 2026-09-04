@@ -70,9 +70,10 @@ export const SubTitle = ({ children, right }: {
   </div>
 );
 
-/** 字段小标签：淡蓝色 12px 加粗，Now Playing 的表单标签通用样式。 */
+/** 字段小标签：NP 源码是 text-primary-900 text-xs font-bold —— dark 主题下 900 号
+ * 是最浅一档（近白带一丝蓝），不是实蓝。这里用 foreground 对齐。 */
 export const FieldLabel = ({ children }: { children: React.ReactNode }) => (
-  <span className="cursor-default text-xs font-bold text-accent">{children}</span>
+  <span className="cursor-default text-xs font-bold text-foreground">{children}</span>
 );
 
 /** 灰色说明文字。 */

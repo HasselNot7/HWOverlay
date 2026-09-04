@@ -1265,7 +1265,7 @@ export default function EditorPage({ shared }: { shared: Shared }) {
                     setDraft({ ...draft });
                     onChange();
                   }}>
-                  <Input variant="secondary" />
+                  <Input className="px-4 py-3" variant="secondary" />
                 </TextField>
               </div>
             );
@@ -1356,7 +1356,7 @@ export default function EditorPage({ shared }: { shared: Shared }) {
                     setDraft({ ...draft });
                     onChange();
                   }}>
-                  <Input variant="secondary" />
+                  <Input className="px-4 py-3" variant="secondary" />
                 </TextField>
               </div>
             );
