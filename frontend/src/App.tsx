@@ -3,7 +3,7 @@ import { MotionConfig } from "framer-motion";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { ScrollArea } from "./motion";
 import {
-  House, Activity, LayoutGrid, Move, FlaskConical, Table2, RefreshCw,
+  House, Activity, LayoutGrid, FlaskConical, Table2, RefreshCw,
   ExternalLink, Power,
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
@@ -14,15 +14,13 @@ import { LivePreview, ProfileSwitcher } from "./widgets";
 import WizardPage from "./pages/WizardPage";
 import StatusPage from "./pages/StatusPage";
 import EditorPage from "./pages/EditorPage";
-import FreeEditorPage from "./pages/FreeEditorPage";
 import CustomMetricsPage from "./pages/CustomMetricsPage";
 import MetricsTablePage from "./pages/MetricsTablePage";
 
 const NAV = [
   { id: "start", label: "开始使用", Icon: House },
   { id: "status", label: "状态总览", Icon: Activity },
-  { id: "editor", label: "流式排版", Icon: LayoutGrid },
-  { id: "free", label: "自由排版", Icon: Move },
+  { id: "editor", label: "版式编辑", Icon: LayoutGrid },
   { id: "custom", label: "自定义指标", Icon: FlaskConical },
   { id: "metrics", label: "指标总表", Icon: Table2 },
 ];
@@ -77,8 +75,10 @@ function NavBtn({ active, label, Icon, onClick, danger = false }: {
 }
 
 export default function App() {
-  const [view, setView] = useState(
-    () => localStorage.getItem("hwoverlay.view") || "start");
+  const [view, setView] = useState(() => {
+    const v = localStorage.getItem("hwoverlay.view") || "start";
+    return v === "free" ? "editor" : v;   // 旧版独立"自由排版"页并入版式编辑
+  });
   const [metrics, setMetrics] = useState<Metric[] | null>(null);
   const [hw, setHw] = useState<HW | null>(null);
   const [check, setCheck] = useState<LayoutCheck | null>(null);
@@ -209,19 +209,18 @@ export default function App() {
         </Modal.Backdrop>
       </Modal>
 
-      {/* 主体：居中列 + OverlayScrollbars 滚动区（上下边缘渐隐）。表单类页保持 NP 的 800px；
-          表格/编辑器这类数据密集页放宽到 1200px。自由排版是全屏工作台，不走这列。 */}
-      {view === "free" ? <FreeEditorPage shared={shared} /> : (
+      {/* 主体：居中列 + OverlayScrollbars 滚动区（上下边缘渐隐）。表单类页保持 NP 的 800px，
+          表格这类数据密集页放宽到 1200px。版式编辑自带整屏工作台布局，不走这列。 */}
+      {view === "editor" ? <EditorPage shared={shared} /> : (
         <main className="ml-72 h-screen">
           <ScrollArea scrollKey={view}>
             <div className="flex justify-center">
               <div className={`flex w-full flex-col gap-6 px-10 py-6 ${
-                view === "editor" || view === "metrics" || view === "custom"
+                view === "metrics" || view === "custom"
                   ? "max-w-[1200px]" : "max-w-[800px]"
               }`}>
                 {view === "start" && <WizardPage shared={shared} />}
                 {view === "status" && <StatusPage shared={shared} />}
-                {view === "editor" && <EditorPage shared={shared} />}
                 {view === "custom" && <CustomMetricsPage shared={shared} />}
                 {view === "metrics" && <MetricsTablePage shared={shared} />}
               </div>
