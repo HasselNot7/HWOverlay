@@ -147,6 +147,9 @@ function layerName(w: Widget): string {
 
 /** 面板收起记忆的 localStorage 键（沿用旧键，值语义不变） */
 const PANEL_KEY = "hwobs.freePanel";
+/** 属性面板可拖宽度：默认 380，记忆用户上次拖到的位置 */
+const PROPS_W_KEY = "hwobs.editorPropsW";
+const PROPS_W_MIN = 300, PROPS_W_MAX = 760, PROPS_W_DEF = 380;
 /** 草稿统一存这一个键（旧版两个页面各自的 flow/free 键首次读取时并入） */
 const DRAFT_KEY = "editor";
 
@@ -233,6 +236,13 @@ export default function EditorPage({ shared }: { shared: Shared }) {
   const [gridStep, setGridStep] = useState(50);
   /** 右侧属性面板（沿用旧记忆键）；左侧图层面板常驻可折叠 */
   const [propsOpen, setPropsOpen] = useState(() => localStorage.getItem(PANEL_KEY) !== "0");
+  const [propsW, setPropsW] = useState(() => {
+    const v = +localStorage.getItem(PROPS_W_KEY)!;
+    return Number.isFinite(v) && v >= PROPS_W_MIN && v <= PROPS_W_MAX ? v : PROPS_W_DEF;
+  });
+  const propsWRef = useRef(propsW);
+  propsWRef.current = propsW;
+  const propsDragRef = useRef<{ x: number; w: number } | null>(null);
   const [layersOpen, setLayersOpen] = useState(() => localStorage.getItem("hwobs.editorLayers") !== "0");
   const [selected, setSelected] = useState<number | null>(null);
   /** 装饰命令行的选中态（与部件选中互斥，它不在 widgets 里） */
@@ -811,6 +821,28 @@ export default function EditorPage({ shared }: { shared: Shared }) {
     };
   }, []);
 
+  // 属性面板左缘把手：按住横向拖即可调宽（300~760），松手记进 localStorage。
+  // 画布容器是 dock 布局，宽度变化会触发 ResizeObserver 自动重新适应缩放。
+  useEffect(() => {
+    const move = (e: MouseEvent) => {
+      const d = propsDragRef.current;
+      if (!d) return;
+      setPropsW(Math.max(PROPS_W_MIN, Math.min(PROPS_W_MAX, d.w - (e.clientX - d.x))));
+    };
+    const up = () => {
+      if (!propsDragRef.current) return;
+      propsDragRef.current = null;
+      localStorage.setItem(PROPS_W_KEY, String(propsWRef.current));
+      document.body.style.cursor = "";
+    };
+    window.addEventListener("mousemove", move);
+    window.addEventListener("mouseup", up);
+    return () => {
+      window.removeEventListener("mousemove", move);
+      window.removeEventListener("mouseup", up);
+    };
+  }, []);
+
   // 拖动：iframe 宿主节点 + 手柄盒都直改 DOM（不重渲染），松手才进草稿。
   // 拖近画布边缘或其他部件的左/右/中（上/下/中）时自动吸附，参考线直改 DOM。
   useEffect(() => {
@@ -1245,8 +1277,21 @@ export default function EditorPage({ shared }: { shared: Shared }) {
 
         {/* 属性面板（右栏）：选中部件 → 参数；没选中 → 画布设置。NP 语言：无边框无底色，
             小节靠间距与极淡分隔线分层，输入框吃满列宽 */}
+        {/* 属性面板左缘：拖这条把手调宽（悬停亮蓝提示可拖） */}
         {propsOpen && (
-        <aside className="w-[320px] shrink-0 overflow-y-auto px-5 py-4">
+          <div
+            className="w-1.5 shrink-0 cursor-col-resize select-none transition-colors hover:bg-accent/50"
+            title="按住拖动调整面板宽度"
+            onMouseDown={e => {
+              e.preventDefault();
+              e.stopPropagation();
+              propsDragRef.current = { x: e.clientX, w: propsW };
+              document.body.style.cursor = "col-resize";
+            }}
+          />
+        )}
+        {propsOpen && (
+        <aside className="shrink-0 overflow-y-auto px-5 py-4" style={{ width: propsW }}>
           {!metrics.length && (
             <div className="mb-3 rounded-xl bg-warning/10 px-3 py-2 text-sm text-warning">
               还没有注册任何指标 —— 去「自定义指标」注册。
