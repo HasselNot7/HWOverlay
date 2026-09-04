@@ -1123,9 +1123,11 @@ export default function EditorPage({ shared }: { shared: Shared }) {
                     transform: `scale(${pvScale})`, transformOrigin: "0 0",
                   }}
                 />
-                {/* 网格叠在预览之上、手柄盒之下（手柄盒有 z-index，自动浮在网格上） */}
+                {/* 网格叠在预览之上、手柄盒之下。z-index 必须显式给：放大后 Chrome 会把
+                    缩放过的 iframe 提成独立合成层，z:auto 的兄弟不讲 DOM 绘制顺序，
+                    网格会整层掉到 iframe 底下 —— 只在画布透明处"幸存"，看着像消失了一半。 */}
                 {gridOn && (
-                  <div className="pointer-events-none absolute inset-0 opacity-50"
+                  <div className="pointer-events-none absolute inset-0 z-[1] opacity-50"
                     style={{
                       backgroundImage:
                         "linear-gradient(#3a3f4a 1px, transparent 1px), linear-gradient(90deg, #3a3f4a 1px, transparent 1px)",
