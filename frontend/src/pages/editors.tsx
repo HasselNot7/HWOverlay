@@ -69,8 +69,8 @@ export function MetricSelect({ metrics, value, allowEmpty = true, compact, onCha
       value={selected ?? null}
       onChange={k => onChange(!k || k === NONE ? "" : String(k))}
     >
-      <Select.Trigger className="min-h-12 px-4">
-        <Select.Value />
+      <Select.Trigger className="min-h-12 w-full min-w-0 px-4">
+        <Select.Value className="min-w-0 truncate" />
         <Select.Indicator />
       </Select.Trigger>
       <Select.Popover>
@@ -133,19 +133,7 @@ function SlotRow({ arr, i, total, unitAll, allowLabel, metrics, onChange, rebuil
     onChange();
   };
 
-  const metricSel = compact ? (
-    <div className="min-w-0 flex-1">
-      <MetricSelect metrics={metrics}
-        value={typeof item === "string" ? item : (item && "metric" in item ? item.metric : undefined)}
-        allowEmpty={false} compact
-        onChange={v => {
-          if (!v) return;
-          if (typeof item === "object" && item !== null) item.metric = v;
-          else arr[i] = v;
-          onChange();
-        }} />
-    </div>
-  ) : (
+  const metricSel = (
     <MetricSelect metrics={metrics}
       value={typeof item === "string" ? item : (item && "metric" in item ? item.metric : undefined)}
       allowEmpty={false} compact={compact}
@@ -157,41 +145,64 @@ function SlotRow({ arr, i, total, unitAll, allowLabel, metrics, onChange, rebuil
       }} />
   );
 
+  const unitSwitch = (
+    <TSwitch className="shrink-0" aria-label="这个值带单位" title="显示单位"
+      isSelected={unitOn} onChange={setUnit} />
+  );
+
   const rowCls = compact ? "flex items-center gap-2" : "my-1 flex items-center gap-1.5";
+  // 小字槽位（带前缀输入框）在 320px 面板里横排塞不下，改竖排：下拉一行、前缀+✕ 一行
+  const verticalSub = compact && allowLabel;
 
   if (typeof item === "string") {
+    const prefix = (
+      <TF
+        aria-label="前缀文字" placeholder="前缀（可空）"
+        className="min-w-0 flex-1 font-poppins" title="直播时显示在这个值前面"
+        onBlur={e => {
+          if (e.target.value) { arr[i] = { metric: arr[i] as string, label: e.target.value }; rebuild(); onChange(); }
+        }}
+      />
+    );
+    if (verticalSub) {
+      return (
+        <div className="flex flex-col gap-1.5">
+          {metricSel}
+          <div className="flex items-center gap-2">{prefix}{del}</div>
+        </div>
+      );
+    }
     return (
       <div className={rowCls}>
-        {metricSel}
-        {!allowLabel && <TSwitch className="shrink-0" aria-label="这个值带单位" title="显示单位"
-          isSelected={unitOn} onChange={setUnit} />}
-        {allowLabel && (
-          <TF
-            aria-label="前缀文字" placeholder="前缀"
-            className="w-32 min-w-28 font-poppins" title="直播时显示在这个值前面"
-            onBlur={e => {
-              if (e.target.value) { arr[i] = { metric: arr[i] as string, label: e.target.value }; rebuild(); onChange(); }
-            }}
-          />
-        )}
+        <div className="min-w-0 flex-1">{metricSel}</div>
+        {!allowLabel && unitSwitch}
+        {allowLabel && prefix}
         {del}
       </div>
     );
   }
   if (item && "metric" in item && item.metric) {
+    const prefix = (
+      <TF
+        aria-label="前缀文字" placeholder="前缀（可空）"
+        className="min-w-0 flex-1 font-poppins" title="直播时显示在这个值前面"
+        defaultValue={item.label ?? ""}
+        onChange={v => { item.label = v || undefined; onChange(); }}
+      />
+    );
+    if (verticalSub) {
+      return (
+        <div className="flex flex-col gap-1.5">
+          {metricSel}
+          <div className="flex items-center gap-2">{prefix}{del}</div>
+        </div>
+      );
+    }
     return (
       <div className={rowCls}>
-        {metricSel}
-        {!allowLabel && <TSwitch className="shrink-0" aria-label="这个值带单位" title="显示单位"
-          isSelected={unitOn} onChange={setUnit} />}
-        {allowLabel && (
-          <TF
-            aria-label="前缀文字" placeholder="前缀"
-            className="w-32 min-w-28 font-poppins" title="直播时显示在这个值前面"
-            defaultValue={item.label ?? ""}
-            onChange={v => { item.label = v || undefined; onChange(); }}
-          />
-        )}
+        <div className="min-w-0 flex-1">{metricSel}</div>
+        {!allowLabel && unitSwitch}
+        {allowLabel && prefix}
         {del}
       </div>
     );
@@ -202,7 +213,7 @@ function SlotRow({ arr, i, total, unitAll, allowLabel, metrics, onChange, rebuil
       <label className="flex items-center gap-1.5 text-xs text-muted">
         {text}
         <TF type="number" aria-label={`${text}`}
-          className="w-16 font-poppins" value={String(val ?? "")}
+          className="w-20 font-poppins" value={String(val ?? "")}
           onChange={v => {
             (item as unknown as Record<string, number | undefined>)[key] = v === "" ? undefined : +v;
             onChange();
@@ -210,23 +221,27 @@ function SlotRow({ arr, i, total, unitAll, allowLabel, metrics, onChange, rebuil
       </label>
     );
     const sel = (which: 0 | 1) => (
-      <MetricSelect metrics={metrics} value={vals[which]} allowEmpty={false} compact={compact}
-        onChange={v => { if (!v) return; vals[which] = v; onChange(); }} />
+      <div className="min-w-0 flex-1">
+        <MetricSelect metrics={metrics} value={vals[which]} allowEmpty={false} compact={compact}
+          onChange={v => { if (!v) return; vals[which] = v; onChange(); }} />
+      </div>
     );
     return (
-      <div className={`my-1 flex gap-2 rounded-lg border border-white/[0.06] p-2 ${compact ? "flex-col" : "flex-wrap items-center"}`}>
-        <div className="flex min-w-0 flex-1 items-center gap-1.5">
+      <div className={compact
+        ? "flex flex-col gap-2.5 rounded-xl bg-[#1a1a1d] p-3"
+        : "my-1 flex flex-wrap items-center gap-2 rounded-lg border border-white/[0.06] p-2"}>
+        <div className="flex min-w-0 items-center gap-1.5">
           <span className="flex-none font-poppins text-xs text-muted" title="两个指标相除">比值</span>
-          <div className="min-w-0 flex-1">{sel(0)}</div>
+          {sel(0)}
           <span className="flex-none text-muted">/</span>
-          <div className="min-w-0 flex-1">{sel(1)}</div>
+          {sel(1)}
           {del}
         </div>
-        <div className={`flex flex-wrap items-center gap-3 ${compact ? "" : "ml-auto"}`}>
+        <div className={`flex flex-wrap items-center gap-x-3 gap-y-2 ${compact ? "" : "ml-auto"}`}>
           {numField("除以", "divide", item.divide)}
           <label className="flex items-center gap-1.5 text-xs text-muted">
             单位
-            <TF aria-label="单位" className="w-16 font-poppins"
+            <TF aria-label="单位" className="w-20 font-poppins"
               value={item.unit ?? ""}
               onChange={v => { item.unit = v || undefined; onChange(); }} />
           </label>
@@ -235,30 +250,29 @@ function SlotRow({ arr, i, total, unitAll, allowLabel, metrics, onChange, rebuil
           {allowLabel && (
             <label className="flex items-center gap-1.5 text-xs text-muted">
               前缀
-              <TF aria-label="前缀" className="w-20 font-poppins"
+              <TF aria-label="前缀" className="w-24 font-poppins"
                 defaultValue={item.label ?? ""}
                 onBlur={e => { item.label = e.target.value || undefined; onChange(); }} />
             </label>
           )}
-          {!allowLabel && <TSwitch className="shrink-0" aria-label="这个值带单位" title="显示单位"
-          isSelected={unitOn} onChange={setUnit} />}
+          {!allowLabel && unitSwitch}
         </div>
       </div>
     );
   }
   if (item && ("diff" in item)) {
     return (
-      <div className="my-1 flex items-center gap-1.5">
-        <span className="text-xs font-poppins text-muted">
-          diff: {(item.diff || []).join(" − ")}
+      <div className="flex items-center gap-2 rounded-xl bg-[#1a1a1d] px-3 py-2">
+        <span className="min-w-0 flex-1 truncate font-poppins text-sm text-muted">
+          差值: {(item.diff || []).join(" − ")}
         </span>
         {del}
       </div>
     );
   }
   return (
-    <div className="my-1 flex items-center gap-1.5">
-      <span className="text-xs font-poppins text-muted">{JSON.stringify(item)}</span>
+    <div className="flex items-center gap-2 rounded-xl bg-[#1a1a1d] px-3 py-2">
+      <span className="min-w-0 flex-1 truncate font-jetbrains text-xs text-muted">{JSON.stringify(item)}</span>
       {del}
     </div>
   );
